@@ -1,5 +1,6 @@
 #include "swapchain.hpp"
 #include "vulkanContext.hpp"
+#include "util.hpp"
 
 SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface) {
     SwapChainSupportDetails details;
@@ -24,12 +25,22 @@ SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, co
 }
 
 SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice& device, GLFWwindow* window)
-    : device(device), window(window) {
+    : deviceHandle(device), windowHandle(window) {
     createSwapChain(deviceSurfaceHandle, indices);
+    createImageViews();
+    depthFormat = findDepthFormat(deviceSurfaceHandle.physicalDevice);
 }
 
 SwapChain::~SwapChain() {
     cleanupSwapchain();
+}
+
+float SwapChain::getExtentRatio() {
+    return swapChainExtent.width / (float) swapChainExtent.height;
+}
+
+AttachementsFormats SwapChain::getAttachementsFormats() {
+    return AttachementsFormats{swapChainImageFormat, depthFormat};
 }
 
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -59,7 +70,7 @@ VkExtent2D SwapChain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilit
     }
     else {  // screen coordinates do not correspond to the pixels
         int width, height;
-        glfwGetFramebufferSize(window, &width, &height);
+        glfwGetFramebufferSize(windowHandle, &width, &height);
 
         VkExtent2D actualExtent = {
             static_cast<uint32_t>(width),
@@ -116,79 +127,110 @@ void SwapChain::createSwapChain(const DeviceSurface& deviceSurfaceHandle, const 
         swapchainCI.pQueueFamilyIndices = nullptr;  // optional
     }
 
-    if (vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapChain) != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(deviceHandle, &swapchainCI, nullptr, &swapChain) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create swap chain!");
     }
     swapChainExtent = extent;
     swapChainImageFormat = surfaceFormat.format;
 
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(deviceHandle, swapChain, &imageCount, nullptr);
     swapChainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages.data());
+    vkGetSwapchainImagesKHR(deviceHandle, swapChain, &imageCount, swapChainImages.data());
 }
 
-// void SwapChain::createImageViews() {
-//     swapChainImageViews.resize(swapChainImages.size());
+void SwapChain::createImageViews() {
+    swapChainImageViews.resize(swapChainImages.size());
 
-//     for (size_t i = 0; i < swapChainImages.size(); i++) {
-//         swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
-//     }
-// }
+    for (size_t i = 0; i < swapChainImages.size(); i++) {
+        swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
+    }
+}
 
-// void SwapChain::createFramebuffers() {
-//     swapChainFramebuffers.resize(swapChainImageViews.size());
-//     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
-//         std::array<VkImageView, 2> attachements = {
-//             swapChainImageViews[i],
-//             depthImageView
-//         };
+void SwapChain::createFramebuffers(const VkRenderPass& renderPass) {
+    swapChainFramebuffers.resize(swapChainImageViews.size());
+    for (size_t i = 0; i < swapChainImageViews.size(); i++) {
+        std::array<VkImageView, 2> attachements = {
+            swapChainImageViews[i],
+            depthImageView
+        };
 
-//         VkFramebufferCreateInfo framebufferCI{
-//             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-//             .renderPass = renderPass,
-//             .attachmentCount = static_cast<uint32_t>(attachements.size()),
-//             .pAttachments = attachements.data(),
-//             .width = swapChainExtent.width,
-//             .height = swapChainExtent.height,
-//             .layers = 1
-//         };
+        VkFramebufferCreateInfo framebufferCI{
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = renderPass,
+            .attachmentCount = static_cast<uint32_t>(attachements.size()),
+            .pAttachments = attachements.data(),
+            .width = swapChainExtent.width,
+            .height = swapChainExtent.height,
+            .layers = 1
+        };
 
-//         if (vkCreateFramebuffer(device, &framebufferCI, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-//             throw std::runtime_error("Failed to create frambutters!");
-//         }
-//     }
-// }
+        if (vkCreateFramebuffer(deviceHandle, &framebufferCI, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create frambutters!");
+        }
+    }
+}
 
-// void SwapChain::recreateSwapChain() {
-//     int width = 0, height = 0;
-//     glfwGetFramebufferSize(window, &width, &height);
-//     if (width == 0 || height == 0) {
-//         glfwGetFramebufferSize(window, &width, &height);
-//         glfwWaitEvents();
-//     }
+VkFormat SwapChain::findSupportedFormat(const VkPhysicalDevice& physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
+
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        }
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("Failed to find a supported format!");
+}
+
+VkFormat SwapChain::findDepthFormat(const VkPhysicalDevice& physicalDevice) {
+    std::vector<VkFormat> depthCandidateFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    return findSupportedFormat(physicalDevice, depthCandidateFormats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
+
+void SwapChain::createDepthResources(MemoryManager& memManager) {
+    memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImageMemory);
+
+    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle);
+
+    // doesn't need explicit transition as it is taken care of by renderpass
+    // doesn't work for some reason, probably something witht he renderpass transitioning the image as well causing the command pools to fail
+    // transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+}
+
+void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass& renderPass, MemoryManager& memManager) {
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(windowHandle, &width, &height);
+    if (width == 0 || height == 0) {
+        glfwGetFramebufferSize(windowHandle, &width, &height);
+        glfwWaitEvents();
+    }
     
-//     vkDeviceWaitIdle(device);
+    vkDeviceWaitIdle(deviceHandle);
 
-//     cleanupSwapchain();
+    cleanupSwapchain();
 
-//     createSwapChain();
-//     createImageViews();
-//     // createDepthResources();
-//     createFramebuffers();
-// }
+    createSwapChain(deviceSurfaceHandle, indices);
+    createImageViews();
+    createDepthResources(memManager);
+    createFramebuffers(renderPass);
+}
 
 void SwapChain::cleanupSwapchain() {
-        for (auto framebuffer: swapChainFramebuffers){
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
-        }
-
-        for (auto imageView : swapChainImageViews) {
-            vkDestroyImageView(device, imageView, nullptr);
-        }
-
-        vkDestroySwapchainKHR(device, swapChain, nullptr);
-
-        // vkDestroyImage(device, depthImage, nullptr);
-        // vkFreeMemory(device, depthImageMemory, nullptr);
-        // vkDestroyImageView(device, depthImageView, nullptr);
+    for (auto framebuffer: swapChainFramebuffers){
+        vkDestroyFramebuffer(deviceHandle, framebuffer, nullptr);
     }
+
+    for (auto imageView : swapChainImageViews) {
+        vkDestroyImageView(deviceHandle, imageView, nullptr);
+    }
+
+    vkDestroySwapchainKHR(deviceHandle, swapChain, nullptr);
+
+    vkDestroyImage(deviceHandle, depthImage, nullptr);
+    vkFreeMemory(deviceHandle, depthImageMemory, nullptr);
+    vkDestroyImageView(deviceHandle, depthImageView, nullptr);
+}

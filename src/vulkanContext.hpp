@@ -44,6 +44,8 @@ public:
     ~VulkanContext();
 
     DeviceSurface getDeviceSurfaceHandle();
+    VkPhysicalDeviceMemoryProperties getMemoryProperties();
+    VkPhysicalDeviceProperties getDeviceProperties();
 private:
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;

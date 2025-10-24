@@ -60,6 +60,18 @@ DeviceSurface VulkanContext::getDeviceSurfaceHandle() {
     return DeviceSurface{physicalDevice, surface};
 }
 
+VkPhysicalDeviceMemoryProperties VulkanContext::getMemoryProperties() {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+    return memProperties;
+}
+
+VkPhysicalDeviceProperties VulkanContext::getDeviceProperties() {
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+    return properties;
+}
+
 VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
     VkDebugUtilsMessageTypeFlagsEXT messageType,

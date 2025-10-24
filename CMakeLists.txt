@@ -6,17 +6,29 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g")
 
-include_directories(${CMAKE_SOURCE_DIR}/src)
-include_directories(${CMAKE_SOURCE_DIR}/include)
+# include_directories(${CMAKE_SOURCE_DIR}/src)
+#include_directories(${CMAKE_SOURCE_DIR}/include)
 
 set(SOURCES
     src/main.cpp
     src/application.cpp
     src/vulkanContext.cpp
     src/swapchain.cpp
-    src/window.cpp)
+    src/window.cpp
+    src/commandManager.cpp
+    src/descriptorManager.cpp
+    src/mesh.cpp
+    src/pipeline.cpp
+    src/syncManager.cpp
+    src/textures.cpp
+    src/uniforms.cpp
+    src/util.cpp
+    src/vertex.cpp
+ )
 
 add_executable(ExternalMapping2 ${SOURCES})
+target_include_directories(ExternalMapping2 PRIVATE ${PROJECT_SOURCE_DIR}/include)
+
 
 find_package(Vulkan REQUIRED)
 
