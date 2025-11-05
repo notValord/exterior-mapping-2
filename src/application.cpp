@@ -17,20 +17,24 @@ void App::run() {;
 App::App() 
     : appWindow(SCREEN_WIDTH, SCREEN_HEIGHT), 
        vulkanContext(appWindow.window),
-       swapchain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, vulkanContext.device, appWindow.window),
+       commandManager(vulkanContext.familyIndices, vulkanContext.device),
+       memManager(vulkanContext.getPhysicalDeviceInstance(), commandManager.graphicsCommandPool, vulkanContext.graphicsQueue),
+       swapchain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, vulkanContext.device, appWindow.window, memManager),
        descripManager(vulkanContext.device),
        graphicsPipeline(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager.descriptorSetLayout),
-       commandManager(vulkanContext.familyIndices, vulkanContext.device),
        syncManager(vulkanContext.device),
-       memManager(vulkanContext.device, commandManager.graphicsCommandPool, vulkanContext.graphicsQueue, vulkanContext.getMemoryProperties()),
        textures(TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        mesh(MODEL_PATH, vulkanContext.device, memManager),
-       uniforms(vulkanContext.device, memManager){
+       uniforms(vulkanContext.device, memManager),
+       camManager(swapchain.getExtentRatio()),
+       inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
+         vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent){
     // order of members in a class
 
-    swapchain.createDepthResources(memManager);
     swapchain.createFramebuffers(graphicsPipeline.renderPass);
     descripManager.createDescriptorPoolSet(uniforms.uniformBuffers, textures.getSamplerView());
+
+    inputManager.setCallbacks();
 }
 
 App::~App() {
@@ -38,7 +42,6 @@ App::~App() {
 }
 
 void App::initVulkan() {
-
 }
 
 void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -100,6 +103,12 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex
     }
 }
 
+void App::handleResize() {
+    swapchain.recreateSwapChain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, graphicsPipeline.renderPass);
+    camManager.updateRatios(swapchain.getExtentRatio());
+    inputManager.imguiResize(swapchain.swapChainImageViews, swapchain.swapChainExtent);
+}
+
 void App::drawFrame() {
     // Wait for the previous frame to finish
     // Acquire an image from the swap chain
@@ -113,7 +122,7 @@ void App::drawFrame() {
     VkResult result = vkAcquireNextImageKHR(vulkanContext.device, swapchain.swapChain, UINT64_MAX, syncManager.imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        swapchain.recreateSwapChain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, graphicsPipeline.renderPass, memManager);
+        handleResize();
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
@@ -124,26 +133,40 @@ void App::drawFrame() {
 
     vkResetCommandBuffer(commandManager.commandBuffers[currentFrame], 0);
     recordCommandBuffer(commandManager.commandBuffers[currentFrame], imageIndex);
-
-    uniforms.updateUniformBuffers(currentFrame, swapchain.getExtentRatio());
+    
+    uniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam));
 
     VkSemaphore waitSemaphores[] = {syncManager.imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 
     VkSemaphore signalSemaphores[] = {syncManager.imageFinishedSemaphores[currentFrame]};
+
+    VkCommandBuffer imguiCommandBuffer = inputManager.recordUI(currentFrame, imageIndex);
+    std::array<VkCommandBuffer, 2> submitCommandBuffers = {commandManager.commandBuffers[currentFrame], imguiCommandBuffer};
+    uint32_t cmdBSize = 1;
+
+    if (imguiCommandBuffer != VK_NULL_HANDLE) {
+        cmdBSize = 2;
+    }
+
     VkSubmitInfo submitInfo{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = waitSemaphores,
         .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &commandManager.commandBuffers[currentFrame],
+        .commandBufferCount = cmdBSize,
+        .pCommandBuffers = submitCommandBuffers.data(),
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = signalSemaphores
     };
 
     if (vkQueueSubmit(vulkanContext.graphicsQueue, 1, &submitInfo, syncManager.inFlightFences[currentFrame]) != VK_SUCCESS) {
         throw std::runtime_error("Failed to submit draw command buffer!");
+    }
+
+    if (imguiCommandBuffer == VK_NULL_HANDLE) {
+        // transition the image to present
+        swapchain.transitionToFinalLayout(memManager, imageIndex);  // possible need to synchronize if using separate queues
     }
 
     VkSwapchainKHR swapChains[] = {swapchain.swapChain};
@@ -158,7 +181,7 @@ void App::drawFrame() {
     };
     result = vkQueuePresentKHR(vulkanContext.presentQueue, &presentInfo);
     if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR || appWindow.framebufferResized) {
-        swapchain.recreateSwapChain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, graphicsPipeline.renderPass, memManager);
+        handleResize();
         appWindow.framebufferResized = false;
     }
     else if (result != VK_SUCCESS) {
@@ -171,6 +194,7 @@ void App::drawFrame() {
 void App::mainLoop() {
     while (!glfwWindowShouldClose(appWindow.window)) {
         glfwPollEvents();
+        inputManager.frame();
         drawFrame();
     }
 

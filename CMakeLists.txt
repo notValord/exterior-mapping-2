@@ -6,8 +6,27 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g")
 
+# include imgui
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/include/imgui)
+
+add_library(imgui
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+)
+
+target_include_directories(imgui PUBLIC
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+
 # include_directories(${CMAKE_SOURCE_DIR}/src)
-#include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/headers)
 
 set(SOURCES
     src/main.cpp
@@ -24,11 +43,14 @@ set(SOURCES
     src/uniforms.cpp
     src/util.cpp
     src/vertex.cpp
+    src/memManager.cpp
+    src/camera.cpp
+    src/ui.cpp
+    src/inputManager.cpp
+    src/camManager.cpp
  )
 
 add_executable(ExternalMapping2 ${SOURCES})
-target_include_directories(ExternalMapping2 PRIVATE ${PROJECT_SOURCE_DIR}/include)
-
 
 find_package(Vulkan REQUIRED)
 
@@ -37,6 +59,7 @@ target_link_libraries(ExternalMapping2
     vulkan
     dl
     pthread
+    imgui
 )
 
 add_custom_command(

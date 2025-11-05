@@ -6,6 +6,9 @@
 #include <vector>
 #include <iostream>
 
+struct VmaAllocation_T;
+using VmaAllocation = VmaAllocation_T*;
+
 struct Vertex;
 
 class MemoryManager;
@@ -20,8 +23,11 @@ public:
 
     uint32_t getIndicesSize();
 private:
-    VkDeviceMemory vertexBufferMemory;
-    VkDeviceMemory indexBufferMemory;
+    // VkDeviceMemory vertexBufferMemory;
+    // VkDeviceMemory indexBufferMemory;
+
+    VmaAllocation vertexBufferMemory;
+    VmaAllocation indexBufferMemory;
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;

@@ -21,6 +21,12 @@ struct DeviceSurface {
     const VkSurfaceKHR surface;
 };
 
+struct PhysicalDeviceInstance {
+    VkInstance instance;
+    VkPhysicalDevice physicalDevice;
+    VkDevice device;
+};
+
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
@@ -44,6 +50,7 @@ public:
     ~VulkanContext();
 
     DeviceSurface getDeviceSurfaceHandle();
+    PhysicalDeviceInstance getPhysicalDeviceInstance();
     VkPhysicalDeviceMemoryProperties getMemoryProperties();
     VkPhysicalDeviceProperties getDeviceProperties();
 private:

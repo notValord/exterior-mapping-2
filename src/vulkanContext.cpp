@@ -60,6 +60,10 @@ DeviceSurface VulkanContext::getDeviceSurfaceHandle() {
     return DeviceSurface{physicalDevice, surface};
 }
 
+PhysicalDeviceInstance VulkanContext::getPhysicalDeviceInstance() {
+    return PhysicalDeviceInstance{instance, physicalDevice, device};
+}
+
 VkPhysicalDeviceMemoryProperties VulkanContext::getMemoryProperties() {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);

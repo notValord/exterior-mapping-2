@@ -1,5 +1,6 @@
 #include "textures.hpp"
 #include "util.hpp"
+#include "memManager.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -14,8 +15,7 @@ Textures::Textures(const std::string& textureFile, const VkDevice& device, Memor
 Textures::~Textures() {
     vkDestroySampler(deviceHandle, textureSampler, nullptr);
     vkDestroyImageView(deviceHandle, textureImageView, nullptr);
-    vkDestroyImage(deviceHandle, textureImage, nullptr);
-    vkFreeMemory(deviceHandle, textureImageMemory, nullptr);
+    memManager.destroyImage(textureImage, textureImageMemory);
 }
 
 TextureSamplerView Textures::getSamplerView() {
@@ -33,27 +33,20 @@ void Textures::createTextureImage(const std::string& texturePath) {
     }
 
     VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    VmaAllocation stagingBufferMemory;
 
-    memManager.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer,
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBufferMemory);
-
-    void *data;
-    vkMapMemory(deviceHandle, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, imageSize);
-    vkUnmapMemory(deviceHandle, stagingBufferMemory);
+    memManager.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBufferMemory, pixels);
 
     stbi_image_free(pixels);
 
     memManager.createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, textureImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImageMemory);
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, textureImage, VMA_MEMORY_USAGE_GPU_ONLY, textureImageMemory);
     
     memManager.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     memManager.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
     memManager.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    vkDestroyBuffer(deviceHandle, stagingBuffer, nullptr);
-    vkFreeMemory(deviceHandle, stagingBufferMemory, nullptr);
+    memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 }
 
 void Textures::createTextureImageView() {

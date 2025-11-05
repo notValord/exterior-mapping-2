@@ -5,6 +5,9 @@
 
 #include <iostream>
 
+struct VmaAllocation_T;
+using VmaAllocation = VmaAllocation_T*;
+
 class MemoryManager;
 
 struct TextureSamplerView {
@@ -21,7 +24,8 @@ public:
 
 private:
     VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
+    // VkDeviceMemory textureImageMemory;
+    VmaAllocation textureImageMemory;
     VkSampler textureSampler;
     VkImageView textureImageView;
 

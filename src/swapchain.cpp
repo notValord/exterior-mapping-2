@@ -1,6 +1,7 @@
 #include "swapchain.hpp"
 #include "vulkanContext.hpp"
 #include "util.hpp"
+#include "memManager.hpp"
 
 SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface) {
     SwapChainSupportDetails details;
@@ -24,11 +25,12 @@ SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, co
     return details;
 }
 
-SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice& device, GLFWwindow* window)
-    : deviceHandle(device), windowHandle(window) {
+SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice& device, GLFWwindow* window, MemoryManager& manager)
+    : deviceHandle(device), windowHandle(window), memManager(manager) {
     createSwapChain(deviceSurfaceHandle, indices);
     createImageViews();
     depthFormat = findDepthFormat(deviceSurfaceHandle.physicalDevice);
+    createDepthResources();
 }
 
 SwapChain::~SwapChain() {
@@ -41,6 +43,10 @@ float SwapChain::getExtentRatio() {
 
 AttachementsFormats SwapChain::getAttachementsFormats() {
     return AttachementsFormats{swapChainImageFormat, depthFormat};
+}
+
+void SwapChain::transitionToFinalLayout(MemoryManager& memManager, uint32_t imageindex) {
+    memManager.transitionImageLayout(swapChainImages[imageindex], swapChainImageFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 }
 
 VkSurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
@@ -191,8 +197,9 @@ VkFormat SwapChain::findDepthFormat(const VkPhysicalDevice& physicalDevice) {
     return findSupportedFormat(physicalDevice, depthCandidateFormats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
-void SwapChain::createDepthResources(MemoryManager& memManager) {
-    memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImageMemory);
+void SwapChain::createDepthResources() {
+    memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImage,
+        VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
 
     depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle);
 
@@ -201,7 +208,7 @@ void SwapChain::createDepthResources(MemoryManager& memManager) {
     // transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
-void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass& renderPass, MemoryManager& memManager) {
+void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass& renderPass) {
     int width = 0, height = 0;
     glfwGetFramebufferSize(windowHandle, &width, &height);
     if (width == 0 || height == 0) {
@@ -215,7 +222,7 @@ void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, cons
 
     createSwapChain(deviceSurfaceHandle, indices);
     createImageViews();
-    createDepthResources(memManager);
+    createDepthResources();
     createFramebuffers(renderPass);
 }
 
@@ -230,7 +237,6 @@ void SwapChain::cleanupSwapchain() {
 
     vkDestroySwapchainKHR(deviceHandle, swapChain, nullptr);
 
-    vkDestroyImage(deviceHandle, depthImage, nullptr);
-    vkFreeMemory(deviceHandle, depthImageMemory, nullptr);
+    memManager.destroyImage(depthImage, depthImageMemory);
     vkDestroyImageView(deviceHandle, depthImageView, nullptr);
 }

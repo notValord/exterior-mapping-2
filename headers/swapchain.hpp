@@ -13,10 +13,13 @@
 struct DeviceSurface;
 struct QueueFamilyIndices;
 
+struct VmaAllocation_T;
+using VmaAllocation = VmaAllocation_T*;
+
 class MemoryManager;
 
 struct AttachementsFormats {
-    VkFormat swapChainImageFormat;
+    VkFormat colorImageFormat;
     VkFormat depthFormat;
 };
 
@@ -33,22 +36,23 @@ public:
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
     VkExtent2D swapChainExtent;
+    std::vector<VkImageView> swapChainImageViews;
 
-    SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice& device, GLFWwindow* window);
+    SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice& device, GLFWwindow* window, MemoryManager& manager);
     ~SwapChain();
 
     void createFramebuffers(const VkRenderPass& renderPass);
-    void recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass& renderPass, MemoryManager& memManager);
+    void recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass& renderPass);
     float getExtentRatio();
     AttachementsFormats getAttachementsFormats();
-    void createDepthResources(MemoryManager& memManager);
+
+    void transitionToFinalLayout(MemoryManager& memManager, uint32_t imageindex);
 
 private:
     std::vector<VkImage> swapChainImages;   // automatically cleaned up with swapChain
-    std::vector<VkImageView> swapChainImageViews;
 
     VkImage depthImage;
-    VkDeviceMemory depthImageMemory;
+    VmaAllocation depthImageMemory;
     VkImageView depthImageView;
 
     VkFormat swapChainImageFormat;
@@ -58,6 +62,8 @@ private:
     VkDevice deviceHandle = VK_NULL_HANDLE;
     GLFWwindow* windowHandle = nullptr;
 
+    MemoryManager& memManager;
+
     static VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     static VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
@@ -66,6 +72,8 @@ private:
 
     VkFormat findSupportedFormat(const VkPhysicalDevice& physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
     VkFormat findDepthFormat(const VkPhysicalDevice& physicalDevice);
+
+    void createDepthResources();
 
     void cleanupSwapchain();
 };

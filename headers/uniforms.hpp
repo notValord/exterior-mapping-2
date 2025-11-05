@@ -13,9 +13,13 @@
 #include <vector>
 #include <chrono>
 
+struct VmaAllocation_T;
+using VmaAllocation = VmaAllocation_T*;
+
 extern const int MAX_FRAMES_IN_FLIGHT;
 
 class MemoryManager;
+class Camera;
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -30,10 +34,11 @@ public:
     Uniforms(const VkDevice& device, MemoryManager& memManager);
     ~Uniforms();
 
-    void updateUniformBuffers(uint32_t currentImage, float screenRatio);
+    void updateUniformBuffers(uint32_t currentImage, const Camera& cam);
 
 private:
-    std::vector<VkDeviceMemory>uniformBuffersMemory;
+    // std::vector<VkDeviceMemory>uniformBuffersMemory;
+    std::vector<VmaAllocation>uniformBuffersMemory;
     std::vector<void*> uniformBuffersMapped;        // pointer to the mapped memory
     // The buffer stays mapped to this pointer for the application's whole lifetime ("persistent mapping") and works on all Vulkan implementations.
     // Not having to map the buffer every time increases performances, as mapping is not free.
