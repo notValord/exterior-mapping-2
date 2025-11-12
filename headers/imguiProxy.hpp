@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
+
 #include "imgui.h"
 
 #include <iostream>
@@ -16,13 +17,14 @@ struct QueueFamilyIndices;
 class ImguiProxy {
 public:
     ImguiProxy(const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, GLFWwindow* window, const VkQueue& graphicsQueue, const QueueFamilyIndices& familyIndices,
+     const PhysicalDeviceInstance& physicalDeviceInstance, GLFWwindow* window, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices,
      VkExtent2D& swapChainExtent);
     ~ImguiProxy();
 
     void rebuildUI(float fps, uint32_t camNum);
     void recreateFramebuffers(const std::vector<VkImageView>& swapChainImageViews, const VkExtent2D& swapChainExtent);
     VkCommandBuffer recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex);
+    
 private:
     VkDescriptorPool descriptorPool;
     VkRenderPass renderPass;

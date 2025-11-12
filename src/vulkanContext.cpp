@@ -1,7 +1,8 @@
 #include "vulkanContext.hpp"
 #include "swapchain.hpp"
+#include "util.hpp"
 
-const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface) {
+static const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface) {
     QueueFamilyIndices indices;
 
     uint32_t queueFamilyCount = 0;
@@ -12,13 +13,18 @@ const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevic
 
     int i = 0;
     for (const auto& queueFamily: queueFamilyProperties) {
+        // std::cout << std::bitset<8>(queueFamily.queueFlags) << std::endl;    // debug falimies available on device
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
         }
 
         // check for dedicated transfer queue
-        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT == 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) {
+        if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0 && queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) {
             indices.transferFamily = i;
+        }
+
+        if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
+            indices.computeFamily = i;
         }
 
         VkBool32 presentSupport = false;
@@ -95,7 +101,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(
     return VK_FALSE;
 }
 
-VkResult VulkanContext::createDebugUtilsMessengerEXT(const VkInstance& instance, 
+VkResult VulkanContext::createDebugUtilsMessengerEXT(const VkInstance instance, 
     const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
     const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
     // Function vkCreateDebugUtilsMessengerEXT is an extension function and is not automatically loaded
@@ -110,7 +116,7 @@ VkResult VulkanContext::createDebugUtilsMessengerEXT(const VkInstance& instance,
     }    
 }
 
-void VulkanContext::destroyDebugUtilsMessengerEXT(const VkInstance& instance, VkDebugUtilsMessengerEXT debugMessenger,
+void VulkanContext::destroyDebugUtilsMessengerEXT(const VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
     const VkAllocationCallbacks* pAllocator) {
     PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
     if (func != nullptr) {
@@ -261,7 +267,7 @@ void VulkanContext::createSurface(GLFWwindow* window) {
     }
 }
 
-bool VulkanContext::isDeviceSuitable(const VkPhysicalDevice& physicalDevice, const QueueFamilyIndices& indices) {
+bool VulkanContext::isDeviceSuitable(const VkPhysicalDevice physicalDevice, const QueueFamilyIndices& indices) {
     bool extensionsSupported = checkDeviceExtensionSupport(physicalDevice);
 
     bool swapChainAdequate = false;
@@ -276,7 +282,7 @@ bool VulkanContext::isDeviceSuitable(const VkPhysicalDevice& physicalDevice, con
     return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;        // we will settle with any GPU with Vulkan support and graphics family
 }
 
-bool VulkanContext::checkDeviceExtensionSupport(const VkPhysicalDevice& physicalDevice) {
+bool VulkanContext::checkDeviceExtensionSupport(const VkPhysicalDevice physicalDevice) {
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
 
@@ -292,7 +298,7 @@ bool VulkanContext::checkDeviceExtensionSupport(const VkPhysicalDevice& physical
     return requiredExtensions.empty();
 }
 
-unsigned int VulkanContext::rateDeviceSuitability(const VkPhysicalDevice& device, const QueueFamilyIndices& indices) {
+unsigned int VulkanContext::rateDeviceSuitability(const VkPhysicalDevice device, const QueueFamilyIndices& indices) {
     unsigned int score = 0;
 
     VkPhysicalDeviceProperties deviceProperties;
@@ -321,6 +327,10 @@ void VulkanContext::pickPhysicalDevice() {
     std::multimap<unsigned int, VkPhysicalDevice> candidates;
 
     for (const auto& device: devices){
+        VkPhysicalDeviceProperties deviceProperties;    // I dont like this
+        vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        // std::cout << "Device: " << deviceProperties.deviceName ;
+
         QueueFamilyIndices indices = findQueueFamilies(device, surface);
         if (isDeviceSuitable(device, indices)) {
             unsigned int score = rateDeviceSuitability(device, indices);
@@ -343,7 +353,7 @@ void VulkanContext::pickPhysicalDevice() {
 
 void VulkanContext::createLogicalDevice() {
     std::vector<VkDeviceQueueCreateInfo> deviceQueueCIs;
-    // todo, we dont know how many families we have ig?
+    // todo, we dont know how many families we have ig? fix when using multiple queues
     std::set<uint32_t> uniqueQueueFamilies = {familyIndices.graphicsFamily.value(), familyIndices.presentFamily.value()};
     float queuePriority = 1.0f;
 
@@ -384,4 +394,5 @@ void VulkanContext::createLogicalDevice() {
 
     vkGetDeviceQueue(device, familyIndices.graphicsFamily.value(), 0, &graphicsQueue);
     vkGetDeviceQueue(device, familyIndices.presentFamily.value(), 0, &presentQueue);
+    vkGetDeviceQueue(device, familyIndices.computeFamily.value(), 0, &computeQueue);    // for the time being its the same as graphics
 }

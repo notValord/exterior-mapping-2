@@ -12,14 +12,19 @@ struct QueueFamilyIndices;
 
 class CommandManager{
 public:
-    std::vector<VkCommandBuffer> commandBuffers;        // freed with commandPool
-    VkCommandPool graphicsCommandPool;  // needed for mem Manager, change later
+    // maybe have specilized commandpool for different queues
+    std::vector<VkCommandBuffer> commandBuffers;        // Freed with commandPool
+    std::vector<VkCommandBuffer> offlineCommandBuffers;
 
-    CommandManager(const QueueFamilyIndices& familyIndices, const VkDevice& device);
+    CommandManager(const QueueFamilyIndices& familyIndices, const VkDevice device);
     ~CommandManager();
-private:
 
-    // vulkan handles
+    VkCommandPool getTransferCommandPool();
+
+private:
+    VkCommandPool graphicsCommandPool;
+
+    // Vulkan handles
     VkDevice deviceHandle;
 
     void createCommandPool(const QueueFamilyIndices& familyIndices);

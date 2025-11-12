@@ -15,6 +15,7 @@ struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
 
 class MemoryManager;
+struct CamArrayData;
 
 static float CAM_MAX_SPEED = 50.0f;
 static float CAM_MIN_SPEED = 0.5f;
@@ -24,10 +25,11 @@ const static glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 class Camera{
 public:
     Camera(float extentRatio);
-    ~Camera();
+    virtual ~Camera();
 
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix() const;
+    glm::vec2 getNearFar() const;
 
     void updateRatio(float newRatio);
     void updateYawPitch(float yaw, float pitch);
@@ -62,27 +64,28 @@ struct AttachementsFormats;
 
 class OfflineCamera : public Camera {
 public:
-    OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass);
-    ~OfflineCamera();
+    VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
-private:
     VkImage colorImage;
     VkImage depthImage;
 
+    OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass);
+    ~OfflineCamera();
+
+    void recreateOfflineResources(VkExtent2D& swapChainExtent, VkRenderPass renderpass, const VkFormat colorFormat, const VkFormat depthFormat);
+
+    CamArrayData getCamData();
+private:
     VmaAllocation colorImageMemory;
     VmaAllocation depthImageMemory;
 
     VkImageView colorImageView;
     VkImageView depthImageView;
 
-    VkFramebuffer framebuffer;
-
     // Vulkan Handles
     VkDevice deviceHandle;
-    VkExtent2D& swapChainExtentHandle;
-
     MemoryManager& memManager;
-    const AttachementsFormats& attachementsFormats;
 
-    void createOfflineResources(const VkRenderPass renderPass);
+    void createOfflineResources(const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent);
+    void cleanupOfflineResources();
 };

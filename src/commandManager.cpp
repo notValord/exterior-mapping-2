@@ -1,7 +1,7 @@
 #include "commandManager.hpp"
 #include "vulkanContext.hpp"
 
-CommandManager::CommandManager(const QueueFamilyIndices& familyIndices, const VkDevice& device)
+CommandManager::CommandManager(const QueueFamilyIndices& familyIndices, const VkDevice device)
     : deviceHandle(device) {
     createCommandPool(familyIndices);
     createCommandBuffers();
@@ -9,6 +9,10 @@ CommandManager::CommandManager(const QueueFamilyIndices& familyIndices, const Vk
 
 CommandManager::~CommandManager() {
     vkDestroyCommandPool(deviceHandle, graphicsCommandPool, nullptr);
+}
+
+VkCommandPool CommandManager::getTransferCommandPool() {
+    return graphicsCommandPool;
 }
 
 void CommandManager::createCommandPool(const QueueFamilyIndices& familyIndices) {
@@ -26,6 +30,8 @@ void CommandManager::createCommandPool(const QueueFamilyIndices& familyIndices) 
 
 void CommandManager::createCommandBuffers() {
     commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    offlineCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo commandBufferAI{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = graphicsCommandPool,
@@ -34,6 +40,10 @@ void CommandManager::createCommandBuffers() {
     };
 
     if (vkAllocateCommandBuffers(deviceHandle, &commandBufferAI, commandBuffers.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate command buffers!");
+    }
+
+    if (vkAllocateCommandBuffers(deviceHandle, &commandBufferAI, offlineCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers!");
     }
 }

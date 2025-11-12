@@ -1,0 +1,121 @@
+#version 450
+
+#define MIN_FLOAT -1.0f/0.0f
+#define MAX_FLOAT 1.0f/0.0f
+
+// I will see what this means
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0) uniform NovelImageObject {
+    // mat4 viewMat;
+    mat4 invViewMat;
+    // mat4 projMat;
+    mat4 invProjMat;
+    vec2 res;
+    uint camCnt;
+} ubo;
+
+
+struct CamArrayData {
+    vec4 frustumPlanes[6];
+    // mat4 viewMat;out vec3 rayOrigin, out vec3 rayDir
+    // mat4 invViewMat;
+    // mat4 projMat;
+    // mat4 invProjMat;
+};
+
+layout(std430, binding = 1) readonly buffer CamArraySSBOIn {
+   CamArrayData camArrayIn[];
+} ;
+
+layout(std430, binding = 2) writeonly buffer IntersectionsSSBOOut {
+   vec3 worldIntersect[];
+};
+
+layout(std430, binding = 3) coherent buffer VertexCountSSBOOut {
+    uint count;
+};
+
+void castRay(in vec2 pixel, out vec3 rayOrigin, out vec3 rayDir) {
+    vec2 ndcPixel = (pixel + 0.5f)/ubo.res * 2.0f - 1.0f; // transform to range (-1,-1) (1,1)
+
+    vec4 viewNear = ubo.invProjMat * vec4(ndcPixel, 0.0f, 1.0f);
+    vec4 viewFar = ubo.invProjMat * vec4(ndcPixel, 1.0f, 1.0f);
+
+    viewNear = viewNear / viewNear.w;
+    viewFar = viewFar / viewFar.w;
+
+    vec4 worldNear = ubo.invViewMat * viewNear;
+    vec4 worldFar = ubo.invViewMat * viewFar;
+
+    rayOrigin = worldNear.xyz;
+    rayDir = normalize((worldFar-worldNear).xyz);
+}
+
+bool findFrustumIntersect(in CamArrayData camData, in vec3 rayOrigin, in vec3 rayDir, out vec2 intersection) {
+    float entryPoint = MIN_FLOAT;
+    float exitPoint = MAX_FLOAT;  // infinite
+
+    for (uint i = 0; i < 6; ++i) {
+        vec4 frustumPlane = camData.frustumPlanes[i];
+        vec3 fNormal = frustumPlane.xyz;
+        float fDistance = frustumPlane.w;
+
+        float denom = dot(fNormal, rayDir);
+        float originPlane = -(dot(fNormal, rayOrigin) + fDistance);
+        if (abs(denom) < 1e-6) {  // the ray is parallel
+            if (originPlane > 0.f) {
+                return false;   // no intersection possible  
+            }
+            continue;
+        }
+
+        float t = originPlane/denom;
+        if (denom > 0) {    // possible entry point
+            entryPoint = max(entryPoint, t);
+        }
+        else {              // possible exit point
+            exitPoint = min(exitPoint, t);
+        }
+
+        if (entryPoint >= exitPoint) {
+            return false;
+        }
+    }
+
+    if (exitPoint > 0.0f) { // found valid intersection
+        intersection = vec2(entryPoint, exitPoint);
+        return true;
+    }
+    return false;
+}
+
+void main() {
+    vec2 pixel = gl_GlobalInvocationID.xy;
+    if (pixel.x >= ubo.res.x || pixel.y >= ubo.res.y) {
+        return;
+    }
+
+    if (int(pixel.x) % 20 != 0 || int(pixel.y) % 20 != 0) {
+        return;
+    }
+
+    vec3 rayOrigin = vec3(0.0f);
+    vec3 rayDir = vec3(1.0f);
+    castRay(pixel, rayOrigin, rayDir);
+
+    for (uint i = 0; i < ubo.camCnt; i++) {
+        CamArrayData camData = camArrayIn[i];
+
+        vec2 intersection = vec2(0.0f);
+        bool foundIntersect = findFrustumIntersect(camData, rayOrigin, rayDir, intersection);
+        if (foundIntersect) {
+            vec3 entry = rayOrigin + intersection.x * rayDir;
+            vec3 exit = rayOrigin + intersection.y * rayDir;
+            uint index = atomicAdd(count, 2); // reserve two vertices;
+
+            worldIntersect[index] = entry;
+            worldIntersect[index+1] = exit;
+        }
+    }
+}

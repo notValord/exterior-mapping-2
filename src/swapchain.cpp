@@ -3,29 +3,28 @@
 #include "util.hpp"
 #include "memManager.hpp"
 
-SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice& device, const VkSurfaceKHR& surface) {
-    SwapChainSupportDetails details;
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+static VkFormat findSupportedFormat(const VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+    for (VkFormat format : candidates) {
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
 
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
-
-    if (formatCount != 0) {
-        details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+            return format;
+        }
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
     }
 
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
-
-    if (presentModeCount != 0) {
-        details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
-    }
-    return details;
+    throw std::runtime_error("Failed to find a supported format!");
 }
 
-SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice& device, GLFWwindow* window, MemoryManager& manager)
+static VkFormat findDepthFormat(const VkPhysicalDevice physicalDevice) {
+    std::vector<VkFormat> depthCandidateFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    return findSupportedFormat(physicalDevice, depthCandidateFormats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+}
+
+SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkDevice device, GLFWwindow* window, MemoryManager& manager)
     : deviceHandle(device), windowHandle(window), memManager(manager) {
     createSwapChain(deviceSurfaceHandle, indices);
     createImageViews();
@@ -35,10 +34,6 @@ SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamily
 
 SwapChain::~SwapChain() {
     cleanupSwapchain();
-}
-
-float SwapChain::getExtentRatio() {
-    return swapChainExtent.width / (float) swapChainExtent.height;
 }
 
 AttachementsFormats SwapChain::getAttachementsFormats() {
@@ -111,7 +106,7 @@ void SwapChain::createSwapChain(const DeviceSurface& deviceSurfaceHandle, const 
         .imageColorSpace = surfaceFormat.colorSpace,
         .imageExtent = extent,
         .imageArrayLayers = 1,      // amount of layers each image consists of
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .preTransform = swapChainSupport.capabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
@@ -152,7 +147,7 @@ void SwapChain::createImageViews() {
     }
 }
 
-void SwapChain::createFramebuffers(const VkRenderPass& renderPass) {
+void SwapChain::createFramebuffers(const VkRenderPass renderPass) {
     swapChainFramebuffers.resize(swapChainImageViews.size());
     for (size_t i = 0; i < swapChainImageViews.size(); i++) {
         std::array<VkImageView, 2> attachements = {
@@ -176,27 +171,6 @@ void SwapChain::createFramebuffers(const VkRenderPass& renderPass) {
     }
 }
 
-VkFormat SwapChain::findSupportedFormat(const VkPhysicalDevice& physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
-    for (VkFormat format : candidates) {
-        VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
-
-        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
-            return format;
-        }
-        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
-            return format;
-        }
-    }
-
-    throw std::runtime_error("Failed to find a supported format!");
-}
-
-VkFormat SwapChain::findDepthFormat(const VkPhysicalDevice& physicalDevice) {
-    std::vector<VkFormat> depthCandidateFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
-    return findSupportedFormat(physicalDevice, depthCandidateFormats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-}
-
 void SwapChain::createDepthResources() {
     memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImage,
         VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
@@ -208,7 +182,7 @@ void SwapChain::createDepthResources() {
     // transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
-void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass& renderPass) {
+void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass renderPass) {
     int width = 0, height = 0;
     glfwGetFramebufferSize(windowHandle, &width, &height);
     if (width == 0 || height == 0) {

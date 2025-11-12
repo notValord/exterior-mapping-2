@@ -5,7 +5,14 @@
 
 #include <iostream>
 
-VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice& deviceHandle);
+struct SwapChainSupportDetails;
 
-VkCommandBuffer beginSingleTimeCommands(const VkDevice& deviceHandle, const VkCommandPool& commandPoolHandle);
-void endSingleTimeCommands(VkCommandBuffer commandBuffer, const VkQueue queueHandle, const VkDevice& deviceHandle, const VkCommandPool& commandPoolHandle);
+VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice deviceHandle);
+
+VkCommandBuffer beginSingleTimeCommands(const VkDevice deviceHandle, const VkCommandPool commandPoolHandle);
+void endSingleTimeCommands(VkCommandBuffer commandBuffer, const VkQueue queueHandle, const VkDevice deviceHandle, const VkCommandPool commandPoolHandle);
+
+void beginCommandBuffer(VkCommandBuffer commandBuffer);
+void submitCommandBuffer(VkCommandBuffer commandBuffer);
+
+SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice device, const VkSurfaceKHR surface);

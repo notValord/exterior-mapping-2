@@ -1,6 +1,6 @@
 #include "syncManager.hpp"
 
-SyncManager::SyncManager(const VkDevice& device)
+SyncManager::SyncManager(const VkDevice device)
     : deviceHandle(device) {
     imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     imageFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);

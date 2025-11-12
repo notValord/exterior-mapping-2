@@ -1,11 +1,12 @@
 #include "inputManager.hpp"
 
 #include "camManager.hpp"
-#include "ui.hpp"
 
-static bool showUI = true;
-static bool nextCam = false;
-static bool novelView = false;
+static bool showUIFlag = true;
+static bool nextCamTrigger = false;
+static bool novelViewTrigger = false;
+static bool presentOfflineViewTrigger = false;
+static bool snapshotOfflineViewTrigger = false;
 
 void FPSCounter::frame() {
     frameCount++;
@@ -18,8 +19,6 @@ void FPSCounter::frame() {
         fps = frameCount / elapsed;
         frameCount = 0;
         lastTime = now;
-
-        //std::cout << "FPS: " << fps << std::endl;
     }
 }
 
@@ -32,19 +31,27 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 
     if (action == GLFW_PRESS && key == GLFW_KEY_U)
-        showUI = showUI ? false:true;
+        showUIFlag = showUIFlag ? false:true;
 
     if (action == GLFW_PRESS && key == GLFW_KEY_N) {
-        nextCam = true;
+        nextCamTrigger = true;
     }
 
     if (action == GLFW_PRESS && key == GLFW_KEY_M) {
-        novelView = true;
+        novelViewTrigger = true;
+    }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_P) {
+        presentOfflineViewTrigger = true;
+    }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_O) {
+        snapshotOfflineViewTrigger = true;
     }
 }
 
 InputManager::InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue& graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent)
+     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent)
     : fpsCnt(), imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent),
      windowHandle(window),  camManagerHandle(camManager){
     
@@ -58,11 +65,16 @@ void InputManager::setCallbacks() {
     glfwSetKeyCallback(windowHandle, key_callback);
 }
 
+void InputManager::setFunctionPointer(void (*offlineRender)()) {
+    renderOfflineImages = offlineRender;
+}
+
 void InputManager::processInput() {
     float currentFrameTime = glfwGetTime();
     float deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
 
+    // Camera movement
     if (glfwGetKey(windowHandle, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_UP) == GLFW_PRESS)
         camManagerHandle.activeCam->moveForward(deltaTime);
     if (glfwGetKey(windowHandle, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_DOWN) == GLFW_PRESS)
@@ -107,13 +119,21 @@ void InputManager::processInput() {
         firstMouse = true; // reset when mouse releasedf
     }
 
-    if (nextCam) {
+    if (nextCamTrigger) {
         camManagerHandle.nextCam();
-        nextCam = false;
+        nextCamTrigger = false;
     }
-    if (novelView) {
+    if (novelViewTrigger) {
         camManagerHandle.toggleNovel();
-        novelView = false;
+        novelViewTrigger = false;
+    }
+    if (snapshotOfflineViewTrigger) {
+        renderOfflineFlag = true;
+        snapshotOfflineViewTrigger = false;
+    }
+    if (presentOfflineViewTrigger) {
+        presentOfflineFlag = presentOfflineFlag ? false : true;
+        presentOfflineViewTrigger = false;
     }
 }
 
@@ -121,13 +141,13 @@ void InputManager::frame() {
     processInput();
     fpsCnt.frame();     // Get the approximate fps
 
-    if (showUI) {
-        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle.activeIndex);
+    if (showUIFlag) {
+        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle.getActiveIndex());
     }
 }
 
 VkCommandBuffer InputManager::recordUI(uint32_t currentFrame, uint32_t imageIndex) {
-    if (!showUI) {
+    if (!showUIFlag) {
         return VK_NULL_HANDLE;
     }
     

@@ -9,6 +9,7 @@
 #include <optional>
 #include <set>
 #include <map>
+#include <bitset>
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -31,18 +32,19 @@ struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
     std::optional<uint32_t> transferFamily;
+    std::optional<uint32_t> computeFamily;
 
     bool isComplete() const {
-        return graphicsFamily.has_value() && presentFamily.has_value();
+        return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value();
     }
 };
-const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice& physicalDevice, const VkSurfaceKHR& surface);
 
 class VulkanContext {
 public:
     VkDevice device;
-    VkQueue graphicsQueue;              // they are cleaned with the device
+    VkQueue graphicsQueue;              // queues are cleaned with the device
     VkQueue presentQueue;
+    VkQueue computeQueue;       // cannot be used right not
 
     QueueFamilyIndices familyIndices;
 
@@ -68,8 +70,8 @@ private:
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT, VkDebugUtilsMessageTypeFlagsEXT,
                                                          const VkDebugUtilsMessengerCallbackDataEXT*, void*);
-    static VkResult createDebugUtilsMessengerEXT(const VkInstance&, const VkDebugUtilsMessengerCreateInfoEXT*, const VkAllocationCallbacks* , VkDebugUtilsMessengerEXT*);
-    static void destroyDebugUtilsMessengerEXT(const VkInstance&, VkDebugUtilsMessengerEXT, const VkAllocationCallbacks*);
+    static VkResult createDebugUtilsMessengerEXT(const VkInstance, const VkDebugUtilsMessengerCreateInfoEXT*, const VkAllocationCallbacks* , VkDebugUtilsMessengerEXT*);
+    static void destroyDebugUtilsMessengerEXT(const VkInstance, VkDebugUtilsMessengerEXT, const VkAllocationCallbacks*);
     static void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT&);
     void setupDebugMessenger();
 
@@ -80,9 +82,9 @@ private:
 
     void createSurface(GLFWwindow* window);
 
-    bool isDeviceSuitable(const VkPhysicalDevice&, const QueueFamilyIndices&);
-    static unsigned int rateDeviceSuitability(const VkPhysicalDevice&, const QueueFamilyIndices&);
-    bool checkDeviceExtensionSupport(const VkPhysicalDevice&);
+    bool isDeviceSuitable(const VkPhysicalDevice, const QueueFamilyIndices&);
+    static unsigned int rateDeviceSuitability(const VkPhysicalDevice, const QueueFamilyIndices&);
+    bool checkDeviceExtensionSupport(const VkPhysicalDevice);
     void pickPhysicalDevice();
 
     void createLogicalDevice();

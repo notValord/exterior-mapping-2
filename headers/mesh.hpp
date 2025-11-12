@@ -18,14 +18,11 @@ public:
     VkBuffer vertexBuffer;
     VkBuffer indexBuffer;
 
-    Mesh(const std::string& modelPath, const VkDevice& device, MemoryManager& memManager);
+    Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager);
     ~Mesh();
 
     uint32_t getIndicesSize();
 private:
-    // VkDeviceMemory vertexBufferMemory;
-    // VkDeviceMemory indexBufferMemory;
-
     VmaAllocation vertexBufferMemory;
     VmaAllocation indexBufferMemory;
 

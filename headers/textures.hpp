@@ -17,17 +17,19 @@ struct TextureSamplerView {
 
 class Textures{
 public:
-    Textures(const std::string& textureFile, const VkDevice& device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
+    Textures(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
     ~Textures();
 
     TextureSamplerView getSamplerView();
 
 private:
     VkImage textureImage;
-    // VkDeviceMemory textureImageMemory;
     VmaAllocation textureImageMemory;
-    VkSampler textureSampler;
     VkImageView textureImageView;
+
+    VkSampler textureSampler;
+
+    VkFormat textureFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
     // Vulakn handles
     VkDevice deviceHandle;

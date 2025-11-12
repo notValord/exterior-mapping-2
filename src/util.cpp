@@ -1,6 +1,7 @@
 #include "util.hpp"
+#include "swapchain.hpp"
 
-VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice& deviceHandle) {
+VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice deviceHandle) {
     VkImageViewCreateInfo imageViewCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
@@ -25,7 +26,7 @@ VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags a
     return imageView;
 }
 
-VkCommandBuffer beginSingleTimeCommands(const VkDevice& deviceHandle, const VkCommandPool& commandPoolHandle) {
+VkCommandBuffer beginSingleTimeCommands(const VkDevice deviceHandle, const VkCommandPool commandPoolHandle) {
     VkCommandBufferAllocateInfo commandBufferAI{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = commandPoolHandle,
@@ -48,7 +49,7 @@ VkCommandBuffer beginSingleTimeCommands(const VkDevice& deviceHandle, const VkCo
     return commandBuffer;
 }
 
-void endSingleTimeCommands(VkCommandBuffer commandBuffer, const VkQueue queueHandle, const VkDevice& deviceHandle, const VkCommandPool& commandPoolHandle) {
+void endSingleTimeCommands(VkCommandBuffer commandBuffer, const VkQueue queueHandle, const VkDevice deviceHandle, const VkCommandPool commandPoolHandle) {
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("Failed to end recording a command buffer!");
     }
@@ -63,4 +64,46 @@ void endSingleTimeCommands(VkCommandBuffer commandBuffer, const VkQueue queueHan
     vkQueueWaitIdle(queueHandle);
 
     vkFreeCommandBuffers(deviceHandle, commandPoolHandle, 1, &commandBuffer);
+}
+
+void beginCommandBuffer(VkCommandBuffer commandBuffer) {
+    vkResetCommandBuffer(commandBuffer, 0);
+
+    VkCommandBufferBeginInfo commandBufferBI{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = 0,
+        .pInheritanceInfo = nullptr
+    };
+
+    if (vkBeginCommandBuffer(commandBuffer, &commandBufferBI) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to begin recording command buffer!");
+    }
+}
+
+void submitCommandBuffer(VkCommandBuffer commandBuffer) {
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to record command buffer!");
+    }
+}
+
+SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice deviceHandle, const VkSurfaceKHR surfaceHandle) {
+    SwapChainSupportDetails details;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(deviceHandle, surfaceHandle, &details.capabilities);
+
+    uint32_t formatCount;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(deviceHandle, surfaceHandle, &formatCount, nullptr);
+
+    if (formatCount != 0) {
+        details.formats.resize(formatCount);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(deviceHandle, surfaceHandle, &formatCount, details.formats.data());
+    }
+
+    uint32_t presentModeCount;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(deviceHandle, surfaceHandle, &presentModeCount, nullptr);
+
+    if (presentModeCount != 0) {
+        details.presentModes.resize(presentModeCount);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(deviceHandle, surfaceHandle, &presentModeCount, details.presentModes.data());
+    }
+    return details;
 }

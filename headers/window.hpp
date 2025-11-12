@@ -5,7 +5,6 @@
 
 #include <iostream>
 
-// remake the screen widht and height as constructor argumetns
 
 class Window {
 public:

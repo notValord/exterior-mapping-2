@@ -5,7 +5,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-Textures::Textures(const std::string& textureFile, const VkDevice& device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
+Textures::Textures(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
     : deviceHandle(device), memManager(memManager), properties(prop) {
     createTextureImage(textureFile);
     createTextureImageView();
@@ -39,18 +39,18 @@ void Textures::createTextureImage(const std::string& texturePath) {
 
     stbi_image_free(pixels);
 
-    memManager.createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+    memManager.createImage(texWidth, texHeight, textureFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, textureImage, VMA_MEMORY_USAGE_GPU_ONLY, textureImageMemory);
     
-    memManager.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    memManager.transitionImageLayout(textureImage, textureFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     memManager.copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-    memManager.transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    memManager.transitionImageLayout(textureImage, textureFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 }
 
 void Textures::createTextureImageView() {
-    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
+    textureImageView = createImageView(textureImage, textureFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
 }
 
 void Textures::createTextureSampler() {

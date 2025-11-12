@@ -14,10 +14,10 @@ public:
     std::vector<VkSemaphore> imageFinishedSemaphores;
     std::vector<VkFence> inFlightFences;
 
-    SyncManager(const VkDevice& device);
+    SyncManager(const VkDevice device);
     ~SyncManager();
 private:
-    // vulkan handles
+    // Vulkan handles
     VkDevice deviceHandle;
 
     void createSemaphore(VkSemaphore& semaphore);

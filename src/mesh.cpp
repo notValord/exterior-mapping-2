@@ -5,7 +5,7 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
-Mesh::Mesh(const std::string& modelPath, const VkDevice& device, MemoryManager& memManager)
+Mesh::Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager)
     : deviceHandle(device), memManager(memManager) {
     loadMesh(modelPath);
     createVertexBuffer();

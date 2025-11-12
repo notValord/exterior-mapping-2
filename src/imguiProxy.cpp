@@ -1,4 +1,4 @@
-#include "ui.hpp"
+#include "imguiProxy.hpp"
 #include "swapchain.hpp"
 #include "vulkanContext.hpp"
 #include "util.hpp"
@@ -13,7 +13,7 @@ static void imguiCheck(VkResult result) {
 }
 
 ImguiProxy::ImguiProxy(const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, GLFWwindow* window, const VkQueue& graphicsQueue, const QueueFamilyIndices& familyIndices,
+     const PhysicalDeviceInstance& physicalDeviceInstance, GLFWwindow* window, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices,
      VkExtent2D& swapChainExtent)
      : deviceHandle(physicalDeviceInstance.device), swapChainExtentHandle(swapChainExtent) {
     createDescriptorPool();
@@ -132,9 +132,7 @@ VkCommandBuffer ImguiProxy::recordCommandBuffer(uint32_t currentFrame, uint32_t 
     return commandBuffers[currentFrame];
 }
 
-// todo refresh swapchain after resize, and redo framebuffers
-// check cureentFrame and image Index
-// problem with the final layout, change based whether using imgui or not?
+// Basic imgui setup for Vulakn taken from https://vkguide.dev/docs/extra-chapter/implementing_imgui/
 
 void ImguiProxy::createDescriptorPool() {
     VkDescriptorPoolSize poolSizes[] =

@@ -14,6 +14,7 @@
 #include "memManager.hpp"
 #include "camManager.hpp"
 #include "inputManager.hpp"
+#include "debug.hpp"
 
 class App {
 public:
@@ -29,20 +30,27 @@ private:
     SwapChain swapchain;
     DescriptorManager descripManager;
     GraphicsPipeline graphicsPipeline;
+    ComputePipeline computePipeline;
     SyncManager syncManager;
     Textures textures;
     Mesh mesh;
-    Uniforms uniforms;
 
     CamerasManager camManager;
+    Uniforms uniforms;
     InputManager inputManager;
+    DebugUtil debugUtil;
 
     uint32_t currentFrame = 0;
 
     void initVulkan();
     void mainLoop();
     void handleResize();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
     void drawFrame();
+    void renderOfflineImages();
+    void presentOfflineImages();
     void cleanup();
 };

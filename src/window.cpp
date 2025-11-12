@@ -11,8 +11,9 @@ Window::Window(unsigned int width, unsigned int height)
         throw std::runtime_error("GLFW init failed!");
     }
 
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);       // Do not create an OpenGL context
-    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);       // No resize for now
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);       // Disable resize for now
 
     window = glfwCreateWindow(screenWidth, screenHeight, "Exterior mapping 2", nullptr, nullptr);
     if (window == nullptr){

@@ -45,9 +45,10 @@ set(SOURCES
     src/vertex.cpp
     src/memManager.cpp
     src/camera.cpp
-    src/ui.cpp
+    src/imguiProxy.cpp
     src/inputManager.cpp
     src/camManager.cpp
+    src/debug.cpp
  )
 
 add_executable(ExternalMapping2 ${SOURCES})
