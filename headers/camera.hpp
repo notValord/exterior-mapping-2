@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+// system include
 #include <iostream>
 #include <array>
 
@@ -17,8 +18,13 @@ using VmaAllocation = VmaAllocation_T*;
 class MemoryManager;
 struct CamArrayData;
 
-static float CAM_MAX_SPEED = 50.0f;
-static float CAM_MIN_SPEED = 0.5f;
+enum class ImageViewType{
+    COLOR,
+    DEPTH
+};
+
+inline constexpr float CAM_MAX_SPEED = 50.0f;
+inline constexpr float CAM_MIN_SPEED = 0.5f;
 
 const static glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -43,6 +49,15 @@ public:
 
     void speedUp(float deltaTime);
     void speedDown(float deltaTime);
+
+    glm::vec3& getPositionRef();
+    float& getYawRef();
+    float& getPitchRef();
+    float& getSpeedRef();
+    float& getSpeedStepRef();
+
+    void recalculateVectors();
+
 private:
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 2.0f);
     glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -53,11 +68,12 @@ private:
 
     float fov = glm::radians(45.0f);
     float aspectRatio;
-    float nearPlane = 0.1f;
+    float nearPlane = 1.0f;
     float farPlane = 100.0f;
 
     float yaw = 90.0f;
     float pitch = 0.0f;
+
 };
 
 struct AttachementsFormats;
@@ -75,6 +91,8 @@ public:
     void recreateOfflineResources(VkExtent2D& swapChainExtent, VkRenderPass renderpass, const VkFormat colorFormat, const VkFormat depthFormat);
 
     CamArrayData getCamData();
+    VkImageView getImageView(ImageViewType type);
+    
 private:
     VmaAllocation colorImageMemory;
     VmaAllocation depthImageMemory;

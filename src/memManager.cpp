@@ -1,10 +1,15 @@
 #define VMA_IMPLEMENTATION
-#include "memManager.hpp"
-#include "vulkanContext.hpp"
-#include "util.hpp"
+#include <memManager.hpp>
+#include <vulkanContext.hpp>
+#include <util.hpp>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
+
+#define TINYEXR_USE_MINIZ 0
+#define TINYEXR_USE_STB_ZLIB 1
+#define TINYEXR_IMPLEMENTATION
+#include <tinyexr.h>
 
 
 static bool hasStencilComponent(VkFormat format) {
@@ -87,74 +92,174 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
     VkPipelineStageFlags sourceStage;
     VkPipelineStageFlags destinationStage;
 
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    switch (oldLayout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+            break;
 
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            break;
+        
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
 
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            break;
+        
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            break;
 
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            sourceStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            break;
+        
+        default:
+            throw std::runtime_error("Unsuported layout transition!");
+    };
 
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    switch (newLayout) {
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            break;
+        
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
+        
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            break;
 
-        sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+            break;
+        
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+            break;
 
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            break;
+        
+        default:
+            throw std::runtime_error("Unsuported layout transition!");
+    };
 
-        sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    // if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    //     sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-        sourceStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-        imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    //     sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    }
-    else {
-        throw std::runtime_error("Unsuported layout transition!");
-    }
+    //     sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+    //     imageMemoryBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    // }
+    // else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+    //     imageMemoryBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+    //     sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    //     destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    // }
+    // else {
+    //     throw std::runtime_error("Unsuported layout transition!");
+    // }
 
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1 , &imageMemoryBarrier);
 
@@ -304,11 +409,12 @@ void MemoryManager::copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDevic
     endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
 }
 
-void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, std::string filename, uint32_t width, uint32_t height, float zNear, float zFar) {
+void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, SaveImageFormat saveFormat, std::string filename, 
+                                uint32_t width, uint32_t height, float zNear, float zFar) {
     void* mappedPtr;
     vmaMapMemory(allocator, allocation, &mappedPtr);
 
-    if (imageFormat == VK_FORMAT_B8G8R8A8_SRGB) {       // if color image
+    if (saveFormat == SaveImageFormat::PNG && imageFormat == VK_FORMAT_B8G8R8A8_SRGB) {       // if color image
         uint8_t* pixels = reinterpret_cast<uint8_t*>(mappedPtr);
         for (uint32_t i = 0; i < width * height; i++) {
             uint8_t* p = &pixels[i * 4];
@@ -317,25 +423,69 @@ void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, s
             p[2] = tmp;          // Replace with Blue for RGB
         }
         
-        stbi_write_png(filename.c_str(), width, height, 4, mappedPtr, width * 4);
+        stbi_write_png((filename+".png").c_str(), width, height, 4, mappedPtr, width * 4);
     }
     else if (imageFormat == VK_FORMAT_D32_SFLOAT) {     // if depth image
         float* depthData = reinterpret_cast<float*>(mappedPtr);
-        std::vector<float> hdrData(width * height * 3);
 
-        for (uint32_t i = 0; i < width * height; i++) { // linerize and normalize the depth data
-            float linearize =  (zNear * zFar) / (zFar - depthData[i] * (zFar - zNear));
-            float normalize = (linearize - zNear) / (zFar - zNear);
-            // std::cout << depthData[i] << " " << linearize << " " << normalize << std::endl;
+        if (saveFormat == SaveImageFormat::HDR) {
+            std::vector<float> hdrData(width*height);
 
-            hdrData[i * 3 + 0] = normalize;
-            hdrData[i * 3 + 1] = normalize;
-            hdrData[i * 3 + 2] = normalize;
+            for (uint32_t i = 0; i < width * height; i++) { // linerize and normalize the depth data
+                float linearize =  (zNear * zFar) / (zFar - depthData[i] * (zFar - zNear));
+                float normalize = (linearize - zNear) / (zFar - zNear);
+
+                hdrData[i] = normalize;
+            }
+            stbi_write_hdr((filename+".hdr").c_str(), width, height, 1, hdrData.data());
         }
-        stbi_write_hdr(filename.c_str(), width, height, 3, hdrData.data());
+        else if (saveFormat == SaveImageFormat::EXR) {
+            // used example form https://github.com/syoyo/tinyexr.git
+            EXRHeader header;
+            InitEXRHeader(&header);
+
+            EXRImage image_exr;
+            InitEXRImage(&image_exr);
+
+            image_exr.num_channels = 3;
+            float* channels[3] = { depthData, depthData, depthData };
+            image_exr.images = reinterpret_cast<unsigned char**>(channels);
+            image_exr.width = width;
+            image_exr.height = height;
+
+            header.num_channels = 3;
+            header.channels = (EXRChannelInfo *)malloc(sizeof(EXRChannelInfo) * header.num_channels);
+            // Must be (A)BGR order, since most of EXR viewers expect this channel order.
+            strncpy(header.channels[0].name, "B", 255); header.channels[0].name[strlen("B")] = '\0';
+            strncpy(header.channels[1].name, "G", 255); header.channels[1].name[strlen("G")] = '\0';
+            strncpy(header.channels[2].name, "R", 255); header.channels[2].name[strlen("R")] = '\0';
+
+            header.pixel_types = (int *)malloc(sizeof(int) * header.num_channels);
+            header.requested_pixel_types = (int *)malloc(sizeof(int) * header.num_channels);
+            
+            for (int i = 0; i < header.num_channels; i++) {
+                header.pixel_types[i] = TINYEXR_PIXELTYPE_FLOAT; // pixel type of input image
+                header.requested_pixel_types[i] = TINYEXR_PIXELTYPE_HALF; // pixel type of output image to be stored in .EXR
+            }
+            
+            const char* err = NULL; // or nullptr in C++11 or later.
+            int ret = SaveEXRImageToFile(&image_exr, &header, (filename+".exr").c_str(), &err);
+            if (ret != TINYEXR_SUCCESS) {
+                std::cerr << "Save EXR err:" << err << std::endl;
+                FreeEXRErrorMessage(err); // free's buffer for an error message
+            }
+
+            free(header.channels);
+            free(header.pixel_types);
+            free(header.requested_pixel_types);
+
+        }
+        else {
+            std::cerr << "Failed to save image: Unknown depth format!" << std::endl;
+        }
     }
     else {
-        throw std::runtime_error("Failed to save image: Unknown format!");
+        std::cerr << "Failed to save image: Unknown format!" << std::endl;
     }
 
     vmaUnmapMemory(allocator, allocation);

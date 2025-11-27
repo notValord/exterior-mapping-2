@@ -1,4 +1,4 @@
-#include "vertex.hpp"
+#include <vertex.hpp>
 
 bool Vertex::operator==(const Vertex& other) const {
     return pos == other.pos && color == other.color && texCoords == other.texCoords;
@@ -14,28 +14,29 @@ VkVertexInputBindingDescription Vertex::getBindingDescription() {
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 3> Vertex::getAttribureDescriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-    attributeDescriptions[0] = {
+std::vector<VkVertexInputAttributeDescription> Vertex::getAttribureDescriptions() {
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    attributeDescriptions.reserve(3);
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
         .location = 0,
         .binding = 0,
         .format = VK_FORMAT_R32G32B32_SFLOAT,
         .offset = offsetof(Vertex, pos)
-    };
+    });
 
-    attributeDescriptions[1] = {
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
         .location = 1,
         .binding = 0,
         .format = VK_FORMAT_R32G32B32_SFLOAT,
         .offset = offsetof(Vertex, color)
-    };
+    });
 
-    attributeDescriptions[2] = {
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
         .location = 2,
         .binding = 0,
         .format = VK_FORMAT_R32G32_SFLOAT,
         .offset = offsetof(Vertex, texCoords)
-    };
+    });
 
     return attributeDescriptions;
 }

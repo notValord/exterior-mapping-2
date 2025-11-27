@@ -29,7 +29,7 @@ private:
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
-    // vulkan handles
+    // Vulkan handles
     VkDevice deviceHandle;
     MemoryManager& memManager;
 

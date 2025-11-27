@@ -1,7 +1,7 @@
-#include "uniforms.hpp"
-#include "memManager.hpp"
-#include "camManager.hpp"
-#include "vertex.hpp"
+#include <uniforms.hpp>
+#include <memManager.hpp>
+#include <camManager.hpp>
+#include <vertex.hpp>
 
 Uniforms::Uniforms(const VkDevice device, MemoryManager& memManager, const VkExtent2D& extentSize, const uint32_t camCount)
     : deviceHandle(device), memManager(memManager) {

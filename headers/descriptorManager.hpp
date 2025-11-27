@@ -7,11 +7,11 @@
 #include <iostream>
 #include <array>
 
-extern const int MAX_FRAMES_IN_FLIGHT;
+extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 struct TextureSamplerView;
 
-class FrustumDescriptors{
+class FrustumDescriptors{   // shared also for intersection shader
 public:
     VkDescriptorSetLayout descriptorSetLayout;
     std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
@@ -21,6 +21,42 @@ public:
 
     void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& uniformBuffers);
 private:
+    // Vulkan handles
+    VkDevice deviceHandle;
+
+    void createDescriptiorSetLayout();
+};
+
+class CamCubeDescriptors{
+public:
+    VkDescriptorSetLayout descriptorSetLayout;
+    std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
+
+    CamCubeDescriptors(const VkDevice device);
+    ~CamCubeDescriptors();
+
+    void createDescriptorSets(VkDescriptorPool descriptorPool, const TextureSamplerView& textureSamplerView);
+private:
+    // Vulkan handles
+    VkDevice deviceHandle;
+
+    void createDescriptiorSetLayout();
+};
+
+class OfflineDescriptors{
+public:
+    VkDescriptorSetLayout samplerDescriptorSetLayout;
+    std::vector<std::array<VkDescriptorSet, 2>> samplerDescriptorSets;        // automatically freed with descriptor pool
+
+    OfflineDescriptors(const VkDevice device);
+    ~OfflineDescriptors();
+
+    void createDescriptorSets(VkDescriptorPool descriptorPool);
+    void updateDescriptorSets(const TextureSamplerView& textureSamplerView);
+
+    uint32_t getIndexInUse();
+private:
+    uint32_t inUse = 0;
     // Vulkan handles
     VkDevice deviceHandle;
 
@@ -67,12 +103,14 @@ public:
     RenderDescriptors renderDescriptors;
     ComputeDescriptors computeDescriptors;
     FrustumDescriptors frustumDescriptors;
+    CamCubeDescriptors camCubeDestriptors;
+    OfflineDescriptors offlineDescriptors;
 
     DescriptorManager(const VkDevice device);
     ~DescriptorManager();
 
     void createDescriptorPoolSet(const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView, const std::vector<VkBuffer>& novelUniformBuffers,
-         const VkBuffer camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut);
+         const VkBuffer camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, const TextureSamplerView& cubeSamplerView);
 private:
     VkDescriptorPool descriptorPool;
 

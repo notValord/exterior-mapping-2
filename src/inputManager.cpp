@@ -1,12 +1,10 @@
-#include "inputManager.hpp"
+#include <inputManager.hpp>
 
-#include "camManager.hpp"
+#include <camManager.hpp>
 
 static bool showUIFlag = true;
 static bool nextCamTrigger = false;
 static bool novelViewTrigger = false;
-static bool presentOfflineViewTrigger = false;
-static bool snapshotOfflineViewTrigger = false;
 
 void FPSCounter::frame() {
     frameCount++;
@@ -23,6 +21,10 @@ void FPSCounter::frame() {
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureKeyboard)
+        return;  // Let ImGui handle it, ignore game hotkeys
+    
     if (action == GLFW_PRESS) {
         std::cout << "Key pressed: " << key << std::endl;
     }
@@ -30,8 +32,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         std::cout << "Key released: " << key << std::endl;
     }
 
-    if (action == GLFW_PRESS && key == GLFW_KEY_U)
+    if (action == GLFW_PRESS && key == GLFW_KEY_U) {
         showUIFlag = showUIFlag ? false:true;
+    }
 
     if (action == GLFW_PRESS && key == GLFW_KEY_N) {
         nextCamTrigger = true;
@@ -40,21 +43,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (action == GLFW_PRESS && key == GLFW_KEY_M) {
         novelViewTrigger = true;
     }
-
-    if (action == GLFW_PRESS && key == GLFW_KEY_P) {
-        presentOfflineViewTrigger = true;
-    }
-
-    if (action == GLFW_PRESS && key == GLFW_KEY_O) {
-        snapshotOfflineViewTrigger = true;
-    }
 }
 
 InputManager::InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent)
-    : fpsCnt(), imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent),
+     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent, MemoryManager& memMan)
+    : fpsCnt(), imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent, memMan),
      windowHandle(window),  camManagerHandle(camManager){
-    
+    presentType = ImageViewType::COLOR;
 }
 
 InputManager::~InputManager() {
@@ -65,14 +60,14 @@ void InputManager::setCallbacks() {
     glfwSetKeyCallback(windowHandle, key_callback);
 }
 
-void InputManager::setFunctionPointer(void (*offlineRender)()) {
-    renderOfflineImages = offlineRender;
-}
-
 void InputManager::processInput() {
     float currentFrameTime = glfwGetTime();
     float deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureKeyboard)
+        return;  // Let ImGui handle it, ignore game hotkeys
 
     // Camera movement
     if (glfwGetKey(windowHandle, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_UP) == GLFW_PRESS)
@@ -121,19 +116,13 @@ void InputManager::processInput() {
 
     if (nextCamTrigger) {
         camManagerHandle.nextCam();
+        changeOfflineImage = presentOfflineFlag && true;
         nextCamTrigger = false;
     }
     if (novelViewTrigger) {
         camManagerHandle.toggleNovel();
+        changeOfflineImage = presentOfflineFlag && true;
         novelViewTrigger = false;
-    }
-    if (snapshotOfflineViewTrigger) {
-        renderOfflineFlag = true;
-        snapshotOfflineViewTrigger = false;
-    }
-    if (presentOfflineViewTrigger) {
-        presentOfflineFlag = presentOfflineFlag ? false : true;
-        presentOfflineViewTrigger = false;
     }
 }
 
@@ -142,7 +131,7 @@ void InputManager::frame() {
     fpsCnt.frame();     // Get the approximate fps
 
     if (showUIFlag) {
-        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle.getActiveIndex());
+        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle, this);
     }
 }
 

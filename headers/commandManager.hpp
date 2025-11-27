@@ -3,11 +3,12 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+// system includes
 #include <vector>
 #include <iostream>
 #include <array>
 
-extern const int MAX_FRAMES_IN_FLIGHT;
+extern const size_t MAX_FRAMES_IN_FLIGHT;
 struct QueueFamilyIndices;
 
 class CommandManager{

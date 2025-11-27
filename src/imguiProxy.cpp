@@ -1,10 +1,13 @@
-#include "imguiProxy.hpp"
-#include "swapchain.hpp"
-#include "vulkanContext.hpp"
-#include "util.hpp"
+#include <imguiProxy.hpp>
+#include <swapchain.hpp>
+#include <vulkanContext.hpp>
+#include <util.hpp>
+#include <camManager.hpp>
+#include <inputManager.hpp>
+#include <memManager.hpp>
 
-#include "backends/imgui_impl_vulkan.h"
-#include "backends/imgui_impl_glfw.h"
+#include <backends/imgui_impl_vulkan.h>
+#include <backends/imgui_impl_glfw.h>
 
 static void imguiCheck(VkResult result) {
     if (result != VK_SUCCESS) {
@@ -14,8 +17,8 @@ static void imguiCheck(VkResult result) {
 
 ImguiProxy::ImguiProxy(const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
      const PhysicalDeviceInstance& physicalDeviceInstance, GLFWwindow* window, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices,
-     VkExtent2D& swapChainExtent)
-     : deviceHandle(physicalDeviceInstance.device), swapChainExtentHandle(swapChainExtent) {
+     VkExtent2D& swapChainExtent, MemoryManager& memMan)
+     : deviceHandle(physicalDeviceInstance.device), swapChainExtentHandle(swapChainExtent), memManager(memMan) {
     createDescriptorPool();
     createRenderPass(imageFormats);
     createFramebuffers(swapChainImageViews);
@@ -72,23 +75,207 @@ ImguiProxy::~ImguiProxy() {
     vkDestroyDescriptorPool(deviceHandle, descriptorPool, nullptr);
 }
 
-void ImguiProxy::rebuildUI(float fps, uint32_t camNum) {
+void ImguiProxy::rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager) {
     // Tell ImGui to start a new frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     // ImGui::ShowDemoWindow();
-    drawUI(fps, camNum);
+    drawUI(fps, camManager, inputManager);
 
     ImGui::Render();
 }
 
-void ImguiProxy::drawUI(float fps, uint32_t camNum) {
+void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
+    if (ImGui::CollapsingHeader("Active camera")) {
+        float& yaw = camManager.activeCam->getYawRef();
+
+        ImGui::Text("Current cam: "); ImGui::SameLine(0, 7);
+        if (camManager.novelViewToggeled()){
+            ImGui::TextColored(ImVec4(1, 0.85f, 0.0f, 1.0f), "Novel View");
+        }
+        else {
+            ImGui::TextColored(ImVec4(1, 0.85f, 0.0f, 1.0f), "Cam array %d", camManager.getActiveIndex());
+        }
+        
+        ImGui::SeparatorText("Cam Orientation");
+        ImGui::DragFloat3("position##Active_cam", glm::value_ptr(camManager.activeCam->getPositionRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
+
+        if (ImGui::DragFloat("yaw##Active_cam", &yaw, 1.0f, -181.0f, 181.0f, "%0.1f")) {
+            if (yaw >= 180.0f) yaw -= 360.0f;
+            if (yaw <= -180.0f) yaw += 360.0f;
+
+            camManager.activeCam->recalculateVectors();
+        }
+        if (ImGui::SliderFloat("pitch##Active_cam", &camManager.activeCam->getPitchRef(), -89.0f, 89.0f, "%.1f")) {
+            camManager.activeCam->recalculateVectors();
+        }
+
+        ImGui::SeparatorText("Cam Speed");
+        ImGui::SliderFloat("speed", &camManager.activeCam->getSpeedRef(), CAM_MIN_SPEED, CAM_MAX_SPEED, "%.1f");
+        ImGui::DragFloat("speed step", &camManager.activeCam->getSpeedStepRef(), 0.05f , 0.0f, 10.0f, "%0.1f");
+    }
+}
+
+void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManager) {
+    if (ImGui::CollapsingHeader("Novel camera")) {
+        bool novelToggle = camManager.novelViewToggeled();
+
+        if (ImGui::Checkbox("Novel View toggeled", &novelToggle)) {
+            camManager.toggleNovel();
+            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
+        }
+
+        ImGui::SeparatorText("Cam Orientation");
+        ImGui::BeginDisabled();     // read only
+
+        ImGui::DragFloat3("position##Novel_view", glm::value_ptr(camManager.novelView.getPositionRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
+        ImGui::DragFloat("yaw##Novel_view", &camManager.novelView.getYawRef(), 1.0f, -180.0f, 180.0f, "%0.1f");
+        ImGui::SliderFloat("pitch##Novel_view", &camManager.novelView.getPitchRef(), -180.0f, 180.0f);
+
+        ImGui::EndDisabled();
+    }
+}
+
+void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManager) {
+    if (ImGui::CollapsingHeader("Cam array")) {
+        const uint32_t index_small_step = 1;
+        const uint32_t index_big_step = 10;
+        uint32_t activeIndex = camManager.getActiveIndex();
+
+        ImGui::Text("Cam count: %d", camManager.getCamCount());
+
+        ImGui::BeginDisabled(inputManager->presentOfflineFlag);
+        // Add a new camera button
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.28f, 0.412f, 0.102f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.34f, 0.500f, 0.123f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.22f, 0.323f, 0.080f, 1.0f));
+
+        if (ImGui::Button("Add cam")) {
+            camManager.addCam(memManager);
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SameLine();
+
+        // Delete a camera button
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.483f, 0.0084f, 0.0245f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.587f, 0.010f, 0.030f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.380f, 0.007f, 0.019f, 1.0f));
+
+        if (ImGui::Button("Delete cam")) {
+            camManager.deleteCam(memManager);
+        }
+        ImGui::PopStyleColor(3);
+        ImGui::EndDisabled();
+
+        // Switch to a different cam in the array input
+        ImGui::BeginDisabled(camManager.novelViewToggeled());
+        if (ImGui::InputScalar("current index", ImGuiDataType_U32, &activeIndex, &index_small_step, &index_big_step)) {
+            if (activeIndex < 0) {
+                activeIndex = 0;
+            }
+            if (activeIndex >= camManager.getCamCount()) {
+                activeIndex = camManager.getCamCount() - 1;
+            }
+            camManager.setActiveCam(activeIndex);
+            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
+        }
+
+        ImGui::EndDisabled();
+    }
+}
+
+void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* inputManager) {
+    if (ImGui::CollapsingHeader("Offline render")) {
+        static int depthFormat = 0;
+        static int presentFormat = 0;
+
+        // Take offline render snapshots button
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.522f, 0.031f, 0.306f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.650f, 0.070f, 0.380f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.420f, 0.020f, 0.240f, 1.0f));
+
+        ImGui::BeginDisabled(inputManager->presentOfflineFlag);
+        if (ImGui::Button("Take snapshot")) {
+            inputManager->renderOfflineFlag = true;
+        }
+        ImGui::EndDisabled();
+
+        if (camManager.offlineImagesRendered) {
+            ImGui::SameLine(0, 30.0f);
+            ImGui::Text("Snapshots taken!");
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SeparatorText("Saving snapshots");
+        ImGui::InputText("filename", &snapshotsFiles);
+
+        ImGui::RadioButton("depth format HDR", &depthFormat, 0); ImGui::SameLine();
+        ImGui::RadioButton("depth format EXR", &depthFormat, 1);
+
+        // Save the offline render snapshots to a file button
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.380f, 0.020f, 0.430f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.480f, 0.045f, 0.540f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.300f, 0.015f, 0.340f, 1.0f));
+
+        ImGui::BeginDisabled(!camManager.offlineImagesRendered);
+        ImGui::BeginDisabled(inputManager->presentOfflineFlag);
+        if (ImGui::Button("Save snapshots")) {
+            if (depthFormat == 0) {
+                camManager.saveOfflineImages(memManager, snapshotsFiles, SaveImageFormat::HDR);
+            }
+            else {
+                camManager.saveOfflineImages(memManager, snapshotsFiles, SaveImageFormat::EXR);
+            }
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SeparatorText("Viewing snapshots");
+        if (ImGui::RadioButton("color image", &presentFormat, 0)) {
+            inputManager->presentType = ImageViewType::COLOR;
+            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("depth image", &presentFormat, 1)) {
+            inputManager->presentType = ImageViewType::DEPTH;
+            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
+        }
+
+        // todo novel view special case
+        if (ImGui::Checkbox("Present shapshots", &inputManager->presentOfflineFlag)) {
+            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
+            camManager.toggleSampled(memManager);
+        }
+        
+        ImGui::EndDisabled();
+        ImGui::PopStyleColor(3);
+    }
+}
+
+void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager) {
+    if (ImGui::CollapsingHeader("Debug info")) {
+        ImGui::Text("FPS: %.1f", fps);
+        ImGui::Checkbox("Grayscale", &inputManager->debugGrayscale);        // TODO
+        ImGui::Checkbox("Show Cam-cubes", &inputManager->debugCamCube);
+        ImGui::Checkbox("Show frustum", &inputManager->debugFrustum);
+        ImGui::Checkbox("Show intersections", &inputManager->debugIntersection);
+
+    }
+}
+
+void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inputManager) {
     // Draw the UI
-    ImGui::Begin("Project Info");
-    ImGui::Text("FPS: %.1f", fps);
-    ImGui::Text("Current cam: %d", camNum);
+    ImGui::Begin("Info");
+    uiActiveCam(camManager);
+
+    uiNovelCam(camManager, inputManager);
+    uiCamArray(camManager, inputManager);
+    
+    uiOfflineRender(camManager, inputManager);
+    uiDebugInfo(fps, inputManager);
+    
     ImGui::End();
 }
 

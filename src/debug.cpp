@@ -1,8 +1,8 @@
-#include "debug.hpp"
-#include "vertex.hpp"
-#include "memManager.hpp"
-#include "camManager.hpp"
-#include "uniforms.hpp"
+#include <debug.hpp>
+#include <vertex.hpp>
+#include <memManager.hpp>
+#include <camManager.hpp>
+#include <uniforms.hpp>
 
 // 36 indices per frustum (6 faces × 2 triangles × 3 vertices)
 const std::vector<uint32_t> frustumIndices = {
@@ -53,60 +53,116 @@ static glm::vec3 intersectPlanes(const glm::vec4& p1, const glm::vec4& p2, const
 
 DebugUtil::DebugUtil(MemoryManager& memMan, const uint32_t camCount)
     : memManager(memMan) {
-    createFrustrumBuffer(camCount);
+    frustumCounts.resize(MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++) {
+        frustumCounts[0] = camCount;
+    }
+
+    createFrustrumBuffers();
+
 }
 
 DebugUtil::~DebugUtil() {
-    memManager.destroyBuffer(frustumVertexBuffer, frustumVertexBufferMemory);
+    for (uint32_t frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++) {
+        for (uint32_t i = 0; i < frustumCounts[frame]; i++) {
+            memManager.destroyBuffer(frustumVertexBuffers[frame][i], frustumVertexBufferMemories[frame][i]);
+        }
+    }
     memManager.destroyBuffer(frustumIndexBuffer, frustumIndexBufferMemory);
 }
 
-void DebugUtil::createFrustrumBuffer(const uint32_t camCount) {
-    VkDeviceSize vertexSize = sizeof(Vertex) * camCount * 8;
-    VkDeviceSize indexSize = sizeof(uint32_t) * camCount * frustumIndices.size();
-    memManager.createBuffer(vertexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, frustumVertexBuffer, VMA_MEMORY_USAGE_GPU_ONLY, frustumVertexBufferMemory);
-    memManager.createBuffer(indexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, frustumIndexBuffer, VMA_MEMORY_USAGE_GPU_ONLY, frustumIndexBufferMemory);
+void DebugUtil::createFrustrumBuffers() {
+    VkDeviceSize vertexSize = sizeof(Vertex)* 8;
+    VkDeviceSize indexSize = sizeof(uint32_t) * frustumIndices.size();
 
-}
+    frustumVertexBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    frustumVertexBufferMemories.resize(MAX_FRAMES_IN_FLIGHT);
 
-void DebugUtil::setFrustumData(CamerasManager& camManager) {
-    std::vector<Vertex> frustrumPoints(camManager.getCamCount() * 8);
-    std::vector<uint32_t> frustumIndex(camManager.getCamCount() * frustumIndices.size());
+    for (uint32_t frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++) {
+        frustumVertexBuffers[frame].resize(frustumCounts[frame]);
+        frustumVertexBufferMemories[frame].resize(frustumCounts[frame]);
 
-    for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
-        uint32_t base = i * 8; // 8 vertices per camera
-        CamArrayData camData = camManager.camArray[i].getCamData();
-
-        frustrumPoints[base+0].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[3]); // near, left, top
-        frustrumPoints[base+1].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[2]); // near, left, bottom
-
-        frustrumPoints[base+2].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[3]); // near, right, top
-        frustrumPoints[base+3].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[2]); // near, right, bottom
-
-        frustrumPoints[base+4].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[3]); // far, left, top
-        frustrumPoints[base+5].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[2]); // far, left, bottom
-
-        frustrumPoints[base+6].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[3]); // far, right, top
-        frustrumPoints[base+7].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[2]); // far, right, bottom
-
-        for (uint32_t colors = 0; colors < 8; colors++) {
-            frustrumPoints[base+colors].color = glm::vec3(0.3, 0.0, 0.0);
-        }
-
-        for (uint32_t id = 0; id < frustumIndices.size(); id++) {
-            frustumIndex[base+id] = frustumIndices[id] + base;
+        for (uint32_t i = 0; i < frustumCounts[frame]; i++) {
+            memManager.createBuffer(vertexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, frustumVertexBuffers[frame][i], VMA_MEMORY_USAGE_GPU_ONLY, frustumVertexBufferMemories[frame][i]);
         }
     }
-    
+    memManager.createBuffer(indexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, frustumIndexBuffer, VMA_MEMORY_USAGE_GPU_ONLY, frustumIndexBufferMemory);
+}
+
+void DebugUtil::recreateFrustumBuffers(uint32_t newCount, uint32_t currentFrame) {
+    if (newCount < frustumCounts[currentFrame]) {
+        while (frustumCounts[currentFrame] != newCount) {
+            frustumCounts[currentFrame]--;
+            
+            memManager.destroyBuffer(frustumVertexBuffers[currentFrame][frustumCounts[currentFrame]], frustumVertexBufferMemories[currentFrame][frustumCounts[currentFrame]]);
+            frustumVertexBuffers[currentFrame].pop_back();
+            frustumVertexBufferMemories[currentFrame].pop_back();
+        }
+    }
+
+    if (newCount > frustumCounts[currentFrame]) {
+        VkDeviceSize vertexSize = sizeof(Vertex)* 8;
+
+        frustumVertexBuffers[currentFrame].resize(newCount);
+        frustumVertexBufferMemories[currentFrame].resize(newCount);
+
+        while (frustumCounts[currentFrame] != newCount) {
+            memManager.createBuffer(vertexSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, frustumVertexBuffers[currentFrame][frustumCounts[currentFrame]], VMA_MEMORY_USAGE_GPU_ONLY, frustumVertexBufferMemories[currentFrame][frustumCounts[currentFrame]]);
+
+            frustumCounts[currentFrame]++;
+        }
+    }
+}
+
+void DebugUtil::setFrustumData(CamerasManager& camManager, uint32_t currentFrame) {
+    std::vector<uint32_t> frustumIndex(frustumIndices.size());
+    for (uint32_t id = 0; id < frustumIndices.size(); id++) {
+        frustumIndex[id] = frustumIndices[id];
+    }
+
+    if (camManager.getCamCount() != frustumCounts[currentFrame]){
+        recreateFrustumBuffers(camManager.getCamCount(), currentFrame);
+    }
+
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferMemory;
-    auto allocInfo = memManager.createBuffer(sizeof(Vertex) * frustrumPoints.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBufferMemory, frustrumPoints.data());
-    memManager.copyBuffer(stagingBuffer, frustumVertexBuffer, sizeof(Vertex) * frustrumPoints.size());
-
-    memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
-
-    allocInfo = memManager.createBuffer(sizeof(uint32_t) * frustumIndex.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBufferMemory, frustumIndex.data());
+    auto allocInfo = memManager.createBuffer(sizeof(uint32_t) * frustumIndex.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBufferMemory, frustumIndex.data());
     memManager.copyBuffer(stagingBuffer, frustumIndexBuffer, sizeof(uint32_t) * frustumIndex.size());
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
+
+
+    std::vector<Vertex> frustrumPoints(8);
+    for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
+        CamArrayData camData = camManager.camArray[i].getCamData();
+
+        frustrumPoints[0].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[3]); // near, left, top
+        frustrumPoints[1].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[2]); // near, left, bottom
+
+        frustrumPoints[2].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[3]); // near, right, top
+        frustrumPoints[3].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[2]); // near, right, bottom
+
+        frustrumPoints[4].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[3]); // far, left, top
+        frustrumPoints[5].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[2]); // far, left, bottom
+
+        frustrumPoints[6].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[3]); // far, right, top
+        frustrumPoints[7].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[2]); // far, right, bottom
+
+        // near plane (z = near)
+        frustrumPoints[0].color = glm::vec3(1.0f, 0.0f, 0.0f); // top-left near - red
+        frustrumPoints[1].color = glm::vec3(0.0f, 1.0f, 0.0f); // bottom-left near - green
+        frustrumPoints[2].color = glm::vec3(0.0f, 0.0f, 1.0f); // top-right near - blue
+        frustrumPoints[3].color = glm::vec3(1.0f, 1.0f, 0.0f); // bottom-right near - yellow
+
+        // far plane (z = far)
+        frustrumPoints[4].color = glm::vec3(1.0f, 0.5f, 0.5f); // top-left far - light red
+        frustrumPoints[5].color = glm::vec3(0.5f, 1.0f, 0.5f); // bottom-left far - light green
+        frustrumPoints[6].color = glm::vec3(0.5f, 0.5f, 1.0f); // top-right far - light blue
+        frustrumPoints[7].color = glm::vec3(1.0f, 1.0f, 0.5f); // bottom-right far - light yellow
+
+        allocInfo = memManager.createBuffer(sizeof(Vertex) * frustrumPoints.size(), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU, stagingBufferMemory, frustrumPoints.data());
+        memManager.copyBuffer(stagingBuffer, frustumVertexBuffers[currentFrame][i], sizeof(Vertex) * frustrumPoints.size());
+
+        memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
+    }
 }

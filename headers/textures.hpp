@@ -15,10 +15,27 @@ struct TextureSamplerView {
     VkImageView textureImageView;
 };
 
-class Textures{
+class Sampler{
 public:
-    Textures(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
-    ~Textures();
+    Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    ~Sampler();
+
+    VkSampler getSampler();
+
+protected:
+    VkSampler textureSampler;
+
+private:
+     // Vulakn handles
+    VkDevice deviceHandle;
+
+    void createTextureSampler(const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode);
+};
+
+class Texture : protected Sampler{
+public:
+    Texture(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    ~Texture();
 
     TextureSamplerView getSamplerView();
 
@@ -27,17 +44,25 @@ private:
     VmaAllocation textureImageMemory;
     VkImageView textureImageView;
 
-    VkSampler textureSampler;
-
     VkFormat textureFormat = VK_FORMAT_R8G8B8A8_SRGB;
 
     // Vulakn handles
     VkDevice deviceHandle;
     MemoryManager& memManager;
 
-    const VkPhysicalDeviceProperties& properties;
-
     void createTextureImage(const std::string& texturePath);
     void createTextureImageView();
-    void createTextureSampler();
+};
+
+class TexturesManager{
+public:
+    Texture modelTexture;
+    Texture cubeTexture;
+    Sampler offlineSampler;
+
+    TexturesManager(const std::string& textureFile, const std::string& cubeTextureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
+    ~TexturesManager();
+
+private:
+    const VkPhysicalDeviceProperties& properties;
 };

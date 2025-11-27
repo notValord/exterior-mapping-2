@@ -7,4 +7,10 @@
 /usr/bin/glslc lineShader.vert -o lineVert.spv
 /usr/bin/glslc lineShader.frag -o lineFrag.spv 
 
+/usr/bin/glslc camCube.vert -o camCubeVert.spv
+/usr/bin/glslc camCube.frag -o camCubeFrag.spv 
+
+/usr/bin/glslc offlineShader.vert -o offlineVert.spv
+/usr/bin/glslc offlineShader.frag -o offlineFrag.spv 
+
 /usr/bin/glslc rayIntersect.comp -o compute.spv

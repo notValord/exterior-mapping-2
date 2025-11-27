@@ -44,7 +44,7 @@ public:
     VkDevice device;
     VkQueue graphicsQueue;              // queues are cleaned with the device
     VkQueue presentQueue;
-    VkQueue computeQueue;       // cannot be used right not
+    VkQueue computeQueue;               // not used right now
 
     QueueFamilyIndices familyIndices;
 

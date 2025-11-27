@@ -5,9 +5,15 @@
 
 #include <iostream>
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 
 struct PhysicalDeviceInstance;
+
+enum class SaveImageFormat {
+    PNG,
+    HDR,
+    EXR
+};
 
 class MemoryManager{
 public:
@@ -30,7 +36,7 @@ public:
     void copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDeviceSize size);
     void copyImage(VkImage& srcImage, VkFormat srcImageFormat, VkImage& dstImage, VkFormat dstImageFormat, VkExtent3D extent);
 
-    void saveImage(VmaAllocation& allocation, VkFormat imageFormat, std::string filename, uint32_t width, uint32_t height, float near = 0.0f, float far = 0.0f);
+    void saveImage(VmaAllocation& allocation, VkFormat imageFormat, SaveImageFormat saveFormat, std::string filename, uint32_t width, uint32_t height, float near = 0.0f, float far = 0.0f);
 private:
     VmaAllocator allocator;
 

@@ -1,20 +1,21 @@
 #pragma once
 
-#include "window.hpp"
-#include "vulkanContext.hpp"
-#include "swapchain.hpp"
-#include "pipeline.hpp"
-#include "commandManager.hpp"
-#include "syncManager.hpp"
-#include "util.hpp"
-#include "mesh.hpp"
-#include "descriptorManager.hpp"
-#include "textures.hpp"
-#include "uniforms.hpp"
-#include "memManager.hpp"
-#include "camManager.hpp"
-#include "inputManager.hpp"
-#include "debug.hpp"
+// User defined headers
+#include <window.hpp>
+#include <vulkanContext.hpp>
+#include <swapchain.hpp>
+#include <pipeline.hpp>
+#include <commandManager.hpp>
+#include <syncManager.hpp>
+#include <util.hpp>
+#include <mesh.hpp>
+#include <descriptorManager.hpp>
+#include <textures.hpp>
+#include <uniforms.hpp>
+#include <memManager.hpp>
+#include <camManager.hpp>
+#include <inputManager.hpp>
+#include <debug.hpp>
 
 class App {
 public:
@@ -32,7 +33,7 @@ private:
     GraphicsPipeline graphicsPipeline;
     ComputePipeline computePipeline;
     SyncManager syncManager;
-    Textures textures;
+    TexturesManager textureManager;
     Mesh mesh;
 
     CamerasManager camManager;
@@ -42,15 +43,18 @@ private:
 
     uint32_t currentFrame = 0;
 
-    void initVulkan();
     void mainLoop();
-    void handleResize();
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
+    
     void drawFrame();
     void renderOfflineImages();
-    void presentOfflineImages();
-    void cleanup();
+
+    void handleResize();
+
+    // Command buffer recordings
+    void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordCamCubeCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
 };

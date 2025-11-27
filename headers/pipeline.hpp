@@ -8,18 +8,40 @@
 
 struct AttachementsFormats;
 
+enum class VertexInputFlags {
+    POS_COL_UV,
+    POS,
+    NONE
+};
+
+struct DepthStencilFlags{
+    VkBool32 testEnable;
+    VkBool32 writeEnable;
+};
+
+struct RasterizationFlags{
+    VkCullModeFlags cullMode;
+    VkFrontFace frontFace;
+};
+
 class GraphicsPipeline{
 public:
     VkPipeline graphicsPipeline;
     VkRenderPass renderPass;
-    VkPipelineLayout pipelineLayout;        // specifies the uniform variables in shader, todo rpivate?
+    VkPipelineLayout pipelineLayout;
 
     VkPipeline frustumPipeline = VK_NULL_HANDLE;
     VkRenderPass onTopRenderPass = VK_NULL_HANDLE;
-    VkPipelineLayout frustumPipelineLayout = VK_NULL_HANDLE;        // specifies the uniform variables in shader, todo rpivate?
+    VkPipelineLayout frustumPipelineLayout = VK_NULL_HANDLE;
 
     VkPipeline intersectionPipeline = VK_NULL_HANDLE;               // uses onTopRenderPass
     VkPipelineLayout intersectionPipelineLayout = VK_NULL_HANDLE;
+
+    VkPipeline camCubePipeline = VK_NULL_HANDLE;                    // uses onTopRenderPass
+    VkPipelineLayout camCubePipelineLayout = VK_NULL_HANDLE;
+
+    VkPipeline offlineRenderPipeline = VK_NULL_HANDLE;              // uses graphics renderpass
+    VkPipelineLayout offlineRenderPipelineLayout = VK_NULL_HANDLE;
 
 
     GraphicsPipeline(const VkDevice device, const AttachementsFormats& imageFormats, const VkDescriptorSetLayout descriptorSL,
@@ -31,6 +53,12 @@ public:
 
     void setupIntersectionPipeline(const VkDescriptorSetLayout descriptorSL, const AttachementsFormats& imageFormats,
          const std::string& vertexFile = "../shaders/lineVert.spv", const std::string& fragFile = "../shaders/lineFrag.spv");
+    
+    void setupCamCubePipeline(const VkDescriptorSetLayout descriptorSL, const AttachementsFormats& imageFormats,
+         const std::string& vertexFile = "../shaders/camCubeVert.spv", const std::string& fragFile = "../shaders/camCubeFrag.spv");
+
+    void setupOfflinePipeline(const VkDescriptorSetLayout descriptorSL,
+         const std::string& vertexFile = "../shaders/offlineVert.spv", const std::string& fragFile = "../shaders/offlineFrag.spv");
 private:
     std::string vertexShader;
     std::string fragmentShader;
@@ -38,12 +66,12 @@ private:
     // required handles
     VkDevice deviceHandle;
 
-    VkPipeline createGraphicsPipeline(const VkDescriptorSetLayout descriptorSL, const std::string& vertexShader, const std::string& fragmentShader, 
-    VkPipelineLayout& pipelineLayout, VkRenderPass& renderPass);
-    VkPipeline createLinePipeline(const VkDescriptorSetLayout descriptorSL, const std::string& vertexShader, const std::string& fragmentShader, 
-    VkPipelineLayout& pipelineLayout, VkRenderPass& renderPass);
+    VkPipeline createGraphicsPipeline(const std::string& vertexShader, const std::string& fragmentShader, VkPipelineLayout& pipelineLayout,
+         VkRenderPass& renderPass, VertexInputFlags vertexInput, VkPrimitiveTopology topology, DepthStencilFlags depthFlags, RasterizationFlags rastFlags);
     VkRenderPass createRenderPass(const AttachementsFormats& imageFormats);
     VkRenderPass createOnTopRenderPass(const AttachementsFormats& imageFormats);
+
+    void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
 };
 
 class ComputePipeline {

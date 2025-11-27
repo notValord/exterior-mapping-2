@@ -18,8 +18,8 @@ float LinearizeDepth()
 
 void main() {
     // outColor = vec4(fragTexCoords, 0.0f, 1.0);
-    // outColor = texture(texSampler, fragTexCoords);
+    outColor = texture(texSampler, fragTexCoords);
 
-    float n = LinearizeDepth();
-    outColor = vec4(n, n, n, 1.0);
+    // float n = LinearizeDepth();
+    // outColor = vec4(n, n, n, 1.0);
 }

@@ -3,12 +3,15 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+// system include
 #include <iostream>
 #include <chrono>
 
-#include "imguiProxy.hpp"
+// user include
+#include <imguiProxy.hpp>
 
 class CamerasManager;
+enum class ImageViewType;
 
 class FPSCounter{
 public:
@@ -22,25 +25,34 @@ private:
 
 class InputManager {
 public:
+    // UI public flags and variables
+    bool presentOfflineFlag = false;
+    bool changeOfflineImage = false;
+    ImageViewType presentType;
+    bool renderOfflineFlag = false;
+
+    bool debugGrayscale = false;
+    bool debugFrustum = false;
+    bool debugCamCube = false;
+    bool debugIntersection = false;
+
     InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent);
+     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent,
+     MemoryManager& memMan);
     ~InputManager();
 
     void setCallbacks();
-    void setFunctionPointer(void (*offlineRender)());       // TODO
 
     void frame();
     VkCommandBuffer recordUI(uint32_t currentFrame, uint32_t imageIndex);
 
     void imguiResize(const std::vector<VkImageView>& swapChainImageViews, const VkExtent2D& swapChainExtent);
 
-    bool presentOfflineFlag = false;
-    bool renderOfflineFlag = false;
-
 private:
     FPSCounter fpsCnt;
     ImguiProxy imguiProxy;
 
+    // vulkan handless
     GLFWwindow* windowHandle;
     CamerasManager& camManagerHandle;
 
@@ -48,8 +60,6 @@ private:
     double lastX = 0.0, lastY = 0.0;
 
     bool firstMouse = false;
-
-    void (*renderOfflineImages)() = nullptr;
 
     void processInput();
 };

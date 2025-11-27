@@ -1,17 +1,17 @@
-#include "application.hpp"
+#include <application.hpp>
 
 static unsigned int SCREEN_WIDTH = 800;
 static unsigned int SCREEN_HEIGHT = 600;
 
 static const std::string MODEL_PATH = "../resources/models/viking_room.obj";
-const std::string TEXTURE_PATH = "../resources/textures/viking_room.png";
+static const std::string TEXTURE_PATH = "../resources/textures/viking_room.png";
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
+static const std::string CUBE_TEXTURE_PATH = "../resources/textures/camera.jpg";
+
+const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
 void App::run() {;
-    initVulkan();
     mainLoop();
-    cleanup();
 }
 
 App::App() 
@@ -24,30 +24,30 @@ App::App()
        graphicsPipeline(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager.renderDescriptors.descriptorSetLayout),
        computePipeline(vulkanContext.device, descripManager.computeDescriptors.descriptorSetLayout),
        syncManager(vulkanContext.device),
-       textures(TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
+       textureManager(TEXTURE_PATH, CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        mesh(MODEL_PATH, vulkanContext.device, memManager),
        camManager(vulkanContext.device, memManager, swapchain.swapChainExtent, swapchain.getAttachementsFormats(), graphicsPipeline.renderPass),
        uniforms(vulkanContext.device, memManager, swapchain.swapChainExtent, camManager.getCamCount()),
        inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
-            vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent),
+            vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager),
        debugUtil(memManager, camManager.getCamCount()){
     // order of members in a class
-
+    
+    // Debug utils with separate pipelines
     graphicsPipeline.setupFrustumPipeline(descripManager.frustumDescriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
     graphicsPipeline.setupIntersectionPipeline(descripManager.frustumDescriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
+    graphicsPipeline.setupCamCubePipeline(descripManager.camCubeDestriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
+    graphicsPipeline.setupOfflinePipeline(descripManager.offlineDescriptors.samplerDescriptorSetLayout);
 
     swapchain.createFramebuffers(graphicsPipeline.renderPass);
-    descripManager.createDescriptorPoolSet(uniforms.renderUniformBuffers, textures.getSamplerView(), uniforms.novelUniformBuffers, uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut, uniforms.vertexCountSSBOOut);
+    descripManager.createDescriptorPoolSet(uniforms.renderUniformBuffers, textureManager.modelTexture.getSamplerView(), uniforms.novelUniformBuffers,
+        uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut, uniforms.vertexCountSSBOOut, textureManager.cubeTexture.getSamplerView());
 
     inputManager.setCallbacks();
 }
 
 App::~App() {
     // reverse order of constructors
-}
-
-void App::initVulkan() {
-
 }
 
 void App::recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
@@ -126,15 +126,115 @@ void App::recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    VkBuffer vertexBuffers[] = {debugUtil.frustumVertexBuffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
     vkCmdBindIndexBuffer(commandBuffer, debugUtil.frustumIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.frustumPipelineLayout, 0, 1, &descripManager.frustumDescriptors.descriptorSets[currentFrame], 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, 36 * camManager.getCamCount(), 1, 0, 0, 0);
+    for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
+        VkBuffer vertexBuffers[] = {debugUtil.frustumVertexBuffers[currentFrame][i]};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+        vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
+    }
+
+    vkCmdEndRenderPass(commandBuffer);
+}
+
+void App::recordCamCubeCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+    const VkExtent2D& swapChainExtent = swapchain.swapChainExtent;
+    VkRenderPassBeginInfo renderPassBI{
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = graphicsPipeline.onTopRenderPass,
+        .framebuffer = framebuffer,
+        .renderArea = {{0,0}, swapChainExtent},  // offset, extent
+        .clearValueCount = 0,
+        .pClearValues = VK_NULL_HANDLE
+    };
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.camCubePipeline);
+    VkViewport viewport{
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(swapChainExtent.width),
+        .height = static_cast<float>(swapChainExtent.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{
+        .offset = {0, 0},
+        .extent = swapChainExtent
+    };
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.camCubePipelineLayout, 0, 1, &descripManager.camCubeDestriptors.descriptorSets[currentFrame], 0, nullptr);
+
+    for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
+        std::array<glm::mat4x4, 2> camMatrices{};
+        camMatrices[0] = glm::inverse(camManager.camArray[i].getViewMatrix());
+        camMatrices[1] = camManager.activeCam->getProjectionMatrix() * camManager.activeCam->getViewMatrix();
+        vkCmdPushConstants(commandBuffer, graphicsPipeline.camCubePipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)*2, camMatrices.data());
+        vkCmdDraw(commandBuffer, 36, 1, 0, 0);
+    }
+
+    vkCmdEndRenderPass(commandBuffer);
+}
+
+void App::recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+    std::array<VkClearValue, 2> clearColor{};
+    clearColor[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+    clearColor[1].depthStencil = {1.0f, 0};
+
+    const VkExtent2D& swapChainExtent = swapchain.swapChainExtent;
+    VkRenderPassBeginInfo renderPassBI{
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .renderPass = graphicsPipeline.renderPass,
+        .framebuffer = framebuffer,
+        .renderArea = {{0,0}, swapChainExtent},  // offset, extent
+        .clearValueCount = static_cast<uint32_t>(clearColor.size()),
+        .pClearValues = clearColor.data()
+    };
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.offlineRenderPipeline);
+    VkViewport viewport{
+        .x = 0.0f,
+        .y = 0.0f,
+        .width = static_cast<float>(swapChainExtent.width),
+        .height = static_cast<float>(swapChainExtent.height),
+        .minDepth = 0.0f,
+        .maxDepth = 1.0f
+    };
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor{
+        .offset = {0, 0},
+        .extent = swapChainExtent
+    };
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    // no novel view
+    OfflineCamera* offlineCam = dynamic_cast<OfflineCamera*>(camManager.activeCam);
+    if (offlineCam == nullptr) {
+        std::runtime_error("Wrong camera for offline rendering, - work in progress!");
+    }
+
+    if (inputManager.changeOfflineImage) {  // update image on request
+        TextureSamplerView samplerView{textureManager.offlineSampler.getSampler(), offlineCam->getImageView(inputManager.presentType)};
+        descripManager.offlineDescriptors.updateDescriptorSets(samplerView);
+        inputManager.changeOfflineImage = false;
+    }
+
+    uint32_t descriptorInUse = descripManager.offlineDescriptors.getIndexInUse();
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.offlineRenderPipelineLayout, 0, 1, &descripManager.offlineDescriptors.samplerDescriptorSets[currentFrame][descriptorInUse], 0, nullptr);
+
+    vkCmdDraw(commandBuffer, 6, 1, 0, 0);   // draw a quad
+
     vkCmdEndRenderPass(commandBuffer);
 }
 
@@ -183,6 +283,7 @@ void App::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.computePipeline);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.pipelineLayout, 0, 1, &descripManager.computeDescriptors.descriptorSets[currentFrame], 0, nullptr);
 
+    // Clear buffers
     vkCmdFillBuffer(commandBuffer, uniforms.intersectionsSSBOOut[currentFrame], 0, VK_WHOLE_SIZE, 0);
     vkCmdFillBuffer(commandBuffer, uniforms.vertexCountSSBOOut[currentFrame], 0, sizeof(uint32_t), 0);
 
@@ -207,7 +308,7 @@ void App::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
 
 void App::handleResize() {
     swapchain.recreateSwapChain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, graphicsPipeline.renderPass);
-    camManager.updateResolution(swapchain.swapChainExtent);
+    camManager.updateResize(swapchain.swapChainExtent);
     inputManager.imguiResize(swapchain.swapChainImageViews, swapchain.swapChainExtent);
 }
 
@@ -233,17 +334,34 @@ void App::drawFrame() {
     // Only reset when we submitting work
     vkResetFences(vulkanContext.device, 1, &syncManager.inFlightFences[currentFrame]);   // needs to be reset manually
 
+    uniforms.updateRenderUniformBuffers(currentFrame, *(camManager.activeCam)); // MVP matrix, could be updated on request instead
+
     beginCommandBuffer(commandManager.commandBuffers[currentFrame]);
-    recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
-    recordFrustumCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
-    recordComputeCommandBuffer(commandManager.commandBuffers[currentFrame]);
-    recordLineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+    if (inputManager.presentOfflineFlag && camManager.offlineImagesRendered) {
+        recordOfflineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+    }
+    else {
+        recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+
+        if (inputManager.debugFrustum) {
+            debugUtil.setFrustumData(camManager, currentFrame);
+            recordFrustumCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+        }
+
+        if (inputManager.debugCamCube) {
+            recordCamCubeCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+        }
+
+        if (inputManager.debugIntersection) {
+            uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent);
+            uniforms.setCamArrayData(camManager);   // enough to do once when going the image based rendering
+
+            recordComputeCommandBuffer(commandManager.commandBuffers[currentFrame]);
+            recordLineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+        }
+    }
+
     submitCommandBuffer(commandManager.commandBuffers[currentFrame]);
-    
-    uniforms.updateRenderUniformBuffers(currentFrame, *(camManager.activeCam));
-    uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent);
-    uniforms.setCamArrayData(camManager);
-    debugUtil.setFrustumData(camManager);
 
     VkSemaphore waitSemaphores[] = {syncManager.imageAvailableSemaphores[currentFrame]};
     VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -301,7 +419,13 @@ void App::drawFrame() {
 }
 
 void App::renderOfflineImages() {
+    if (camManager.postponeResize) {
+        camManager.updateOffline(swapchain.swapChainExtent);
+        camManager.postponeResize = false;
+    }
+
     uint32_t startIndex = camManager.getActiveIndex();
+    // possible to use the push constants - future work
     do {
         camManager.nextCam(true);   // sets the activeCam
 
@@ -332,52 +456,13 @@ void App::renderOfflineImages() {
     } while (startIndex != camManager.getActiveIndex());
 
     vkDeviceWaitIdle(vulkanContext.device);
+    if (camManager.novelViewToggeled()){
+        camManager.toggleNovel();
+        camManager.toggleNovel();
+    }
 
-    camManager.saveOfflineImages(memManager);
+    camManager.offlineImagesRendered = true;
 }  
-
-void App::presentOfflineImages() {
-    uint32_t imageIndex;
-    VkResult result = vkAcquireNextImageKHR(vulkanContext.device, swapchain.swapChain, UINT64_MAX, syncManager.imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        handleResize();
-        return;
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        throw std::runtime_error("Failed to acquire swap chain image!");
-    }
-
-    OfflineCamera* renderCam = dynamic_cast<OfflineCamera*>(camManager.activeCam);
-    if (renderCam == nullptr) {
-        std::runtime_error("Wrong camera for offline rendering!");
-    }
-
-    // redo
-    // memManager.transitionImageLayout(swapchain.swapChainImages[imageIndex], swapchain.getAttachementsFormats().colorImageFormat, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    // memManager.copyImage(renderCam->colorImage, swapchain.getAttachementsFormats().colorImageFormat, swapchain.swapChainImages[imageIndex], swapchain.getAttachementsFormats().colorImageFormat, {swapchain.swapChainExtent.width, swapchain.swapChainExtent.height, 1});
-    // memManager.transitionImageLayout(swapchain.swapChainImages[imageIndex], swapchain.getAttachementsFormats().colorImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-    //copy data to swapchainImage to show
-
-    VkSwapchainKHR swapChains[] = {swapchain.swapChain};
-    VkPresentInfoKHR presentInfo{
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .swapchainCount = 1,
-        .pSwapchains = swapChains,
-        .pImageIndices = &imageIndex,
-        .pResults = nullptr,
-    };
-    result = vkQueuePresentKHR(vulkanContext.presentQueue, &presentInfo);
-    if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR || appWindow.framebufferResized) {
-        handleResize();
-        appWindow.framebufferResized = false;
-    }
-    else if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to present a swap chain image!");
-    }
-
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-}
 
 void App::mainLoop() {
     while (!glfwWindowShouldClose(appWindow.window)) {
@@ -387,17 +472,8 @@ void App::mainLoop() {
             renderOfflineImages();
             inputManager.renderOfflineFlag = false;
         }
-        if (inputManager.presentOfflineFlag && false) {
-            presentOfflineImages();
-        }
-        else {
-            drawFrame();
-        }
+        drawFrame();
         // break;
     }
     vkDeviceWaitIdle(vulkanContext.device);
-}
-
-void App::cleanup() {
-
 }

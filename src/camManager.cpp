@@ -1,15 +1,16 @@
-#include "camManager.hpp"
-#include "swapchain.hpp"
-#include "memManager.hpp"
+#include <camManager.hpp>
+#include <swapchain.hpp>
+#include <memManager.hpp>
 
-static const uint32_t START_CAM_COUNT = 1;
+static const uint32_t START_CAM_COUNT = 2;
+static const uint32_t MAX_CAM_COUNT = 64;       // issue with reallocation of the vector when creating new cameras, causes the objeccts to get destroyed
 
-CamerasManager::CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass)
+CamerasManager::CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass)
     : novelView(swapChainExtent.width / (float) swapChainExtent.height), extentRatio(swapChainExtent.width / (float) swapChainExtent.height), deviceHandle(device), renderpassHandle(renderpass),
       swapChainExtentHandle(swapChainExtent), colorFormat(formats.colorImageFormat), depthFormat(formats.depthFormat), camCount(START_CAM_COUNT) {
 
-    camArray.reserve(2);
-    for (int i = 0; i < 2; i++) {
+    camArray.reserve(MAX_CAM_COUNT);
+    for (int i = 0; i < camCount; i++) {
         camArray.emplace_back(extentRatio, deviceHandle, memMan, swapChainExtentHandle, colorFormat, depthFormat, renderpassHandle);
     }
 
@@ -20,20 +21,44 @@ CamerasManager::~CamerasManager() {
 
 }
 
-void CamerasManager::updateResolution(VkExtent2D& swapChainExtent) {
+void CamerasManager::updateResize(VkExtent2D swapChainExtent) {
     extentRatio =  swapChainExtent.width / (float) swapChainExtent.height;
-    swapChainExtentHandle = swapChainExtent;
 
     novelView.updateRatio(extentRatio);
     for (auto& cam: camArray) {
         cam.updateRatio(extentRatio);
+    }
+
+    if (!offlineImagesRendered) {
+        updateOffline(swapChainExtent);
+    }
+    else {
+        postponeResize = true;
+    }
+}
+
+void CamerasManager::updateOffline(VkExtent2D swapChainExtent) {
+    swapChainExtentHandle = swapChainExtent;
+    for (auto& cam: camArray) {
         cam.recreateOfflineResources(swapChainExtentHandle, renderpassHandle, colorFormat, depthFormat);
     }
 }
 
+uint32_t CamerasManager::getCamCount() {
+    return camCount;
+}
+
+uint32_t CamerasManager::getActiveIndex() {
+    return activeIndex;
+}
+
+bool CamerasManager::novelViewToggeled(){
+    return novelViewActive;
+}
+
 void CamerasManager::toggleNovel() {
     novelViewActive = novelViewActive ? false:true;
-    std::cout << "Novel view " << novelViewActive << std::endl;
+
     if (novelViewActive) {
         activeCam = &novelView;
     }
@@ -50,7 +75,17 @@ void CamerasManager::nextCam(bool ignoreNovelView) {
     activeCam = &camArray[activeIndex];
 }
 
+void CamerasManager::setActiveCam(uint32_t newIndex) {
+    if (novelViewActive)
+        return;
+
+    activeIndex = newIndex%camArray.size();
+    activeCam = &camArray[activeIndex];
+}
+
 void CamerasManager::addCam(MemoryManager& memManager) {
+    offlineImagesRendered = false;
+
     camArray.emplace_back(extentRatio, deviceHandle, memManager, swapChainExtentHandle, colorFormat, depthFormat, renderpassHandle);
     camCount++;
 }
@@ -73,7 +108,11 @@ void CamerasManager::deleteCam(MemoryManager& memManager) {
     camCount--;
 }
 
-void CamerasManager::saveOfflineImages(MemoryManager& memManager) {
+void CamerasManager::saveOfflineImages(MemoryManager& memManager, std::string& filename, SaveImageFormat depthSaveFormat) {
+    if (!offlineImagesRendered) {
+        return;
+    }
+    
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferMemory;
     VkDeviceSize imageSize = swapChainExtentHandle.width * swapChainExtentHandle.height * 4;
@@ -86,22 +125,32 @@ void CamerasManager::saveOfflineImages(MemoryManager& memManager) {
         memManager.copyImageToBuffer(camArray[i].colorImage, colorFormat, stagingBuffer, swapChainExtentHandle.width, swapChainExtentHandle.height);
         memManager.transitionImageLayout(camArray[i].colorImage, colorFormat,  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-        memManager.saveImage(stagingBufferMemory, colorFormat, "../debug/ColorImageCam" + std::to_string(i) + ".png", swapChainExtentHandle.width, swapChainExtentHandle.height);
+        memManager.saveImage(stagingBufferMemory, colorFormat, SaveImageFormat::PNG, "../debug/Color" + filename + "Cam" + std::to_string(i), swapChainExtentHandle.width, swapChainExtentHandle.height);
 
         memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         memManager.copyImageToBuffer(camArray[i].depthImage, depthFormat, stagingBuffer, swapChainExtentHandle.width, swapChainExtentHandle.height);
         memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-        memManager.saveImage(stagingBufferMemory, depthFormat, "../debug/DepthImageCam" + std::to_string(i) + ".hdr", swapChainExtentHandle.width, swapChainExtentHandle.height, nearFar.x, nearFar.y);
+        memManager.saveImage(stagingBufferMemory, depthFormat, depthSaveFormat, "../debug/Depth" + filename + "Cam" + std::to_string(i), swapChainExtentHandle.width, swapChainExtentHandle.height, nearFar.x, nearFar.y);
     }
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 }
 
-uint32_t CamerasManager::getCamCount() {
-    return camCount;
-}
-
-uint32_t CamerasManager::getActiveIndex() {
-    return activeIndex;
+void CamerasManager::toggleSampled(MemoryManager& memManager) {
+    sampleLayout = sampleLayout ? false : true; // change layout to use the image as a texture to be sampled
+    if (sampleLayout) {
+        for (uint32_t i= 0; i < camArray.size(); i++) {
+            memManager.transitionImageLayout(camArray[i].colorImage, colorFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            
+            memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+    }
+    else {
+        for (uint32_t i= 0; i < camArray.size(); i++) {
+            memManager.transitionImageLayout(camArray[i].colorImage, colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            
+            memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        }
+    }
 }

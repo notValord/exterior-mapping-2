@@ -1,28 +1,36 @@
-#include "textures.hpp"
-#include "util.hpp"
-#include "memManager.hpp"
+#include <textures.hpp>
+#include <util.hpp>
+#include <memManager.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-Textures::Textures(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
-    : deviceHandle(device), memManager(memManager), properties(prop) {
-    createTextureImage(textureFile);
-    createTextureImageView();
-    createTextureSampler();
+TexturesManager::TexturesManager(const std::string& textureFile, const std::string& cubeTextureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
+    : properties(prop), modelTexture(textureFile, device, memManager, prop), cubeTexture(cubeTextureFile, device, memManager, prop, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
+    offlineSampler(device, prop) {
+    ;
 }
 
-Textures::~Textures() {
-    vkDestroySampler(deviceHandle, textureSampler, nullptr);
+TexturesManager::~TexturesManager() {
+    ;
+}
+
+Texture::Texture(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode)
+    : Sampler(device, prop, addressMode),  deviceHandle(device), memManager(memManager) {
+    createTextureImage(textureFile);
+    createTextureImageView();
+}
+
+Texture::~Texture() {
     vkDestroyImageView(deviceHandle, textureImageView, nullptr);
     memManager.destroyImage(textureImage, textureImageMemory);
 }
 
-TextureSamplerView Textures::getSamplerView() {
+TextureSamplerView Texture::getSamplerView() {
     return TextureSamplerView{textureSampler, textureImageView};
 }
 
-void Textures::createTextureImage(const std::string& texturePath) {
+void Texture::createTextureImage(const std::string& texturePath) {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     // using STBI_rgb_aplha forces the image to be loaded rgba for the consistency even though the format does not have to have one
@@ -49,19 +57,28 @@ void Textures::createTextureImage(const std::string& texturePath) {
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 }
 
-void Textures::createTextureImageView() {
+void Texture::createTextureImageView() {
     textureImageView = createImageView(textureImage, textureFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
 }
 
-void Textures::createTextureSampler() {
+Sampler::Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode)
+    : deviceHandle(device) {
+    createTextureSampler(prop, addressMode);
+}
+
+Sampler::~Sampler() {
+    vkDestroySampler(deviceHandle, textureSampler, nullptr);
+}
+
+void Sampler::createTextureSampler(const VkPhysicalDeviceProperties& properties, VkSamplerAddressMode addressMode) {
     VkSamplerCreateInfo samplerCI{
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
         .minFilter = VK_FILTER_LINEAR,
         .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
-        .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
-        .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+        .addressModeU = addressMode,
+        .addressModeV = addressMode,
+        .addressModeW = addressMode,
         .mipLodBias = 0.0f,
         .anisotropyEnable = VK_TRUE,
         .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
@@ -76,4 +93,8 @@ void Textures::createTextureSampler() {
     if (vkCreateSampler(deviceHandle, &samplerCI, nullptr, &textureSampler) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create a sampler!");
     }
+}
+
+VkSampler Sampler::getSampler() {
+    return textureSampler;
 }

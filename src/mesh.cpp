@@ -1,9 +1,9 @@
-#include "mesh.hpp"
-#include "vertex.hpp"
-#include "memManager.hpp"
+#include <mesh.hpp>
+#include <vertex.hpp>
+#include <memManager.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader.h"
+#include <tiny_obj_loader.h>
 
 Mesh::Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager)
     : deviceHandle(device), memManager(memManager) {

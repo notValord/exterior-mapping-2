@@ -1,4 +1,4 @@
-#include "syncManager.hpp"
+#include <syncManager.hpp>
 
 SyncManager::SyncManager(const VkDevice device)
     : deviceHandle(device) {

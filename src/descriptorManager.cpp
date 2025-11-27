@@ -1,11 +1,11 @@
-#include "descriptorManager.hpp"
-#include "uniforms.hpp"
-#include "textures.hpp"
+#include <descriptorManager.hpp>
+#include <uniforms.hpp>
+#include <textures.hpp>
 
-static const uint32_t SHADER_COUNT = 3;
+static const uint32_t SETS_COUNT = 6;   // render, compute, frustum+line, cam cube, 2xoffline
 
 DescriptorManager::DescriptorManager(const VkDevice device)
-    : renderDescriptors(device), computeDescriptors(device), deviceHandle(device), frustumDescriptors(device){
+    : renderDescriptors(device), computeDescriptors(device), deviceHandle(device), frustumDescriptors(device), camCubeDestriptors(device), offlineDescriptors(device){
 
 }
 
@@ -14,31 +14,36 @@ DescriptorManager::~DescriptorManager() {
 }
 
 void DescriptorManager::createDescriptorPoolSet(const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView, const std::vector<VkBuffer>& novelUniformBuffers,
-     const VkBuffer camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut) {
+     const VkBuffer camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, const TextureSamplerView& cubeSamplerView) {
     createDescriptorPool();
     renderDescriptors.createDescriptorSets(descriptorPool, uniformBuffers, textureSamplerView);
+
+    // Debug utils
     frustumDescriptors.createDescriptorSets(descriptorPool, uniformBuffers);
+    camCubeDestriptors.createDescriptorSets(descriptorPool, cubeSamplerView);
+    offlineDescriptors.createDescriptorSets(descriptorPool);
+
     computeDescriptors.createDescriptorSets(descriptorPool, novelUniformBuffers, camArraySSBOIn, intersectionsSSBOOut, vertexCountSSBOOut);
 }
 
 void DescriptorManager::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0] = {
-        .type  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .type  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // render ubo, compute ubo, line + frustum ubo, 
         .descriptorCount = 3*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
     poolSizes[1] = {
-        .type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+        .type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, // model texture, cam cube, 2xoffline image
+        .descriptorCount = 4*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
     poolSizes[2] = {
-        .type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, // 3x compute ssbo
         .descriptorCount = 3*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
 
     VkDescriptorPoolCreateInfo descriptorPoolCI{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-        .maxSets = SHADER_COUNT*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+        .maxSets = SETS_COUNT*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
         .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
         .pPoolSizes = poolSizes.data(),
     };
@@ -113,6 +118,148 @@ void FrustumDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool, c
 
         vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
     }
+}
+
+CamCubeDescriptors::CamCubeDescriptors(const VkDevice device) : deviceHandle(device) {
+    createDescriptiorSetLayout();
+}
+
+CamCubeDescriptors::~CamCubeDescriptors() {
+    vkDestroyDescriptorSetLayout(deviceHandle, descriptorSetLayout, nullptr);
+}
+
+void CamCubeDescriptors::createDescriptiorSetLayout() {
+    VkDescriptorSetLayoutBinding samplerDescriptorSLB{
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo descriptorSLCI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &samplerDescriptorSLB,
+    };
+
+    if (vkCreateDescriptorSetLayout(deviceHandle, &descriptorSLCI, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Faield to create descriptor set layout!");
+    }
+}
+
+void CamCubeDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool, const TextureSamplerView& textureSamplerView) {
+    VkDescriptorSetLayout layoutSets[] = {descriptorSetLayout, descriptorSetLayout};
+
+    VkDescriptorSetAllocateInfo descriptorSetAI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+        .pSetLayouts = layoutSets,
+    };
+
+    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(deviceHandle, &descriptorSetAI, descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorImageInfo descriptorImageI{
+            .sampler = textureSamplerView.textureSampler,
+            .imageView = textureSamplerView.textureImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+
+        VkWriteDescriptorSet descriptorWrites {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = &descriptorImageI,
+            .pBufferInfo = nullptr,
+            .pTexelBufferView = nullptr,
+        };
+
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+    }
+}
+
+OfflineDescriptors::OfflineDescriptors(const VkDevice device) : deviceHandle(device) {
+    createDescriptiorSetLayout();
+}
+
+OfflineDescriptors::~OfflineDescriptors() {
+    vkDestroyDescriptorSetLayout(deviceHandle, samplerDescriptorSetLayout, nullptr);
+}
+
+void OfflineDescriptors::createDescriptiorSetLayout() {
+    VkDescriptorSetLayoutBinding samplerDescriptorSLB{
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutCreateInfo samplerDescriptorSLCI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .bindingCount = 1,
+        .pBindings = &samplerDescriptorSLB,
+    };
+
+    if (vkCreateDescriptorSetLayout(deviceHandle, &samplerDescriptorSLCI, nullptr, &samplerDescriptorSetLayout) != VK_SUCCESS) {
+        throw std::runtime_error("Faield to create descriptor set layout!");
+    }
+}
+
+void OfflineDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool) {
+    std::array<VkDescriptorSetLayout, 2> layoutSets = {samplerDescriptorSetLayout, samplerDescriptorSetLayout};
+
+    VkDescriptorSetAllocateInfo samplerDescriptorSetAI{
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(layoutSets.size()),
+        .pSetLayouts = layoutSets.data(),
+    };
+
+    samplerDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < 2; i++) {
+        if (vkAllocateDescriptorSets(deviceHandle, &samplerDescriptorSetAI, samplerDescriptorSets[i].data()) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate descriptor sets!");
+        }
+    }
+}
+
+void OfflineDescriptors::updateDescriptorSets(const TextureSamplerView& textureSamplerView) {
+    inUse = (inUse+1) % 2;
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorImageInfo descriptorImageI{
+        .sampler = textureSamplerView.textureSampler,
+        .imageView = textureSamplerView.textureImageView,
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+    };
+
+    VkWriteDescriptorSet descriptorWrites{
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = samplerDescriptorSets[i][inUse],
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &descriptorImageI,
+        .pBufferInfo = nullptr,
+        .pTexelBufferView = nullptr,
+    };
+
+    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+    }
+}
+
+uint32_t OfflineDescriptors::getIndexInUse() {
+    return inUse;
 }
 
 RenderDescriptors::RenderDescriptors(const VkDevice device) : deviceHandle(device) {

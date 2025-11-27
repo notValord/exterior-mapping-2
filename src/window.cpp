@@ -1,4 +1,4 @@
-#include "window.hpp"
+#include <window.hpp>
 
 void Window::frambufferResizeCallback(GLFWwindow* window, int width, int height) {
     Window* currentWindow = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
@@ -11,7 +11,6 @@ Window::Window(unsigned int width, unsigned int height)
         throw std::runtime_error("GLFW init failed!");
     }
 
-    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);       // Do not create an OpenGL context
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);       // Disable resize for now
 

@@ -1,9 +1,15 @@
-#include "camera.hpp"
+#include <camera.hpp>
 
-#include "memManager.hpp"
-#include "util.hpp"
-#include "swapchain.hpp"
-#include "uniforms.hpp"
+#include <memManager.hpp>
+#include <util.hpp>
+#include <swapchain.hpp>
+#include <uniforms.hpp>
+
+float wrapYaw(float yaw) {
+    yaw = fmod(yaw + 180.0f, 360.0f);
+    if (yaw < 0) yaw += 360.0f;
+    return yaw - 180.0f;
+}
 
 Camera::Camera(float extentRatio)
     : aspectRatio(extentRatio) {
@@ -33,14 +39,7 @@ void Camera::updateRatio(float newRatio){
     aspectRatio = newRatio;
 }
 
-void Camera::updateYawPitch(float yaw_delta, float pitch_delta) {
-    yaw   += yaw_delta;
-    pitch += pitch_delta;
-
-    // Clamp pitch
-    if (pitch > 89.0f) pitch = 89.0f;
-    if (pitch < -89.0f) pitch = -89.0f;
-
+void Camera::recalculateVectors() {
     glm::vec3 new_front;
     new_front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
     new_front.y = -sin(glm::radians(pitch));
@@ -51,6 +50,17 @@ void Camera::updateYawPitch(float yaw_delta, float pitch_delta) {
     // Recalculate right and up to keep an orthogonal basis
     glm::vec3 right = glm::normalize(glm::cross(front, worldUp));
     up = glm::normalize(glm::cross(right, front));
+}
+
+void Camera::updateYawPitch(float yaw_delta, float pitch_delta) {
+    yaw    = wrapYaw(yaw+yaw_delta);
+    pitch += pitch_delta;
+
+    // Clamp pitch
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+
+    recalculateVectors();
 }
 
 void Camera::moveForward(float deltaTime) {
@@ -77,16 +87,35 @@ void Camera::moveDown(float deltaTime) {
     pos -= up * speed * deltaTime;
 }
 
-// change to exponential
+// change to exponential?
 void Camera::speedUp(float deltaTime) {
     speed = glm::min(speed + speedStep * deltaTime, CAM_MAX_SPEED);
-    std::cout << "Curretn speed: " << speed << " " << deltaTime << std::endl;
 }
 
 void Camera::speedDown(float deltaTime) {
     speed = glm::max(speed - speedStep * deltaTime, CAM_MIN_SPEED);
-    std::cout << "Curretn speed: " << speed << std::endl;
 }
+
+glm::vec3& Camera::getPositionRef() {
+    return pos;
+}
+
+float& Camera::getYawRef() {
+    return yaw;
+}
+
+float& Camera::getPitchRef() {
+    return pitch;
+}
+
+float& Camera::getSpeedRef() {
+    return speed;
+}
+
+float& Camera::getSpeedStepRef() {
+    return speedStep;
+}
+
 
 OfflineCamera::OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass)
     : Camera(extentRatio), deviceHandle(device), memManager(memMan) {
@@ -98,10 +127,10 @@ OfflineCamera::~OfflineCamera() {
 }
 
 void OfflineCamera::createOfflineResources(const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent) {
-    memManager.createImage(swapChainExtent.width, swapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, colorImage,
-        VMA_MEMORY_USAGE_GPU_ONLY, colorImageMemory);
-    memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, depthImage,
-        VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
+    memManager.createImage(swapChainExtent.width, swapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+         colorImage, VMA_MEMORY_USAGE_GPU_ONLY, colorImageMemory);
+    memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+         depthImage, VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
 
     colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
     depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle);
@@ -180,11 +209,23 @@ CamArrayData OfflineCamera::getCamData() {
     // // Far
     // camData.frustumPlanes[5] = glm::vec4(0.0f, 0.0f, 1.0f, 3.0f);
 
-    // // Normalize planes
+    // Normalize planes
     for (uint32_t p = 0; p < 6; ++p) {
         glm::vec3 n = glm::vec3(camData.frustumPlanes[p]);
         float len = glm::length(n);
         camData.frustumPlanes[p] /= len;
     }
     return camData;
+}
+
+VkImageView OfflineCamera::getImageView(ImageViewType type) {
+    if (type == ImageViewType::COLOR) {
+        return colorImageView;
+    }
+    else if (type == ImageViewType::DEPTH) {
+        return depthImageView;
+    }
+    else {
+        throw std::runtime_error("Incorrect ImageViewType");
+    }
 }

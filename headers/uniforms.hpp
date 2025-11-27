@@ -15,7 +15,7 @@
 #include <vector>
 #include <chrono>
 
-extern const int MAX_FRAMES_IN_FLIGHT;
+extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 class MemoryManager;
 class Camera;
