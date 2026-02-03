@@ -11,12 +11,14 @@
 // system include
 #include <iostream>
 #include <array>
+#include <vector>
 
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
 
 class MemoryManager;
 struct CamArrayData;
+struct AttachementsFormats;
 
 enum class ImageViewType{
     COLOR,
@@ -76,14 +78,32 @@ private:
 
 };
 
-struct AttachementsFormats;
+class NovelCamera : public Camera {
+public:
+    std::vector<VkImage> novelImage;
+
+    NovelCamera(float extentRatio, VkDevice device, MemoryManager& memMan);
+    ~NovelCamera();
+
+    void createNovelImage(VkExtent2D novelExtent, const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
+    VkImageView getImageView(uint32_t currentIndex);
+private:
+    std::vector<VmaAllocation> novelImageMemory;
+    std::vector<VkImageView> novelImageView;
+
+    // Vulkan Handles
+    VkDevice deviceHandle;
+    MemoryManager& memManager;
+
+    void cleanupResources();
+};
 
 class OfflineCamera : public Camera {
 public:
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
-    VkImage colorImage;
-    VkImage depthImage;
+    VkImage colorImage = VK_NULL_HANDLE;
+    VkImage depthImage = VK_NULL_HANDLE;
 
     OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass);
     ~OfflineCamera();

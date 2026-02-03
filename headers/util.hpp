@@ -7,7 +7,7 @@
 
 struct SwapChainSupportDetails;
 
-VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice deviceHandle);
+VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice deviceHandle, uint32_t layerCnt = 1);
 
 VkCommandBuffer beginSingleTimeCommands(const VkDevice deviceHandle, const VkCommandPool commandPoolHandle);
 void endSingleTimeCommands(VkCommandBuffer commandBuffer, const VkQueue queueHandle, const VkDevice deviceHandle, const VkCommandPool commandPoolHandle);

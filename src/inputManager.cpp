@@ -5,6 +5,7 @@
 static bool showUIFlag = true;
 static bool nextCamTrigger = false;
 static bool novelViewTrigger = false;
+static bool observerTrigger = false;
 
 void FPSCounter::frame() {
     frameCount++;
@@ -42,6 +43,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     if (action == GLFW_PRESS && key == GLFW_KEY_M) {
         novelViewTrigger = true;
+    }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_B) {
+        observerTrigger = true;
     }
 }
 
@@ -123,6 +128,10 @@ void InputManager::processInput() {
         camManagerHandle.toggleNovel();
         changeOfflineImage = presentOfflineFlag && true;
         novelViewTrigger = false;
+    }
+    if (observerTrigger) {
+        camManagerHandle.toggleObserver();
+        observerTrigger = false;
     }
 }
 

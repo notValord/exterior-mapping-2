@@ -32,8 +32,16 @@ MemoryManager::~MemoryManager(){
     vmaDestroyAllocator(allocator);
 }
 
+VkCommandBuffer MemoryManager::beginSingleCommand() {
+    return beginSingleTimeCommands(deviceHandle, transferPoolHandle);
+}
+
+void MemoryManager::submitSingleCommand(VkCommandBuffer& commandBuffer) {
+    endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
+}
+
 void MemoryManager::createImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImage& image,
-    VmaMemoryUsage vmaUsage, VmaAllocation& allocation) {
+    VmaMemoryUsage vmaUsage, VmaAllocation& allocation, uint32_t layers) {
     VkImageCreateInfo imageCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .flags = 0,
@@ -41,7 +49,7 @@ void MemoryManager::createImage(int width, int height, VkFormat format, VkImageT
         .format = format,
         .extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},       // width, height, depth
         .mipLevels = 1,
-        .arrayLayers = 1,
+        .arrayLayers = layers,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = tiling,
         .usage = usage,
@@ -60,15 +68,18 @@ void MemoryManager::destroyImage(VkImage& image, VmaAllocation& allocation) {
     vmaDestroyImage(allocator, image, allocation);
 }
 
-void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands(deviceHandle, transferPoolHandle);
+void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCnt, VkCommandBuffer commandBuffer) {
+    bool submit = (commandBuffer == VK_NULL_HANDLE) ? true : false;
+    if (submit) {
+        commandBuffer = beginSingleTimeCommands(deviceHandle, transferPoolHandle);
+    }
 
     VkImageSubresourceRange subresource{
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .baseMipLevel = 0,
         .levelCount = 1,
         .baseArrayLayer = 0,
-        .layerCount = 1
+        .layerCount = layerCnt
     };
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
         subresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -158,6 +169,11 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
 
         case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
             destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_GENERAL:
+            imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             break;
         
         default:
@@ -263,7 +279,9 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
 
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1 , &imageMemoryBarrier);
 
-    endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
+    if (submit) {
+        endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
+    }
 }
 
 void MemoryManager::copyBufferToImage(VkBuffer& buffer, VkImage& image, uint32_t width, uint32_t height) {
@@ -347,6 +365,36 @@ void MemoryManager::copyImage(VkImage& srcImage, VkFormat srcImageFormat, VkImag
     vkCmdCopyImage(commandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy);
 
     endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
+}
+
+void MemoryManager::copyLayeredImage(VkCommandBuffer& commandBuffer, VkImage& srcImage, VkFormat srcImageFormat, VkImage& dstImage, VkFormat dstImageFormat, VkExtent3D extent, uint32_t layerId) {
+    VkImageSubresourceLayers srcImageSubresource{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .mipLevel = 0,
+        .baseArrayLayer = 0,
+        .layerCount = 1
+    };
+    if (srcImageFormat == VK_FORMAT_D16_UNORM || srcImageFormat == VK_FORMAT_D32_SFLOAT) {
+        srcImageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
+
+    VkImageSubresourceLayers dstImageSubresource{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .mipLevel = 0,
+        .baseArrayLayer = layerId,
+        .layerCount = 1
+    };
+    if (dstImageFormat == VK_FORMAT_D16_UNORM || dstImageFormat == VK_FORMAT_D32_SFLOAT) {
+        dstImageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
+    VkImageCopy imageCopy {
+        .srcSubresource = srcImageSubresource,
+        .srcOffset = {0, 0, 0},
+        .dstSubresource = dstImageSubresource,
+        .dstOffset = {0, 0, 0},
+        .extent = extent,
+    };
+    vkCmdCopyImage(commandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy);
 }
 
 VmaAllocationInfo MemoryManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkBuffer& buffer,

@@ -95,8 +95,11 @@ void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
         if (camManager.novelViewToggeled()){
             ImGui::TextColored(ImVec4(1, 0.85f, 0.0f, 1.0f), "Novel View");
         }
+        else if (camManager.observerToggeled()) {
+            ImGui::TextColored(ImVec4(0.0f, 0.85f, 1.0f, 1.0f), "Observer");
+        }
         else {
-            ImGui::TextColored(ImVec4(1, 0.85f, 0.0f, 1.0f), "Cam array %d", camManager.getActiveIndex());
+            ImGui::TextColored(ImVec4(0.2f, 0.85f, 0.0f, 1.0f), "Cam array %d", camManager.getActiveIndex());
         }
         
         ImGui::SeparatorText("Cam Orientation");
@@ -138,8 +141,29 @@ void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManag
     }
 }
 
+void ImguiProxy::uiObserver(CamerasManager& camManager) {
+    if (ImGui::CollapsingHeader("Observer")) {
+        bool observerToggle = camManager.observerToggeled();
+
+        if (ImGui::Checkbox("Observer toggeled", &observerToggle)) {
+            camManager.toggleObserver();
+        }
+
+        ImGui::SeparatorText("Cam Orientation");
+        ImGui::BeginDisabled();     // read only
+
+        ImGui::DragFloat3("position##Observer", glm::value_ptr(camManager.observer.getPositionRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
+        ImGui::DragFloat("yaw##Observer", &camManager.observer.getYawRef(), 1.0f, -180.0f, 180.0f, "%0.1f");
+        ImGui::SliderFloat("pitch##Observer", &camManager.observer.getPitchRef(), -180.0f, 180.0f);
+
+        ImGui::EndDisabled();
+    }
+}
+
 void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManager) {
-    if (ImGui::CollapsingHeader("Cam array")) {
+    int tmpIndex = camManager.getActiveIndex();    
+
+    if (ImGui::CollapsingHeader("Reference cam array")) {
         const uint32_t index_small_step = 1;
         const uint32_t index_big_step = 10;
         uint32_t activeIndex = camManager.getActiveIndex();
@@ -172,12 +196,15 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
 
         // Switch to a different cam in the array input
         ImGui::BeginDisabled(camManager.novelViewToggeled());
-        if (ImGui::InputScalar("current index", ImGuiDataType_U32, &activeIndex, &index_small_step, &index_big_step)) {
-            if (activeIndex < 0) {
-                activeIndex = 0;
-            }
-            if (activeIndex >= camManager.getCamCount()) {
+        if (ImGui::InputScalar("current index", ImGuiDataType_S32, &tmpIndex, &index_small_step, &index_big_step)) {
+            if (tmpIndex < 0) {
                 activeIndex = camManager.getCamCount() - 1;
+            }
+            else if (tmpIndex >= camManager.getCamCount()) {
+                activeIndex = tmpIndex % camManager.getCamCount();
+            }
+            else {
+                activeIndex = tmpIndex;
             }
             camManager.setActiveCam(activeIndex);
             inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
@@ -254,6 +281,20 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
     }
 }
 
+void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputManager) {
+    if (ImGui::CollapsingHeader("Novel render")) {
+        const uint32_t minSample = 1;
+        const uint32_t maxSample = 128;
+
+        if (ImGui::Checkbox("Render novel view", &inputManager->novelRender) && inputManager->novelRender) {
+            inputManager->startSynthesis = true;
+        }
+        ImGui::SliderScalar("Sample count", ImGuiDataType_U32, &camManager.sampleCount, &minSample, &maxSample);
+    }
+
+    // todo later to input images from blender
+}
+
 void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager) {
     if (ImGui::CollapsingHeader("Debug info")) {
         ImGui::Text("FPS: %.1f", fps);
@@ -261,7 +302,6 @@ void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager) {
         ImGui::Checkbox("Show Cam-cubes", &inputManager->debugCamCube);
         ImGui::Checkbox("Show frustum", &inputManager->debugFrustum);
         ImGui::Checkbox("Show intersections", &inputManager->debugIntersection);
-
     }
 }
 
@@ -271,9 +311,11 @@ void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inp
     uiActiveCam(camManager);
 
     uiNovelCam(camManager, inputManager);
+    uiObserver(camManager);
     uiCamArray(camManager, inputManager);
     
     uiOfflineRender(camManager, inputManager);
+    uiNovelRender(camManager, inputManager);
     uiDebugInfo(fps, inputManager);
     
     ImGui::End();

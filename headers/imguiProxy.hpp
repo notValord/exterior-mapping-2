@@ -57,7 +57,9 @@ private:
 
     void uiActiveCam(CamerasManager& camManager);
     void uiNovelCam(CamerasManager& camManager, InputManager* inputManager);
+    void uiObserver(CamerasManager& camManager);
     void uiCamArray(CamerasManager& camManager, InputManager* inputManager);
     void uiOfflineRender(CamerasManager& camManager, InputManager* inputManager);
+    void uiNovelRender(CamerasManager& camManager, InputManager* inputManager);
     void uiDebugInfo(float fps, InputManager* inputManager);
 };

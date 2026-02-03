@@ -2,6 +2,7 @@
 
 // user includes
 #include <camera.hpp>
+#include <textures.hpp>
 
 // system includes
 #include <vector>
@@ -13,17 +14,26 @@ public:
     Camera* activeCam;
 
     std::vector<OfflineCamera> camArray;
-    Camera novelView;
+    NovelCamera novelView;
+    Camera observer;
+
+    Sampler imageSampler;
+    Sampler depthSampler;  // needs different setup
+
+    VkImage layeredImage = VK_NULL_HANDLE;
+
+    uint32_t sampleCount = 16;
 
     bool offlineImagesRendered = false;
     bool postponeResize = false;
 
-    CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass);
+    CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass, const VkPhysicalDeviceProperties& prop);
     ~CamerasManager();
 
     void updateResize(VkExtent2D swapChainExtent);
     void updateOffline(VkExtent2D swapChainExtent);
     void toggleNovel();
+    void toggleObserver();
     void nextCam(bool ignoreNovelView = false);
     void setActiveCam(uint32_t newIndex);
 
@@ -36,10 +46,18 @@ public:
     uint32_t getCamCount();
     uint32_t getActiveIndex();
     bool novelViewToggeled();
+    bool observerToggeled();
+
+    void createLayeredImage(bool dummy = false);
+    VkImageView getImageView();
 
 private:
     bool novelViewActive = true;
+    bool observerActive = false;
     bool sampleLayout = false;
+
+    VmaAllocation layeredImageMemory;
+    VkImageView layeredImageView;
 
     VkFormat colorFormat;
     VkFormat depthFormat;
@@ -50,7 +68,10 @@ private:
 
     VkExtent2D swapChainExtentHandle;       // size of the rendered images
 
+    void destroyLayeredImage();
+
     // Vulkan Handles
     VkDevice deviceHandle;
     VkRenderPass renderpassHandle;
+    MemoryManager& memManager;
 };

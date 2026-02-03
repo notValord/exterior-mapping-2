@@ -116,6 +116,44 @@ float& Camera::getSpeedStepRef() {
     return speedStep;
 }
 
+NovelCamera::NovelCamera(float extentRatio, VkDevice device, MemoryManager& memMan)
+    : Camera(extentRatio), deviceHandle(device), memManager(memMan) {
+    novelImage.resize(MAX_FRAMES_IN_FLIGHT);        // should initialize to VK_NULL_HANDLE
+    novelImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    novelImageView.resize(MAX_FRAMES_IN_FLIGHT);
+
+    createNovelImage({1, 1});     // setup a dummy
+}
+
+NovelCamera::~NovelCamera() {
+    cleanupResources();
+}
+
+VkImageView NovelCamera::getImageView(uint32_t currentIndex) {
+    return novelImageView[currentIndex];
+}
+
+void NovelCamera::cleanupResources() {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (novelImage[i] != VK_NULL_HANDLE) {
+            vkDestroyImageView(deviceHandle, novelImageView[i], nullptr);
+            memManager.destroyImage(novelImage[i], novelImageMemory[i]);
+        }
+    }
+}
+
+void NovelCamera::createNovelImage(VkExtent2D novelExtent, const VkFormat colorFormat) {
+    cleanupResources();
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        memManager.createImage(novelExtent.width, novelExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, 
+        novelImage[i], VMA_MEMORY_USAGE_GPU_ONLY, novelImageMemory[i]);
+        memManager.transitionImageLayout(novelImage[i], colorFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+        novelImageView[i] = createImageView(novelImage[i], colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
+    }
+}
+
 
 OfflineCamera::OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass)
     : Camera(extentRatio), deviceHandle(device), memManager(memMan) {
@@ -215,6 +253,11 @@ CamArrayData OfflineCamera::getCamData() {
         float len = glm::length(n);
         camData.frustumPlanes[p] /= len;
     }
+
+    camData.viewMat = getViewMatrix();
+    camData.projMat = getProjectionMatrix();
+    camData.invViewMat = glm::inverse(camData.viewMat);
+    camData.invProjMat = glm::inverse(camData.projMat);
     return camData;
 }
 

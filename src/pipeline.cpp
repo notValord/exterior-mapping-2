@@ -527,9 +527,9 @@ VkRenderPass GraphicsPipeline::createOnTopRenderPass(const AttachementsFormats& 
     return renderPass;
 }
 
-ComputePipeline::ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const std::string& computeFile)
+ComputePipeline::ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const std::string& computeFile)
     : deviceHandle(device), computeShader(computeFile) {
-        createComputePipeline(descriptorSL);
+        createComputePipeline(descriptorSL, sharedDescriptorSL);
 }
 
 ComputePipeline::~ComputePipeline() {
@@ -537,7 +537,7 @@ ComputePipeline::~ComputePipeline() {
     vkDestroyPipelineLayout(deviceHandle, pipelineLayout, nullptr);
 }
 
-void ComputePipeline::createComputePipeline(const VkDescriptorSetLayout descriptorSL) {
+void ComputePipeline::createComputePipeline(const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL) {
     VkShaderModule compShaderModule = createShaderModule(deviceHandle, computeShader);
 
     VkPipelineShaderStageCreateInfo shaderStageCI {
@@ -547,10 +547,12 @@ void ComputePipeline::createComputePipeline(const VkDescriptorSetLayout descript
         .pName = "main",
     };
 
+    VkDescriptorSetLayout setLayouts[] = {descriptorSL, sharedDescriptorSL};
+
     VkPipelineLayoutCreateInfo pipelineLayoutCI {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 1,
-        .pSetLayouts = &descriptorSL,
+        .setLayoutCount = 2,
+        .pSetLayouts = setLayouts,
         .pushConstantRangeCount = 0,
         .pPushConstantRanges = nullptr
     };

@@ -36,6 +36,9 @@ public:
     bool debugCamCube = false;
     bool debugIntersection = false;
 
+    bool novelRender = false;
+    bool startSynthesis = false;
+
     InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
      const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent,
      MemoryManager& memMan);

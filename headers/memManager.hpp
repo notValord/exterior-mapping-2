@@ -20,8 +20,11 @@ public:
     MemoryManager(const PhysicalDeviceInstance& phyDevInst, const VkCommandPool transferPool, const VkQueue transferQueue);
     ~MemoryManager();
 
+    VkCommandBuffer beginSingleCommand();
+    void submitSingleCommand(VkCommandBuffer& commandBuffer);
+
     void createImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImage& image,
-             VmaMemoryUsage vmaUsage, VmaAllocation& allocation);
+             VmaMemoryUsage vmaUsage, VmaAllocation& allocation, uint32_t layers = 1);
     void destroyImage(VkImage& image, VmaAllocation& allocation);
 
     VmaAllocationInfo createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkBuffer& buffer,
@@ -29,12 +32,14 @@ public:
     void populateBuffer(VmaAllocation& allocation, void* data, VkDeviceSize bufferSize, bool flush);
     void destroyBuffer(VkBuffer& buffer, VmaAllocation& allocation);
 
-    void transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+    void transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t layerCnt = 1, 
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE);
     
     void copyBufferToImage(VkBuffer& buffer, VkImage& image, uint32_t width, uint32_t height);
     void copyImageToBuffer(VkImage& image, VkFormat imageFormat, VkBuffer& buffer, uint32_t width, uint32_t height);
     void copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDeviceSize size);
     void copyImage(VkImage& srcImage, VkFormat srcImageFormat, VkImage& dstImage, VkFormat dstImageFormat, VkExtent3D extent);
+    void copyLayeredImage(VkCommandBuffer& commandBuffer, VkImage& srcImage, VkFormat srcImageFormat, VkImage& dstImage, VkFormat dstImageFormat, VkExtent3D extent, uint32_t layerId);
 
     void saveImage(VmaAllocation& allocation, VkFormat imageFormat, SaveImageFormat saveFormat, std::string filename, uint32_t width, uint32_t height, float near = 0.0f, float far = 0.0f);
 private:

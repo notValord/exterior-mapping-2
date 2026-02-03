@@ -22,11 +22,11 @@ App::App()
        swapchain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, vulkanContext.device, appWindow.window, memManager),
        descripManager(vulkanContext.device),
        graphicsPipeline(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager.renderDescriptors.descriptorSetLayout),
-       computePipeline(vulkanContext.device, descripManager.computeDescriptors.descriptorSetLayout),
+       computePipeline(vulkanContext.device, descripManager.computeDescriptors.descriptorSetLayout, descripManager.computeDescriptors.sharedDescriptorSetLayout),
        syncManager(vulkanContext.device),
        textureManager(TEXTURE_PATH, CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        mesh(MODEL_PATH, vulkanContext.device, memManager),
-       camManager(vulkanContext.device, memManager, swapchain.swapChainExtent, swapchain.getAttachementsFormats(), graphicsPipeline.renderPass),
+       camManager(vulkanContext.device, memManager, swapchain.swapChainExtent, swapchain.getAttachementsFormats(), graphicsPipeline.renderPass, vulkanContext.getDeviceProperties()),
        uniforms(vulkanContext.device, memManager, swapchain.swapChainExtent, camManager.getCamCount()),
        inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
             vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager),
@@ -41,7 +41,7 @@ App::App()
 
     swapchain.createFramebuffers(graphicsPipeline.renderPass);
     descripManager.createDescriptorPoolSet(uniforms.renderUniformBuffers, textureManager.modelTexture.getSamplerView(), uniforms.novelUniformBuffers,
-        uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut, uniforms.vertexCountSSBOOut, textureManager.cubeTexture.getSamplerView());
+        uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut, uniforms.vertexCountSSBOOut, textureManager.cubeTexture.getSamplerView(), camManager);
 
     inputManager.setCallbacks();
 }
@@ -218,6 +218,12 @@ void App::recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    // if (inputManager.presentOfflineFlag) {
+    //     // set up all images ina  alyered image and select image by a ubo constant
+    // }
+    // else if (inputManager.novelRender) {
+    //     // separate sampler?
+    // }
     // no novel view
     OfflineCamera* offlineCam = dynamic_cast<OfflineCamera*>(camManager.activeCam);
     if (offlineCam == nullptr) {
@@ -281,7 +287,9 @@ void App::recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer f
 
 void App::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.computePipeline);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.pipelineLayout, 0, 1, &descripManager.computeDescriptors.descriptorSets[currentFrame], 0, nullptr);
+
+    VkDescriptorSet descriptorSets[] = {descripManager.computeDescriptors.descriptorSets[currentFrame], descripManager.computeDescriptors.sharedDescriptorSet};
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline.pipelineLayout, 0, 2, descriptorSets, 0, nullptr);
 
     // Clear buffers
     vkCmdFillBuffer(commandBuffer, uniforms.intersectionsSSBOOut[currentFrame], 0, VK_WHOLE_SIZE, 0);
@@ -304,7 +312,7 @@ void App::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
     };
 
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
-    }
+}
 
 void App::handleResize() {
     swapchain.recreateSwapChain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, graphicsPipeline.renderPass);
@@ -340,7 +348,29 @@ void App::drawFrame() {
     if (inputManager.presentOfflineFlag && camManager.offlineImagesRendered) {
         recordOfflineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
-    else {
+    else if (inputManager.novelRender) {
+        // todo switch to the novel veiw rendered
+        recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+
+        uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent);
+        if (uniforms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change
+            std::cout << "update CamArray data" << std::endl;
+            // if the ssbo was recreated, update the descriptors
+            descripManager.computeDescriptors.updateDescriptorSets(currentFrame, uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut);
+        }
+
+        if (inputManager.startSynthesis) {
+            std::cout << "Update image data" << std::endl;
+            camManager.novelView.createNovelImage(swapchain.swapChainExtent);           // get current resolution
+            camManager.createLayeredImage();
+            descripManager.computeDescriptors.updateImageDescriptors(camManager);       // do only once as the views won't be able to change
+
+            inputManager.startSynthesis = false;
+        }
+
+        recordComputeCommandBuffer(commandManager.commandBuffers[currentFrame]);
+    }
+    else {      // debug and setup
         recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
 
         if (inputManager.debugFrustum) {
@@ -353,8 +383,11 @@ void App::drawFrame() {
         }
 
         if (inputManager.debugIntersection) {
-            uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent);
-            uniforms.setCamArrayData(camManager);   // enough to do once when going the image based rendering
+            uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, 1);
+            if (uniforms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change
+                // if the ssbo was recreated, update the descriptors
+                descripManager.computeDescriptors.updateDescriptorSets(currentFrame, uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut);
+            }
 
             recordComputeCommandBuffer(commandManager.commandBuffers[currentFrame]);
             recordLineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
@@ -459,6 +492,10 @@ void App::renderOfflineImages() {
     if (camManager.novelViewToggeled()){
         camManager.toggleNovel();
         camManager.toggleNovel();
+    }
+    if (camManager.observerToggeled()){
+        camManager.toggleObserver();
+        camManager.toggleObserver();
     }
 
     camManager.offlineImagesRendered = true;

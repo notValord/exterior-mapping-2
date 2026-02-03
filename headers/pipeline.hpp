@@ -79,7 +79,7 @@ public:
     VkPipeline computePipeline;
     VkPipelineLayout pipelineLayout;
 
-    ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const std::string& computeFile = "../shaders/compute.spv");
+    ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const std::string& computeFile = "../shaders/compute.spv");
     ~ComputePipeline();
 
 private:
@@ -87,5 +87,5 @@ private:
 
     // required Vulkan handle
     VkDevice deviceHandle;
-    void createComputePipeline(const VkDescriptorSetLayout descriptorSL);
+    void createComputePipeline(const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL);
 };

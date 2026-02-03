@@ -10,6 +10,7 @@
 extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 struct TextureSamplerView;
+class CamerasManager;
 
 class FrustumDescriptors{   // shared also for intersection shader
 public:
@@ -57,6 +58,7 @@ public:
     uint32_t getIndexInUse();
 private:
     uint32_t inUse = 0;
+
     // Vulkan handles
     VkDevice deviceHandle;
 
@@ -85,11 +87,16 @@ public:
     VkDescriptorSetLayout descriptorSetLayout;
     std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
 
+    VkDescriptorSetLayout sharedDescriptorSetLayout;
+    VkDescriptorSet sharedDescriptorSet;
+
     ComputeDescriptors(const VkDevice device);
     ~ComputeDescriptors();
 
-    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& novelUniformBuffers, const VkBuffer camArraySSBOIn,
-         const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut);
+    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& novelUniformBuffers, const std::vector<VkBuffer>& camArraySSBOIn,
+         const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, CamerasManager& camManager);
+    void updateDescriptorSets(uint32_t currentFrame, const std::vector<VkBuffer>& camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut);
+    void updateImageDescriptors(CamerasManager& camManager);
 private:
     // Vulkan handles
     VkDevice deviceHandle;
@@ -110,7 +117,8 @@ public:
     ~DescriptorManager();
 
     void createDescriptorPoolSet(const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView, const std::vector<VkBuffer>& novelUniformBuffers,
-         const VkBuffer camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, const TextureSamplerView& cubeSamplerView);
+         const std::vector<VkBuffer>& camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, const TextureSamplerView& cubeSamplerView, 
+         CamerasManager& camManager);
 private:
     VkDescriptorPool descriptorPool;
 

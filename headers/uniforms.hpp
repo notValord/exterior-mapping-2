@@ -36,15 +36,19 @@ struct NovelImageObject {
     // mat4 projMat;
     glm::mat4 invProjMat;
     glm::vec2 res;
-    uint camCnt;
+    // glm::vec2 _pad0;        // renderdoc complains
+    uint32_t camCnt;
+    uint32_t sampleCount;
+    uint32_t debugIntersections;
+    // uint32_t _padd1; 
 };
 
 struct CamArrayData {
     glm::vec4 frustumPlanes[6];
-    // mat4 viewMat;
-    // mat4 invViewMat;
-    // mat4 projMat;
-    // mat4 invProjMat;
+    glm::mat4 viewMat;
+    glm::mat4 invViewMat;
+    glm::mat4 projMat;
+    glm::mat4 invProjMat;
 };
 
 class Uniforms{
@@ -52,9 +56,11 @@ public:
     // Graphics normal render
     std::vector<VkBuffer> renderUniformBuffers;
 
+    // Offline ubo render buffer
+
     // Compute intersection shader
     std::vector<VkBuffer> novelUniformBuffers;
-    VkBuffer camArraySSBOIn;
+    std::vector<VkBuffer> camArraySSBOIn;
     std::vector<VkBuffer> intersectionsSSBOOut;
     std::vector<VkBuffer> vertexCountSSBOOut;
 
@@ -62,9 +68,9 @@ public:
     ~Uniforms();
 
     void updateRenderUniformBuffers(uint32_t currentImage, const Camera& cam);
-    void updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent);
+    void updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent,  uint32_t debugFlag = 0);
 
-    void setCamArrayData(CamerasManager& camManager);
+    bool setCamArrayData(uint32_t currentImage, CamerasManager& camManager);
 
     uint32_t getVertexCount(uint32_t currentImage);
 
@@ -77,7 +83,8 @@ private:
     std::vector<VmaAllocation>novelUniformBuffersMemory;
     std::vector<void*> novelUniformBuffersMapped;
 
-    VmaAllocation camArraySSBOMemory;
+    std::vector<uint32_t> camArrayCounts;
+    std::vector<VmaAllocation> camArraySSBOMemory;
     std::vector<VmaAllocation>intersectionsSSBOMemory;
     std::vector<VmaAllocation>vertexCountSSBOMemory;
     std::vector<void*> vertexCountSSBOMapped;        // pointer to the mapped memory
@@ -86,6 +93,12 @@ private:
     VkDevice deviceHandle;
     MemoryManager& memManager;
 
+    VkExtent2D maxScreenRes;
+    bool resGrew = false;
+
     void createRenderUniformBuffers();
-    void createComputeBuffer(const uint32_t camCount, const VkExtent2D& extentSize);
+    void createComputeBuffer(const uint32_t camCount);
+
+    bool recreateCamArraySSBO(const uint32_t newCount, const uint32_t currentFrame);
+    void recreateIntersectionsSSBO(const uint32_t currentFrame);
 };
