@@ -28,5 +28,5 @@ void main() {
     y_flip[1][1] *= -1;
     
     gl_Position = y_flip * vec4(positions[idx], 0.0, 1.0);
-    texCoords = uvs[idx];
+    texCoords = vec2(uvs[idx].x, 1.0f-uvs[idx].y);      // and flip the Y coord to corresctly sample the images
 }

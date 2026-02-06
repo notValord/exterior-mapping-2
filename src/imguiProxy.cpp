@@ -5,6 +5,7 @@
 #include <camManager.hpp>
 #include <inputManager.hpp>
 #include <memManager.hpp>
+#include <uniforms.hpp>
 
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
@@ -127,7 +128,6 @@ void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManag
 
         if (ImGui::Checkbox("Novel View toggeled", &novelToggle)) {
             camManager.toggleNovel();
-            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
         }
 
         ImGui::SeparatorText("Cam Orientation");
@@ -207,7 +207,6 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
                 activeIndex = tmpIndex;
             }
             camManager.setActiveCam(activeIndex);
-            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
         }
 
         ImGui::EndDisabled();
@@ -262,18 +261,15 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         ImGui::SeparatorText("Viewing snapshots");
         if (ImGui::RadioButton("color image", &presentFormat, 0)) {
             inputManager->presentType = ImageViewType::COLOR;
-            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("depth image", &presentFormat, 1)) {
             inputManager->presentType = ImageViewType::DEPTH;
-            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
         }
 
         // todo novel view special case
-        if (ImGui::Checkbox("Present shapshots", &inputManager->presentOfflineFlag)) {
-            inputManager->changeOfflineImage = inputManager->presentOfflineFlag && true;   // update the descriptor set
-            camManager.toggleSampled(memManager);
+        if (ImGui::Checkbox("Present shapshots", &inputManager->presentOfflineFlag) && inputManager->presentOfflineFlag) {
+            inputManager->setupOfflineImage = true;   // update the descriptor set
         }
         
         ImGui::EndDisabled();
@@ -282,14 +278,30 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
 }
 
 void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputManager) {
+    static int novelDebug = 0;
+
     if (ImGui::CollapsingHeader("Novel render")) {
         const uint32_t minSample = 1;
         const uint32_t maxSample = 128;
 
+        ImGui::BeginDisabled(!camManager.offlineImagesRendered);
         if (ImGui::Checkbox("Render novel view", &inputManager->novelRender) && inputManager->novelRender) {
             inputManager->startSynthesis = true;
         }
+        ImGui::EndDisabled();
         ImGui::SliderScalar("Sample count", ImGuiDataType_U32, &camManager.sampleCount, &minSample, &maxSample);
+
+        if (ImGui::RadioButton("No debug", &novelDebug, 0)) {
+        inputManager->novelDebug = DebugCompute::NO_DEBUG;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Cam count", &novelDebug, 2)) {
+            inputManager->novelDebug = DebugCompute::CAM_COUNT;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Cam ID", &novelDebug, 3)) {
+            inputManager->novelDebug = DebugCompute::CAM_ID;
+        }
     }
 
     // todo later to input images from blender

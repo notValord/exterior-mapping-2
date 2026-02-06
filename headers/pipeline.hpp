@@ -57,7 +57,7 @@ public:
     void setupCamCubePipeline(const VkDescriptorSetLayout descriptorSL, const AttachementsFormats& imageFormats,
          const std::string& vertexFile = "../shaders/camCubeVert.spv", const std::string& fragFile = "../shaders/camCubeFrag.spv");
 
-    void setupOfflinePipeline(const VkDescriptorSetLayout descriptorSL,
+    void setupOfflinePipeline(const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL,
          const std::string& vertexFile = "../shaders/offlineVert.spv", const std::string& fragFile = "../shaders/offlineFrag.spv");
 private:
     std::string vertexShader;

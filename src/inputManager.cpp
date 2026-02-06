@@ -121,12 +121,10 @@ void InputManager::processInput() {
 
     if (nextCamTrigger) {
         camManagerHandle.nextCam();
-        changeOfflineImage = presentOfflineFlag && true;
         nextCamTrigger = false;
     }
     if (novelViewTrigger) {
         camManagerHandle.toggleNovel();
-        changeOfflineImage = presentOfflineFlag && true;
         novelViewTrigger = false;
     }
     if (observerTrigger) {

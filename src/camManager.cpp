@@ -11,6 +11,7 @@ CamerasManager::CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2
       deviceHandle(device), renderpassHandle(renderpass), swapChainExtentHandle(swapChainExtent), colorFormat(formats.colorImageFormat), depthFormat(formats.depthFormat),
       camCount(START_CAM_COUNT), imageSampler(device, prop), depthSampler(device, prop), memManager(memMan) {
 
+    std::cout << "cam manager crating";
     camArray.reserve(MAX_CAM_COUNT);
     for (int i = 0; i < camCount; i++) {
         camArray.emplace_back(extentRatio, deviceHandle, memMan, swapChainExtentHandle, colorFormat, depthFormat, renderpassHandle);
@@ -18,6 +19,7 @@ CamerasManager::CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2
 
     activeCam = &novelView;
     createLayeredImage(true);
+    std::cout << "cam manager created" << std::endl;
 }
 
 CamerasManager::~CamerasManager() {
@@ -159,24 +161,6 @@ void CamerasManager::saveOfflineImages(MemoryManager& memManager, std::string& f
     }
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
-}
-
-void CamerasManager::toggleSampled(MemoryManager& memManager) {
-    sampleLayout = sampleLayout ? false : true; // change layout to use the image as a texture to be sampled
-    if (sampleLayout) {
-        for (uint32_t i= 0; i < camArray.size(); i++) {
-            memManager.transitionImageLayout(camArray[i].colorImage, colorFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            
-            memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        }
-    }
-    else {
-        for (uint32_t i= 0; i < camArray.size(); i++) {
-            memManager.transitionImageLayout(camArray[i].colorImage, colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            
-            memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        }
-    }
 }
 
 void CamerasManager::createLayeredImage(bool dummy) {

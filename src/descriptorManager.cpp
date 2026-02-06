@@ -3,7 +3,7 @@
 #include <textures.hpp>
 #include <camManager.hpp>
 
-static const uint32_t SETS_COUNT = 7;   // render, 2xcompute, frustum+line, cam cube, 2xoffline
+static const uint32_t SETS_COUNT = 7;   // render, compute + shared, frustum+line, cam cube, offline
 
 DescriptorManager::DescriptorManager(const VkDevice device)
     : renderDescriptors(device), computeDescriptors(device), deviceHandle(device), frustumDescriptors(device), camCubeDestriptors(device), offlineDescriptors(device){
@@ -16,14 +16,14 @@ DescriptorManager::~DescriptorManager() {
 
 void DescriptorManager::createDescriptorPoolSet(const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView, const std::vector<VkBuffer>& novelUniformBuffers,
     const std::vector<VkBuffer>& camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, const TextureSamplerView& cubeSamplerView, 
-    CamerasManager& camManager) {
+    CamerasManager& camManager, const std::vector<VkBuffer>& offlineRenderBuffers) {
     createDescriptorPool();
     renderDescriptors.createDescriptorSets(descriptorPool, uniformBuffers, textureSamplerView);
 
     // Debug utils
     frustumDescriptors.createDescriptorSets(descriptorPool, uniformBuffers);
     camCubeDestriptors.createDescriptorSets(descriptorPool, cubeSamplerView);
-    offlineDescriptors.createDescriptorSets(descriptorPool);
+    offlineDescriptors.createDescriptorSets(descriptorPool, offlineRenderBuffers, camManager);
 
     computeDescriptors.createDescriptorSets(descriptorPool, novelUniformBuffers, camArraySSBOIn, intersectionsSSBOOut, vertexCountSSBOOut, camManager);
 }
@@ -31,12 +31,12 @@ void DescriptorManager::createDescriptorPoolSet(const std::vector<VkBuffer>& uni
 void DescriptorManager::createDescriptorPool() {
     std::array<VkDescriptorPoolSize, 4> poolSizes{};
     poolSizes[0] = {
-        .type  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // render ubo, compute ubo, line + frustum ubo, 
-        .descriptorCount = 3*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+        .type  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // render ubo, compute ubo, line + frustum ubo, offline ubo
+        .descriptorCount = 4*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
     poolSizes[1] = {
-        .type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, // model texture, cam cube, 2xoffline image, novel view
-        .descriptorCount = 4*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) + 1
+        .type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, // model texture, cam cube, offline image, novel view
+        .descriptorCount = 3*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) + 1
     };
     poolSizes[2] = {
         .type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, // 3x compute ssbo
@@ -194,35 +194,47 @@ void CamCubeDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool, c
 
 OfflineDescriptors::OfflineDescriptors(const VkDevice device) : deviceHandle(device) {
     createDescriptiorSetLayout();
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        toUpdate.push_back(false);
+    }
 }
 
 OfflineDescriptors::~OfflineDescriptors() {
-    vkDestroyDescriptorSetLayout(deviceHandle, samplerDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(deviceHandle, descriptorSetLayout, nullptr);
 }
 
 void OfflineDescriptors::createDescriptiorSetLayout() {
-    //add another sampler and a UBO -> need a buffer for a ubo
-    VkDescriptorSetLayoutBinding samplerDescriptorSLB{
+    VkDescriptorSetLayoutBinding uboDescriptorSLB{
         .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        .pImmutableSamplers = nullptr
+    };
+
+    VkDescriptorSetLayoutBinding samplerDescriptorSLB{
+        .binding = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .descriptorCount = 1,
         .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
         .pImmutableSamplers = nullptr
     };
 
+    std::array<VkDescriptorSetLayoutBinding, 2> descriptorSetLB = {uboDescriptorSLB, samplerDescriptorSLB};
     VkDescriptorSetLayoutCreateInfo samplerDescriptorSLCI{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 1,
-        .pBindings = &samplerDescriptorSLB,
+        .bindingCount = descriptorSetLB.size(),
+        .pBindings = descriptorSetLB.data(),
     };
 
-    if (vkCreateDescriptorSetLayout(deviceHandle, &samplerDescriptorSLCI, nullptr, &samplerDescriptorSetLayout) != VK_SUCCESS) {
+    if (vkCreateDescriptorSetLayout(deviceHandle, &samplerDescriptorSLCI, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
         throw std::runtime_error("Faield to create descriptor set layout!");
     }
 }
 
-void OfflineDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool) {
-    std::array<VkDescriptorSetLayout, 2> layoutSets = {samplerDescriptorSetLayout, samplerDescriptorSetLayout};
+void OfflineDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& offlineRenderBuffers, CamerasManager& camManager) {
+    std::array<VkDescriptorSetLayout, 2> layoutSets = {descriptorSetLayout, descriptorSetLayout};
 
     VkDescriptorSetAllocateInfo samplerDescriptorSetAI{
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -231,28 +243,68 @@ void OfflineDescriptors::createDescriptorSets(VkDescriptorPool descriptorPool) {
         .pSetLayouts = layoutSets.data(),
     };
 
-    samplerDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(deviceHandle, &samplerDescriptorSetAI, descriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate descriptor sets!");
+    }
+
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        if (vkAllocateDescriptorSets(deviceHandle, &samplerDescriptorSetAI, samplerDescriptorSets[i].data()) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to allocate descriptor sets!");
-        }
+        VkDescriptorBufferInfo descriptorBufferI {
+            .buffer = offlineRenderBuffers[i],
+            .offset = 0,
+            .range = sizeof(OfflineRenderBuffer),
+        };
+
+        // bind to dummy at the start
+        VkDescriptorImageInfo descriptorImageI {
+            .sampler = camManager.imageSampler.getSampler(),
+            .imageView = camManager.novelView.getImageView(i),
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+        descriptorWrites[0] = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pImageInfo = nullptr,
+            .pBufferInfo = &descriptorBufferI,
+            .pTexelBufferView = nullptr,
+        };
+        descriptorWrites[1] = {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = descriptorSets[i],
+            .dstBinding = 1,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = &descriptorImageI,
+            .pBufferInfo = nullptr,
+            .pTexelBufferView = nullptr,
+        };
+
+        vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 }
 
-void OfflineDescriptors::updateDescriptorSets(const TextureSamplerView& textureSamplerView) {
-    inUse = (inUse+1) % 2;
+void OfflineDescriptors::updateDescriptorSets(CamerasManager& camManager, uint32_t currentFrame) {
+    if (toUpdate[currentFrame] == false) {
+        return;
+    }
 
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorImageInfo descriptorImageI{
-        .sampler = textureSamplerView.textureSampler,
-        .imageView = textureSamplerView.textureImageView,
+    VkDescriptorImageInfo descriptorImageI {
+        .sampler = camManager.imageSampler.getSampler(),        // the same sampler as for the samplerArray
+        .imageView = camManager.novelView.getImageView(currentFrame),
         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
     };
 
     VkWriteDescriptorSet descriptorWrites{
         .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = samplerDescriptorSets[i][inUse],
-        .dstBinding = 0,
+        .dstSet = descriptorSets[currentFrame],
+        .dstBinding = 1,
         .dstArrayElement = 0,
         .descriptorCount = 1,
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -262,11 +314,13 @@ void OfflineDescriptors::updateDescriptorSets(const TextureSamplerView& textureS
     };
 
     vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
-    }
+    toUpdate[currentFrame] = false;
 }
 
-uint32_t OfflineDescriptors::getIndexInUse() {
-    return inUse;
+void OfflineDescriptors::setUpdateFlags() {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        toUpdate[i] = true;
+    }
 }
 
 RenderDescriptors::RenderDescriptors(const VkDevice device) : deviceHandle(device) {
@@ -404,7 +458,7 @@ void ComputeDescriptors::createDescriptiorSetLayout() {
         .binding = 0,
         .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         .descriptorCount = 1,
-        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+        .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
         .pImmutableSamplers = nullptr,
     };
 
@@ -602,6 +656,28 @@ void ComputeDescriptors::updateDescriptorSets(uint32_t currentFrame, const std::
     vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }
 
+void ComputeDescriptors::updateSharedImageDescriptor(CamerasManager& camManager) {
+    VkDescriptorImageInfo descriptorImageSamplerI = {
+        .sampler = camManager.imageSampler.getSampler(),
+        .imageView = camManager.getImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+
+    VkWriteDescriptorSet descriptorWritesShared = {
+        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+        .dstSet = sharedDescriptorSet,
+        .dstBinding = 0,
+        .dstArrayElement = 0,
+        .descriptorCount = 1,
+        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        .pImageInfo = &descriptorImageSamplerI,
+        .pBufferInfo = nullptr,
+        .pTexelBufferView = nullptr,
+    };
+
+    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWritesShared, 0, nullptr);
+}
+
 void ComputeDescriptors::updateImageDescriptors(CamerasManager& camManager) {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorImageInfo descriptorImageStorageI{
@@ -625,22 +701,5 @@ void ComputeDescriptors::updateImageDescriptors(CamerasManager& camManager) {
         vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrite, 0, nullptr);
     }
 
-    VkDescriptorImageInfo descriptorImageSamplerI = {
-        .sampler = camManager.imageSampler.getSampler(),
-        .imageView = camManager.getImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-
-    VkWriteDescriptorSet descriptorWritesShared = {
-        .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-        .dstSet = sharedDescriptorSet,
-        .dstBinding = 0,
-        .dstArrayElement = 0,
-        .descriptorCount = 1,
-        .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        .pImageInfo = &descriptorImageSamplerI,
-        .pBufferInfo = nullptr,
-        .pTexelBufferView = nullptr,
-    };
-    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWritesShared, 0, nullptr);
+    updateSharedImageDescriptor(camManager);
 }

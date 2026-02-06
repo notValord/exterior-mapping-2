@@ -37,11 +37,11 @@ App::App()
     graphicsPipeline.setupFrustumPipeline(descripManager.frustumDescriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
     graphicsPipeline.setupIntersectionPipeline(descripManager.frustumDescriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
     graphicsPipeline.setupCamCubePipeline(descripManager.camCubeDestriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
-    graphicsPipeline.setupOfflinePipeline(descripManager.offlineDescriptors.samplerDescriptorSetLayout);
+    graphicsPipeline.setupOfflinePipeline(descripManager.offlineDescriptors.descriptorSetLayout, descripManager.computeDescriptors.sharedDescriptorSetLayout);
 
     swapchain.createFramebuffers(graphicsPipeline.renderPass);
     descripManager.createDescriptorPoolSet(uniforms.renderUniformBuffers, textureManager.modelTexture.getSamplerView(), uniforms.novelUniformBuffers,
-        uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut, uniforms.vertexCountSSBOOut, textureManager.cubeTexture.getSamplerView(), camManager);
+        uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut, uniforms.vertexCountSSBOOut, textureManager.cubeTexture.getSamplerView(), camManager, uniforms.offlineRenderBuffers);
 
     inputManager.setCallbacks();
 }
@@ -218,26 +218,25 @@ void App::recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
     };
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-    // if (inputManager.presentOfflineFlag) {
-    //     // set up all images ina  alyered image and select image by a ubo constant
-    // }
-    // else if (inputManager.novelRender) {
-    //     // separate sampler?
-    // }
-    // no novel view
-    OfflineCamera* offlineCam = dynamic_cast<OfflineCamera*>(camManager.activeCam);
-    if (offlineCam == nullptr) {
-        std::runtime_error("Wrong camera for offline rendering, - work in progress!");
+    PresentationMode mode = PresentationMode::OFFLINE_RENDER;
+    if (inputManager.novelRender) {     // update novel image once for each frame
+        descripManager.offlineDescriptors.updateDescriptorSets(camManager, currentFrame);       // todo setup flags when re
+        mode = PresentationMode::NOVEL_RENDER;
+    }
+    else if (inputManager.setupOfflineImage) {      // need a trigger to once create and update the layered image
+        camManager.createLayeredImage();
+        descripManager.computeDescriptors.updateSharedImageDescriptor(camManager);
+        std::cout << "Layered imaged created" << std::endl;
+
+        inputManager.setupOfflineImage = false;
+        // todo later whether present color or depth, flag inputManager.presentType
     }
 
-    if (inputManager.changeOfflineImage) {  // update image on request
-        TextureSamplerView samplerView{textureManager.offlineSampler.getSampler(), offlineCam->getImageView(inputManager.presentType)};
-        descripManager.offlineDescriptors.updateDescriptorSets(samplerView);
-        inputManager.changeOfflineImage = false;
-    }
+    camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    uniforms.updateOfflineRenderBuffers(currentFrame, camManager, mode, inputManager.presentType);    // always update the uniform buffer
 
-    uint32_t descriptorInUse = descripManager.offlineDescriptors.getIndexInUse();
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.offlineRenderPipelineLayout, 0, 1, &descripManager.offlineDescriptors.samplerDescriptorSets[currentFrame][descriptorInUse], 0, nullptr);
+    VkDescriptorSet descriptorSets[] = {descripManager.offlineDescriptors.descriptorSets[currentFrame], descripManager.computeDescriptors.sharedDescriptorSet};
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline.offlineRenderPipelineLayout, 0, 2, descriptorSets, 0, nullptr);
 
     vkCmdDraw(commandBuffer, 6, 1, 0, 0);   // draw a quad
 
@@ -294,24 +293,44 @@ void App::recordComputeCommandBuffer(VkCommandBuffer commandBuffer) {
     // Clear buffers
     vkCmdFillBuffer(commandBuffer, uniforms.intersectionsSSBOOut[currentFrame], 0, VK_WHOLE_SIZE, 0);
     vkCmdFillBuffer(commandBuffer, uniforms.vertexCountSSBOOut[currentFrame], 0, sizeof(uint32_t), 0);
+    // barier here
 
-    int32_t groupCountX = (swapchain.swapChainExtent.width  + 15) / 16;
-    uint32_t groupCountY = (swapchain.swapChainExtent.height + 15) / 16;
-
-    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
-
-    VkBufferMemoryBarrier barrier{
+    std::array<VkBufferMemoryBarrier, 2> fillBarriers;
+    fillBarriers[0] = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .buffer = uniforms.intersectionsSSBOOut[currentFrame],
         .offset = 0,
         .size = VK_WHOLE_SIZE
     };
+    fillBarriers[1] = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = uniforms.vertexCountSSBOOut[currentFrame],
+        .offset = 0,
+        .size = sizeof(uint32_t)
+    };
 
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 2, fillBarriers.data(), 0, nullptr);
+
+    int32_t groupCountX = (swapchain.swapChainExtent.width  + 15) / 16;
+    uint32_t groupCountY = (swapchain.swapChainExtent.height + 15) / 16;
+
+    vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
+
+    fillBarriers[0].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    fillBarriers[0].dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+    fillBarriers[1].srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    fillBarriers[1].dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 2, fillBarriers.data(), 0, nullptr);
+    // image barrier done by trasfering layout
 }
 
 void App::handleResize() {
@@ -350,10 +369,11 @@ void App::drawFrame() {
     }
     else if (inputManager.novelRender) {
         // todo switch to the novel veiw rendered
-        recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+        // recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
 
-        uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent);
-        if (uniforms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change
+        uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager.novelDebug);
+
+        if (uniforms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change, but issue with the update of the both frames
             std::cout << "update CamArray data" << std::endl;
             // if the ssbo was recreated, update the descriptors
             descripManager.computeDescriptors.updateDescriptorSets(currentFrame, uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut);
@@ -364,11 +384,16 @@ void App::drawFrame() {
             camManager.novelView.createNovelImage(swapchain.swapChainExtent);           // get current resolution
             camManager.createLayeredImage();
             descripManager.computeDescriptors.updateImageDescriptors(camManager);       // do only once as the views won't be able to change
+            descripManager.offlineDescriptors.setUpdateFlags();                         // update descriptors for presenting as well
 
             inputManager.startSynthesis = false;
         }
 
         recordComputeCommandBuffer(commandManager.commandBuffers[currentFrame]);
+        // barier 
+
+        recordOfflineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+        camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_GENERAL);
     }
     else {      // debug and setup
         recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
@@ -383,7 +408,7 @@ void App::drawFrame() {
         }
 
         if (inputManager.debugIntersection) {
-            uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, 1);
+            uniforms.updateComputeUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, DebugCompute::INTERSECTION);
             if (uniforms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change
                 // if the ssbo was recreated, update the descriptors
                 descripManager.computeDescriptors.updateDescriptorSets(currentFrame, uniforms.camArraySSBOIn, uniforms.intersectionsSSBOOut);

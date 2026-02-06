@@ -1,8 +1,12 @@
 #version 450
 
-#define MIN_FLOAT -1.0f/0.0f
-#define MAX_FLOAT 1.0f/0.0f
+#define MIN_FLOAT (-1.0f/0.0f)
+#define MAX_FLOAT (1.0f/0.0f)
 #define MAX_CAMS 32
+
+const uint DEBUG_INTERSECTION = 1;
+const uint DEBUG_CAM_NUM      = 2;
+const uint DEBUG_CAM_ID       = 3;
 
 // I will see what this means
 layout(local_size_x = 16, local_size_y = 16) in;
@@ -16,7 +20,7 @@ layout(set = 0, binding = 0) uniform NovelImageObject {
     // vec2 _pad0;
     uint camCnt;
     uint sampleCount;
-    uint debugIntersections;
+    uint debugFlag;
     // uint _pad1;
 } ubo;
 
@@ -108,7 +112,7 @@ void insertSort(inout vec2 arr[MAX_CAMS], in uint size, in float t, in uint camI
         return;
     }
 
-    uint i = size-1;
+    int i = int(size-1);
     while (i >= 0 && arr[i].x > t) {
         arr[i+1] = arr[i];
         i--;
@@ -123,7 +127,7 @@ void getRefCams(out uint refCams[MAX_CAMS], in bool camIndexMask[MAX_CAMS], in u
     for (uint i = 0; i < size; i++) {
         if (camIndexMask[i]) {
             count--;
-            refCams[count] = i;     // get index instead of mask
+            refCams[count] = 2;     // get index instead of mask
 
             if (count == 0) {       // found all cams
                 return;
@@ -137,7 +141,7 @@ vec2 findMaxInterval(in vec2 inArr[MAX_CAMS], in vec2 outArr[MAX_CAMS], inout ui
     uint maxCount = 0;
 
     bool camIndexMask[MAX_CAMS];
-    for (uint i = 0; i < size; i++) {
+    for (uint i = 0; i < ubo.camCnt; i++) {
         camIndexMask[i] = false;
     }
     uint currCount = 0;
@@ -155,7 +159,19 @@ vec2 findMaxInterval(in vec2 inArr[MAX_CAMS], in vec2 outArr[MAX_CAMS], inout ui
             if (currCount > maxCount) {
                 maxCount = currCount;
                 maxInterval = vec2(inArr[inSize-1].x, outArr[outSize].x);
-                getRefCams(refCams, camIndexMask, size, maxCount);
+                // getRefCams(refCams, camIndexMask, size, maxCount);
+
+                uint count = currCount;
+                for (uint i = 0; i < ubo.camCnt; i++) {
+                    if (camIndexMask[i] == true) {
+                        count--;
+                        refCams[count] = i;     // get index instead of mask
+
+                        if (count == 0) {       // found all cams
+                            break;
+                        }
+                    }
+                }
             }
             camIndexMask[uint(outArr[outSize].y)] = false;
             currCount--;
@@ -166,7 +182,19 @@ vec2 findMaxInterval(in vec2 inArr[MAX_CAMS], in vec2 outArr[MAX_CAMS], inout ui
     if (currCount > maxCount) {
         maxCount = currCount;
         maxInterval = vec2(inArr[inSize-1].x, outArr[outSize].x);
-        getRefCams(refCams, camIndexMask, size, maxCount);
+        // getRefCams(refCams, camIndexMask, size, maxCount);
+
+        uint count = currCount;
+        for (uint i = 0; i < ubo.camCnt; i++) {
+            if (camIndexMask[i] == true) {
+                count--;
+                refCams[count] = i;     // get index instead of mask
+
+                if (count == 0) {       // found all cams
+                    break;
+                }
+            }
+        }
     }
 
     size = maxCount;
@@ -195,7 +223,7 @@ vec4 maxCamVisible(in uint arrLen) {
     return vec4(refColor.xyz, 1.0f);
 }
 
-vec4 camsVisible(in uint arrLen, in uint refCams[MAX_CAMS]) {
+vec4 camsVisible(in uint refCams[MAX_CAMS], in uint arrLen) {
     vec4 refColor = vec4(0.0f);
 
     for (uint i = 0; i < arrLen; i++) {
@@ -227,27 +255,18 @@ vec4 colorHeuristic(in vec2 maxInterval, in uint rayStep, in vec3 rayOrigin, in 
     float bestDiff = 10.0f;
     vec4 bestAverage = vec4(0.0f);
 
-    for (uint s = 0; s < 1; s++) {
+    for (uint s = 0; s < ubo.sampleCount; s++) {
         vec4 maxColor = vec4(0.0f);
         vec4 minColor = vec4(1.0f);
         vec4 newAverage = vec4(0.0f);
 
-        // vec3 worldPoint = rayOrigin + (maxInterval.x + s * rayStep) * rayDir;
+        vec3 worldPoint = rayOrigin + (maxInterval.x + s * rayStep) * rayDir;
 
         for (uint i = 0; i < arrLen; i++) {
-            // uint camIndex = refCams[i];
-            // vec2 camUV = projectToCam(worldPoint, camIndex);
-            // vec4 refColor = texture(RefImagesSampler, vec3(camUV, camIndex));      // No crash
-            vec4 refColor = vec4(0.0f);
-            if (arrLen == 1) {
-                refColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
-            }
-            else if (arrLen == 2) {
-                refColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
-            }
-            else if (arrLen == 3) {
-                refColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);
-            }
+            uint camIndex = refCams[i];
+            vec2 camUV = projectToCam(worldPoint, camIndex);
+            vec4 refColor = texture(RefImagesSampler, vec3(camUV, camIndex));      // No crash
+            // vec4 refColor = vec4(camUV, 0.0f, 0.0f);
             newAverage += refColor;
 
             maxColor = max(maxColor, refColor);
@@ -284,7 +303,7 @@ void main() {
         vec2 inIntersections[MAX_CAMS];
         vec2 outIntersections[MAX_CAMS];
 
-        for (uint i = 0; i < ubo.camCnt; i++) {       // have last cam as observer, change later when observer will be impelemnted
+        for (uint i = 0; i < ubo.camCnt; i++) {
             CamArrayData camData = camArrayIn[i];
 
             vec2 intersection = vec2(0.0f);
@@ -309,7 +328,7 @@ void main() {
     }
 
     // debug info
-    if (ubo.debugIntersections == 1) {
+    if (ubo.debugFlag == DEBUG_INTERSECTION) {
         if (int(pixel.x) % 50 == 0 && int(pixel.y) % 50 == 0) {
             vec3 entry = rayOrigin + maxInterval.x * rayDir;
             vec3 exit = rayOrigin + maxInterval.y * rayDir;
@@ -322,7 +341,16 @@ void main() {
     }
 
     uint rayStep = uint((maxInterval.y - maxInterval.x) / ubo.sampleCount);       // round to uint
-    vec4 finalColor = maxCamVisible(arrLen);
+    vec4 finalColor = vec4(0.0f);
+    if (ubo.debugFlag == DEBUG_CAM_NUM) {
+        finalColor = maxCamVisible(arrLen);
+    }
+    else if (ubo.debugFlag == DEBUG_CAM_ID) {
+        finalColor = camsVisible(refCams, arrLen);
+    }
+    else {
+        finalColor = colorHeuristic(maxInterval, rayStep, rayOrigin, rayDir, refCams, arrLen);
+    }
 
     // vec4 finalColor = vec4(0.0f);
     // for (uint i = 0; i < ubo.camCnt; i++) {

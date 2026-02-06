@@ -46,18 +46,17 @@ private:
 
 class OfflineDescriptors{
 public:
-    VkDescriptorSetLayout samplerDescriptorSetLayout;
-    std::vector<std::array<VkDescriptorSet, 2>> samplerDescriptorSets;        // automatically freed with descriptor pool
+    VkDescriptorSetLayout descriptorSetLayout;
+    std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
 
     OfflineDescriptors(const VkDevice device);
     ~OfflineDescriptors();
 
-    void createDescriptorSets(VkDescriptorPool descriptorPool);
-    void updateDescriptorSets(const TextureSamplerView& textureSamplerView);
-
-    uint32_t getIndexInUse();
+    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& offlineRenderBuffers, CamerasManager& camManager);
+    void updateDescriptorSets(CamerasManager& camManager, uint32_t currentFrame);
+    void setUpdateFlags();
 private:
-    uint32_t inUse = 0;
+    std::vector<bool> toUpdate;
 
     // Vulkan handles
     VkDevice deviceHandle;
@@ -88,7 +87,7 @@ public:
     std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
 
     VkDescriptorSetLayout sharedDescriptorSetLayout;
-    VkDescriptorSet sharedDescriptorSet;
+    VkDescriptorSet sharedDescriptorSet;                // shared with offline render most likely
 
     ComputeDescriptors(const VkDevice device);
     ~ComputeDescriptors();
@@ -96,6 +95,7 @@ public:
     void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& novelUniformBuffers, const std::vector<VkBuffer>& camArraySSBOIn,
          const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, CamerasManager& camManager);
     void updateDescriptorSets(uint32_t currentFrame, const std::vector<VkBuffer>& camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut);
+    void updateSharedImageDescriptor(CamerasManager& camManager);
     void updateImageDescriptors(CamerasManager& camManager);
 private:
     // Vulkan handles
@@ -118,7 +118,7 @@ public:
 
     void createDescriptorPoolSet(const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView, const std::vector<VkBuffer>& novelUniformBuffers,
          const std::vector<VkBuffer>& camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, const TextureSamplerView& cubeSamplerView, 
-         CamerasManager& camManager);
+         CamerasManager& camManager, const std::vector<VkBuffer>& offlineRenderBuffer);
 private:
     VkDescriptorPool descriptorPool;
 

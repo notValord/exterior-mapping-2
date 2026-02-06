@@ -20,9 +20,22 @@ extern const size_t MAX_FRAMES_IN_FLIGHT;
 class MemoryManager;
 class Camera;
 class CamerasManager;
+enum class ImageViewType : uint32_t;
 
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
+
+enum class DebugCompute : uint32_t {
+    NO_DEBUG,
+    INTERSECTION,
+    CAM_COUNT,
+    CAM_ID
+};
+
+enum class PresentationMode : uint32_t {
+    OFFLINE_RENDER,
+    NOVEL_RENDER
+};
 
 struct UniformBufferObject {
     glm::mat4 model;
@@ -39,7 +52,7 @@ struct NovelImageObject {
     // glm::vec2 _pad0;        // renderdoc complains
     uint32_t camCnt;
     uint32_t sampleCount;
-    uint32_t debugIntersections;
+    DebugCompute debugFlag;
     // uint32_t _padd1; 
 };
 
@@ -51,12 +64,21 @@ struct CamArrayData {
     glm::mat4 invProjMat;
 };
 
+struct OfflineRenderBuffer{
+    glm::ivec2 grid;
+    int layerID;
+    int layerCnt;
+    PresentationMode presentMode;
+    ImageViewType presentType;
+};
+
 class Uniforms{
 public:
     // Graphics normal render
     std::vector<VkBuffer> renderUniformBuffers;
 
     // Offline ubo render buffer
+    std::vector<VkBuffer> offlineRenderBuffers;
 
     // Compute intersection shader
     std::vector<VkBuffer> novelUniformBuffers;
@@ -68,7 +90,8 @@ public:
     ~Uniforms();
 
     void updateRenderUniformBuffers(uint32_t currentImage, const Camera& cam);
-    void updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent,  uint32_t debugFlag = 0);
+    void updateOfflineRenderBuffers(uint32_t currentImage, CamerasManager& camManager, PresentationMode mode, ImageViewType viewType);
+    void updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag = DebugCompute::NO_DEBUG);
 
     bool setCamArrayData(uint32_t currentImage, CamerasManager& camManager);
 
@@ -82,6 +105,9 @@ private:
 
     std::vector<VmaAllocation>novelUniformBuffersMemory;
     std::vector<void*> novelUniformBuffersMapped;
+
+    std::vector<VmaAllocation>offlineRenderBuffersMemory;
+    std::vector<void*> offlineRenderBuffersMapped;
 
     std::vector<uint32_t> camArrayCounts;
     std::vector<VmaAllocation> camArraySSBOMemory;
@@ -97,6 +123,7 @@ private:
     bool resGrew = false;
 
     void createRenderUniformBuffers();
+    void createOfflineBuffer();
     void createComputeBuffer(const uint32_t camCount);
 
     bool recreateCamArraySSBO(const uint32_t newCount, const uint32_t currentFrame);

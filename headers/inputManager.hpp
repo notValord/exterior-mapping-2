@@ -11,7 +11,8 @@
 #include <imguiProxy.hpp>
 
 class CamerasManager;
-enum class ImageViewType;
+enum class ImageViewType : uint32_t;
+enum class DebugCompute : uint32_t;
 
 class FPSCounter{
 public:
@@ -27,7 +28,7 @@ class InputManager {
 public:
     // UI public flags and variables
     bool presentOfflineFlag = false;
-    bool changeOfflineImage = false;
+    bool setupOfflineImage = false;
     ImageViewType presentType;
     bool renderOfflineFlag = false;
 
@@ -37,6 +38,7 @@ public:
     bool debugIntersection = false;
 
     bool novelRender = false;
+    DebugCompute novelDebug;
     bool startSynthesis = false;
 
     InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,

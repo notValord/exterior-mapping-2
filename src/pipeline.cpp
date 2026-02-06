@@ -146,8 +146,8 @@ void GraphicsPipeline::setupCamCubePipeline(const VkDescriptorSetLayout descript
          depthFlags, rastFlags);
 }
 
-void GraphicsPipeline::setupOfflinePipeline(const VkDescriptorSetLayout descriptorSL, const std::string& vertexFile, const std::string& fragFile) {
-    std::vector<VkDescriptorSetLayout>descriptorVec{descriptorSL};
+void GraphicsPipeline::setupOfflinePipeline(const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const std::string& vertexFile, const std::string& fragFile) {
+    std::vector<VkDescriptorSetLayout>descriptorVec{descriptorSL, sharedDescriptorSL};
     createPipelineLayout(descriptorVec, offlineRenderPipelineLayout);
     
     DepthStencilFlags depthFlags{

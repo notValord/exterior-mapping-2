@@ -41,7 +41,6 @@ public:
     void deleteCam(MemoryManager& memManager);
 
     void saveOfflineImages(MemoryManager& memManager, std::string& filename, SaveImageFormat depthSaveFormat);
-    void toggleSampled(MemoryManager& memManager);
 
     uint32_t getCamCount();
     uint32_t getActiveIndex();

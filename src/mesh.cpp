@@ -7,9 +7,13 @@
 
 Mesh::Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager)
     : deviceHandle(device), memManager(memManager) {
+    std::cout << "Creatign mesh" << std::endl;
     loadMesh(modelPath);
+    std::cout << "Loaded";
     createVertexBuffer();
+    std::cout << "vertex";
     createIndexBuffer();
+    std::cout << "Mesh created" << std::endl;
 }
 
 Mesh::~Mesh() {

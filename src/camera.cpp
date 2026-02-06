@@ -121,6 +121,7 @@ NovelCamera::NovelCamera(float extentRatio, VkDevice device, MemoryManager& memM
     novelImage.resize(MAX_FRAMES_IN_FLIGHT);        // should initialize to VK_NULL_HANDLE
     novelImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
     novelImageView.resize(MAX_FRAMES_IN_FLIGHT);
+    novelImageLayout.resize(MAX_FRAMES_IN_FLIGHT);
 
     createNovelImage({1, 1});     // setup a dummy
 }
@@ -146,11 +147,30 @@ void NovelCamera::createNovelImage(VkExtent2D novelExtent, const VkFormat colorF
     cleanupResources();
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        memManager.createImage(novelExtent.width, novelExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, 
+        memManager.createImage(novelExtent.width, novelExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
         novelImage[i], VMA_MEMORY_USAGE_GPU_ONLY, novelImageMemory[i]);
         memManager.transitionImageLayout(novelImage[i], colorFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        novelImageLayout[i] = VK_IMAGE_LAYOUT_GENERAL;
 
         novelImageView[i] = createImageView(novelImage[i], colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
+    }
+}
+
+void NovelCamera::swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImageLayout targetLayout, const VkFormat colorFormat) {
+    if (targetLayout == novelImageLayout[currentFrame]) {
+        return;
+    }
+
+    if (targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && novelImageLayout[currentFrame] == VK_IMAGE_LAYOUT_GENERAL) {
+        memManager.transitionImageLayout(novelImage[currentFrame], colorFormat, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        novelImageLayout[currentFrame] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    }
+    else if (targetLayout == VK_IMAGE_LAYOUT_GENERAL && novelImageLayout[currentFrame] == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        memManager.transitionImageLayout(novelImage[currentFrame], colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+        novelImageLayout[currentFrame] = VK_IMAGE_LAYOUT_GENERAL;
+    }
+    else {
+        throw std::runtime_error("Unknown image layout!");
     }
 }
 

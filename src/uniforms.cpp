@@ -6,12 +6,14 @@
 Uniforms::Uniforms(const VkDevice device, MemoryManager& memManager, const VkExtent2D& extentSize, const uint32_t camCount)
     : deviceHandle(device), memManager(memManager), maxScreenRes(extentSize) {
     createRenderUniformBuffers();
+    createOfflineBuffer();
     createComputeBuffer(camCount);
 }
 
 Uniforms::~Uniforms() {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         memManager.destroyBuffer(renderUniformBuffers[i], renderUniformBuffersMemory[i]);
+        memManager.destroyBuffer(offlineRenderBuffers[i], offlineRenderBuffersMemory[i]);
         memManager.destroyBuffer(novelUniformBuffers[i], novelUniformBuffersMemory[i]);
         memManager.destroyBuffer(intersectionsSSBOOut[i], intersectionsSSBOMemory[i]);
         memManager.destroyBuffer(vertexCountSSBOOut[i], vertexCountSSBOMemory[i]);
@@ -32,6 +34,22 @@ void Uniforms::createRenderUniformBuffers() {
                 VMA_MEMORY_USAGE_CPU_TO_GPU, renderUniformBuffersMemory[i], nullptr, true);
 
         renderUniformBuffersMapped[i] = allocInfo.pMappedData;
+    }
+}
+
+void Uniforms::createOfflineBuffer() {
+    VkDeviceSize bufferSize = sizeof(OfflineRenderBuffer);
+
+    offlineRenderBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    offlineRenderBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    offlineRenderBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VmaAllocationInfo allocInfo{};
+        allocInfo = memManager.createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE, offlineRenderBuffers[i], 
+                    VMA_MEMORY_USAGE_CPU_TO_GPU, offlineRenderBuffersMemory[i], nullptr, true);
+
+        offlineRenderBuffersMapped[i] = allocInfo.pMappedData; 
     }
 }
 
@@ -100,17 +118,33 @@ void Uniforms::updateRenderUniformBuffers(uint32_t currentImage, const Camera& c
     ubo.view = cam.getViewMatrix();
     ubo.proj = cam.getProjectionMatrix();
 
-    memcpy(renderUniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+    memcpy(renderUniformBuffersMapped[currentImage], &ubo, sizeof(UniformBufferObject));
 }
 
-void Uniforms::updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, uint32_t debugFlag) {
+void Uniforms::updateOfflineRenderBuffers(uint32_t currentImage, CamerasManager& camManager, PresentationMode mode, ImageViewType viewType) {
+    OfflineRenderBuffer ubo{};
+    ubo.grid = glm::ivec2(3, ((camManager.getCamCount()-1)/3)+1);
+    ubo.layerCnt = camManager.getCamCount();
+    if (camManager.novelViewToggeled() || camManager.observerToggeled()){
+        ubo.layerID = -1;
+    }
+    else {
+        ubo.layerID = camManager.getActiveIndex();
+    }
+    ubo.presentMode = mode;   // get from input manager or something as argument
+    ubo.presentType = viewType;
+
+    memcpy(offlineRenderBuffersMapped[currentImage], &ubo, sizeof(OfflineRenderBuffer));
+}
+
+void Uniforms::updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag) {
     NovelImageObject novelData {
         .invViewMat = glm::inverse(camManager.novelView.getViewMatrix()),
         .invProjMat = glm::inverse(camManager.novelView.getProjectionMatrix()),
         .res = glm::vec2(extent.width, extent.height),      // not aligned with the size of the buffer
         .camCnt = camManager.getCamCount(),
         .sampleCount = camManager.sampleCount,
-        .debugIntersections = debugFlag
+        .debugFlag = debugFlag
     };
 
     if (extent.width > maxScreenRes.width || extent.height > maxScreenRes.height) {
@@ -118,7 +152,7 @@ void Uniforms::updateComputeUniformBuffers(uint32_t currentImage, CamerasManager
         maxScreenRes = extent;
     }
 
-    memcpy(novelUniformBuffersMapped[currentImage], &novelData, sizeof(novelData));
+    memcpy(novelUniformBuffersMapped[currentImage], &novelData, sizeof(NovelImageObject));
 }
 
 uint32_t Uniforms::getVertexCount(uint32_t currentImage) {

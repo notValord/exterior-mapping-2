@@ -20,7 +20,7 @@ class MemoryManager;
 struct CamArrayData;
 struct AttachementsFormats;
 
-enum class ImageViewType{
+enum class ImageViewType : uint32_t {
     COLOR,
     DEPTH
 };
@@ -86,10 +86,12 @@ public:
     ~NovelCamera();
 
     void createNovelImage(VkExtent2D novelExtent, const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
+    void swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImageLayout targetLayout, const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
     VkImageView getImageView(uint32_t currentIndex);
 private:
     std::vector<VmaAllocation> novelImageMemory;
     std::vector<VkImageView> novelImageView;
+    std::vector<VkImageLayout> novelImageLayout;
 
     // Vulkan Handles
     VkDevice deviceHandle;

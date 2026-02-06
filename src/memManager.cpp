@@ -136,6 +136,11 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
         case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
             sourceStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
             break;
+
+        case VK_IMAGE_LAYOUT_GENERAL:
+            imageMemoryBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            break;
         
         default:
             throw std::runtime_error("Unsuported layout transition!");

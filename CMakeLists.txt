@@ -29,6 +29,24 @@ target_include_directories(imgui PUBLIC
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/headers)
 
+# set(SHADER_SRC
+#     shaders/camCube.vert
+#     shaders/camCube.frag
+#     shaders/frustumShader.vert
+#     shaders/frustumShader.frag
+#     shaders/lineShader.vert
+#     shaders/lineShader.frag
+#     shaders/offlineShader.vert
+#     shaders/offlineShader.frag
+#     shaders/rayIntersect.comp
+#     shaders/shader.vert
+#     shaders/shader.frag
+# )
+
+set(SHADER_STUMP ".compiled")
+set(SHADER_DIR "${CMAKE_SOURCE_DIR}/shaders")
+file(GLOB SHADER_SRC "${SHADER_DIR}/*.vert" "${SHADER_DIR}/*.frag" "${SHADER_DIR}/*.comp")
+
 set(SOURCES
     src/main.cpp
     src/application.cpp
@@ -50,7 +68,7 @@ set(SOURCES
     src/inputManager.cpp
     src/camManager.cpp
     src/debug.cpp
- )
+)
 
 add_executable(ExternalMapping2 ${SOURCES})
 
@@ -65,7 +83,13 @@ target_link_libraries(ExternalMapping2
 )
 
 add_custom_command(
-    TARGET ExternalMapping2 PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "Compiling shaders..."
-    COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_SOURCE_DIR}/shaders ./compile.sh
+    OUTPUT "${SHADER_DIR}/${SHADER_STUMP}"
+    COMMAND  bash ./compile.sh
+    COMMAND ${CMAKE_COMMAND} -E touch ${SHADER_STUMP}
+    WORKING_DIRECTORY "${SHADER_DIR}"
+    DEPENDS ${SHADER_SRC}
+    COMMENT "Compiling shaders..."
 )
+
+add_custom_target(Shaders DEPENDS ${SHADER_DIR}/${SHADER_STUMP})
+add_dependencies(ExternalMapping2 Shaders)

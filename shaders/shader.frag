@@ -10,8 +10,8 @@ layout(binding = 1) uniform sampler2D texSampler;
 
 float LinearizeDepth()
 {
-    float zNear = 0.1;    // TODO: Replace by the zNear of your perspective projection
-    float zFar  = 100.0; // TODO: Replace by the zFar  of your perspective projection
+    float zNear = 0.1;          // TODO: Replace by the zNear of your perspective projection
+    float zFar  = 100.0;        // TODO: Replace by the zFar  of your perspective projection
     float d = (zNear * zFar) / (zFar - depth * (zFar - zNear));
     return (d - zNear) / (zFar - zNear);
 }
