@@ -12,101 +12,102 @@ extern const size_t MAX_FRAMES_IN_FLIGHT;
 struct TextureSamplerView;
 class CamerasManager;
 
-class FrustumDescriptors{   // shared also for intersection shader
+class DescriptorBuilder{
 public:
-    VkDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
+    DescriptorBuilder(VkDevice device);
+    ~DescriptorBuilder();
 
-    FrustumDescriptors(const VkDevice device);
-    ~FrustumDescriptors();
+    void setDescriptorPool(VkDescriptorPool descriptorPool);
 
-    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& uniformBuffers);
+    void addDescriptorSetLayoutBinding(std::vector<VkDescriptorSetLayoutBinding>& inVector, uint32_t bind, VkDescriptorType type, VkShaderStageFlags stage, uint32_t count = 1) const;
+    VkDescriptorSetLayout buildDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding>& inVector) const;
+
+    void buildDescriptorSets(std::vector<VkDescriptorSet>& outDescriptorSets, VkDescriptorSetLayout descriptorSetLayout, uint32_t count = MAX_FRAMES_IN_FLIGHT) const;
 private:
     // Vulkan handles
     VkDevice deviceHandle;
-
-    void createDescriptiorSetLayout();
+    VkDescriptorPool descriptorPoolRef = VK_NULL_HANDLE;
 };
 
-class CamCubeDescriptors{
+class BaseDescriptors{
 public:
-    VkDescriptorSetLayout descriptorSetLayout;
+    VkDescriptorSetLayout descriptorSetLayout{};
     std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
 
-    CamCubeDescriptors(const VkDevice device);
-    ~CamCubeDescriptors();
+    BaseDescriptors(const VkDevice device);
+    virtual ~BaseDescriptors();
 
-    void createDescriptorSets(VkDescriptorPool descriptorPool, const TextureSamplerView& textureSamplerView);
-private:
+protected:
     // Vulkan handles
     VkDevice deviceHandle;
 
-    void createDescriptiorSetLayout();
+    virtual void createDescriptorSetLayout(const DescriptorBuilder& builder) = 0;
 };
 
-class OfflineDescriptors{
+class FrustumDescriptors : public BaseDescriptors{   // shared also for intersection shader
 public:
-    VkDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
+    FrustumDescriptors(const DescriptorBuilder& builder, const VkDevice device);
 
-    OfflineDescriptors(const VkDevice device);
-    ~OfflineDescriptors();
+    void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& uniformBuffers);
+protected:
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+};
 
-    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& offlineRenderBuffers, CamerasManager& camManager);
+class CamCubeDescriptors : public BaseDescriptors{
+public:
+    CamCubeDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+
+    void createDescriptorSets(const DescriptorBuilder& builder, const TextureSamplerView& textureSamplerView);
+protected:
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+};
+
+class OfflineDescriptors : public BaseDescriptors{
+public:
+    OfflineDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+
+    void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& offlineRenderBuffers, CamerasManager& camManager);
     void updateDescriptorSets(CamerasManager& camManager, uint32_t currentFrame);
     void setUpdateFlags();
 private:
     std::vector<bool> toUpdate;
 
-    // Vulkan handles
-    VkDevice deviceHandle;
-
-    void createDescriptiorSetLayout();
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
 };
 
-class RenderDescriptors{
+class RenderDescriptors : public BaseDescriptors{
 public:
-    VkDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
+    RenderDescriptors(const DescriptorBuilder& builder, const VkDevice device);
 
-    RenderDescriptors(const VkDevice device);
-    ~RenderDescriptors();
-
-    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView);
+    void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& uniformBuffers, const TextureSamplerView& textureSamplerView);
 private:
-    // Vulkan handles
-    VkDevice deviceHandle;
-
-    void createDescriptiorSetLayout();
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
 };
 
 
-class ComputeDescriptors{
+class ComputeDescriptors : public BaseDescriptors {
 public:
-    VkDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets;        // automatically freed with descriptor pool
-
     VkDescriptorSetLayout sharedDescriptorSetLayout;
     VkDescriptorSet sharedDescriptorSet;                // shared with offline render most likely
 
-    ComputeDescriptors(const VkDevice device);
+    ComputeDescriptors(const DescriptorBuilder& builder, const VkDevice device);
     ~ComputeDescriptors();
 
-    void createDescriptorSets(VkDescriptorPool descriptorPool, const std::vector<VkBuffer>& novelUniformBuffers, const std::vector<VkBuffer>& camArraySSBOIn,
+    void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& novelUniformBuffers, const std::vector<VkBuffer>& camArraySSBOIn,
          const std::vector<VkBuffer>& intersectionsSSBOOut, const std::vector<VkBuffer>& vertexCountSSBOOut, CamerasManager& camManager);
     void updateDescriptorSets(uint32_t currentFrame, const std::vector<VkBuffer>& camArraySSBOIn, const std::vector<VkBuffer>& intersectionsSSBOOut);
     void updateSharedImageDescriptor(CamerasManager& camManager);
     void updateImageDescriptors(CamerasManager& camManager);
 private:
-    // Vulkan handles
-    VkDevice deviceHandle;
 
-    void createDescriptiorSetLayout();
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
 };
 
 
 class DescriptorManager{
 public:
+    DescriptorBuilder builder;
+
     RenderDescriptors renderDescriptors;
     ComputeDescriptors computeDescriptors;
     FrustumDescriptors frustumDescriptors;
