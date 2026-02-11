@@ -21,6 +21,7 @@ public:
     Sampler depthSampler;  // needs different setup
 
     VkImage layeredImage = VK_NULL_HANDLE;
+    VkImage depthLayeredImage = VK_NULL_HANDLE;
 
     uint32_t sampleCount = 16;
 
@@ -48,7 +49,7 @@ public:
     bool observerToggeled();
 
     void createLayeredImage(bool dummy = false);
-    VkImageView getImageView();
+    VkImageView getImageView(ImageViewType type);
 
 private:
     bool novelViewActive = true;
@@ -57,6 +58,9 @@ private:
 
     VmaAllocation layeredImageMemory;
     VkImageView layeredImageView;
+
+    VmaAllocation depthLayeredImageMemory;
+    VkImageView depthLayeredImageView;
 
     VkFormat colorFormat;
     VkFormat depthFormat;

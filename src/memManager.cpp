@@ -81,12 +81,14 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
         .baseArrayLayer = 0,
         .layerCount = layerCnt
     };
-    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) {
+    if (format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D16_UNORM) {
         subresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         if (hasStencilComponent(format)){
             subresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
         }
     }
+    // std::cout << format << " " << subresource.aspectMask << std::endl;
+
     // used for transition image layouts
     VkImageMemoryBarrier imageMemoryBarrier{
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,

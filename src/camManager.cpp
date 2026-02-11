@@ -6,12 +6,25 @@
 static const uint32_t START_CAM_COUNT = 2;
 extern const uint32_t MAX_CAM_COUNT = 32;       // issue with reallocation of the vector when creating new cameras, causes the objeccts to get destroyed
 
-CamerasManager::CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass, const VkPhysicalDeviceProperties& prop)
-    : novelView(swapChainExtent.width / (float) swapChainExtent.height, device, memMan), observer(swapChainExtent.width / (float) swapChainExtent.height), extentRatio(swapChainExtent.width / (float) swapChainExtent.height),
-      deviceHandle(device), renderpassHandle(renderpass), swapChainExtentHandle(swapChainExtent), colorFormat(formats.colorImageFormat), depthFormat(formats.depthFormat),
-      camCount(START_CAM_COUNT), imageSampler(device, prop), depthSampler(device, prop), memManager(memMan) {
+CamerasManager::CamerasManager(VkDevice device,
+                               MemoryManager& memMan,
+                               VkExtent2D swapChainExtent,
+                               const AttachementsFormats& formats,
+                               VkRenderPass renderpass,
+                               const VkPhysicalDeviceProperties& prop)
+    : novelView(swapChainExtent.width / (float) swapChainExtent.height, device, memMan),
+      observer(swapChainExtent.width / (float) swapChainExtent.height),
+      extentRatio(swapChainExtent.width / (float) swapChainExtent.height),
+      deviceHandle(device),
+      renderpassHandle(renderpass),
+      swapChainExtentHandle(swapChainExtent),
+      colorFormat(formats.colorImageFormat),
+      depthFormat(formats.depthFormat),
+      camCount(START_CAM_COUNT),
+      imageSampler(device, prop),
+      depthSampler(device, prop),
+      memManager(memMan) {
 
-    std::cout << "cam manager crating";
     camArray.reserve(MAX_CAM_COUNT);
     for (int i = 0; i < camCount; i++) {
         camArray.emplace_back(extentRatio, deviceHandle, memMan, swapChainExtentHandle, colorFormat, depthFormat, renderpassHandle);
@@ -19,7 +32,6 @@ CamerasManager::CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2
 
     activeCam = &novelView;
     createLayeredImage(true);
-    std::cout << "cam manager created" << std::endl;
 }
 
 CamerasManager::~CamerasManager() {
@@ -182,6 +194,24 @@ void CamerasManager::createLayeredImage(bool dummy) {
     memManager.transitionImageLayout(layeredImage, colorFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, camCount);
 
     layeredImageView = createImageView(layeredImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, camCount);
+
+
+    memManager.createImage(swapChainExtentHandle.width, swapChainExtentHandle.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, depthLayeredImage, VMA_MEMORY_USAGE_GPU_ONLY,
+        depthLayeredImageMemory, camCount);
+
+    memManager.transitionImageLayout(depthLayeredImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, camCount);
+    if (!dummy) {
+        VkCommandBuffer singleCommandBuffer = memManager.beginSingleCommand();
+        for (uint32_t i = 0; i < camCount; i++) {
+            memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 1, singleCommandBuffer);
+            memManager.copyLayeredImage(singleCommandBuffer, camArray[i].depthImage, depthFormat, depthLayeredImage, depthFormat, {swapChainExtentHandle.width, swapChainExtentHandle.height, 1}, i);
+            memManager.transitionImageLayout(camArray[i].depthImage, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1, singleCommandBuffer);
+        }
+        memManager.submitSingleCommand(singleCommandBuffer);
+    }
+    memManager.transitionImageLayout(depthLayeredImage, depthFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, camCount);
+
+    depthLayeredImageView = createImageView(depthLayeredImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle, camCount);
 }
 
 void CamerasManager::destroyLayeredImage() {
@@ -191,11 +221,23 @@ void CamerasManager::destroyLayeredImage() {
 
         layeredImage = VK_NULL_HANDLE;
     }
+
+    if (depthLayeredImage != VK_NULL_HANDLE) {
+        memManager.destroyImage(depthLayeredImage, depthLayeredImageMemory);
+        vkDestroyImageView(deviceHandle, depthLayeredImageView, nullptr);
+
+        depthLayeredImage = VK_NULL_HANDLE;
+    }
 }
 
-VkImageView CamerasManager::getImageView() {
-    if (layeredImage == VK_NULL_HANDLE) {
+VkImageView CamerasManager::getImageView(ImageViewType type) {
+    if (type == ImageViewType::COLOR) {
+        return layeredImageView;
+    }
+    else if (type == ImageViewType::DEPTH) {
+        return depthLayeredImageView;
+    }
+    else {
         return VK_NULL_HANDLE;
     }
-    return layeredImageView;
 }

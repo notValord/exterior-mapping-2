@@ -79,7 +79,11 @@ public:
     VkPipeline computePipeline;
     VkPipelineLayout pipelineLayout;
 
-    ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const std::string& computeFile = "../shaders/compute.spv");
+    VkPipeline pointCloudPipeline;
+    VkPipelineLayout pointCloudPipelineLayout;
+
+    ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const VkDescriptorSetLayout cloudDescriptorSL,
+                    const std::string& computeFile = "../shaders/compute.spv", const std::string& pointCloudFile = "../shaders/pointCloud.spv");
     ~ComputePipeline();
 
 private:
@@ -87,5 +91,6 @@ private:
 
     // required Vulkan handle
     VkDevice deviceHandle;
-    void createComputePipeline(const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL);
+    void createComputePipeline(VkPipelineLayout& pipelineLayout, std::string shaderFile, VkPipeline& pipeline);
+    void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
 };

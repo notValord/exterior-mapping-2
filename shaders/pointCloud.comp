@@ -1,0 +1,62 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) uniform PointCloudObject {
+    vec2 res;
+    uint camCnt;
+} pco;
+
+struct CamArrayInvMatrices {
+    mat4 invViewMat;
+    mat4 invProjMat;
+};
+
+layout(std430, set = 0, binding = 1) readonly buffer CamMatricesSSBOIn {
+    CamArrayInvMatrices camMatricesIn[];
+};
+
+// might need padding
+struct Point {
+    vec3 pos;
+    vec3 col;
+};
+
+layout(std430, set = 0,binding = 2) writeonly buffer pointCloudSSBOOut {
+    Point pointCloud[];
+};
+
+layout(std430, set = 0, binding = 3) buffer PointCountSSBOOut {
+    uint count;
+};
+
+layout(set = 1, binding = 0) uniform sampler2DArray RefImagesSampler;
+layout(set = 1, binding = 1) uniform sampler2DArray RefImagesDepthSampler;
+
+vec3 projectToWorld(vec2 uvCoords, float depth, uint camId) {
+    vec2 ndcPixel = uvCoords * 2.0f - 1.0f;
+    // might need to flip the Y coord
+
+    vec4 clipPoint = vec4(ndcPixel, depth, 1.0f);
+    vec4 viewPoint = camMatricesIn[camId].invProjMat * clipPoint;
+    viewPoint = viewPoint / viewPoint.w;
+
+    return (camMatricesIn[camId].invViewMat * viewPoint).xyz;
+}
+
+void main() {
+    vec2 pixel = gl_GlobalInvocationID.xy;
+    if (pixel.x >= pco.res.x || pixel.y >= pco.res.y) {
+        return;
+    }
+    vec2 uvCoords = (pixel + 0.5f) / pco.res;
+
+    for (uint i = 0; i < pco.camCnt; i++) {
+        vec4 depth = texture(RefImagesDepthSampler, vec3(uvCoords, i));
+        vec4 color = texture(RefImagesSampler, vec3(uvCoords, i));
+        vec3 worldPoint = projectToWorld(uvCoords, depth.x, i);
+
+        uint index = atomicAdd(count, 1);
+        pointCloud[index] = Point(worldPoint, color.xyz);
+    }
+}

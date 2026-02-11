@@ -13,17 +13,14 @@
 #include <array>
 #include <vector>
 
+#include <structs.hpp>
+
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
 
 class MemoryManager;
 struct CamArrayData;
 struct AttachementsFormats;
-
-enum class ImageViewType : uint32_t {
-    COLOR,
-    DEPTH
-};
 
 inline constexpr float CAM_MAX_SPEED = 50.0f;
 inline constexpr float CAM_MIN_SPEED = 0.5f;

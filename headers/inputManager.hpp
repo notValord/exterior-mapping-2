@@ -36,6 +36,7 @@ public:
     bool debugFrustum = false;
     bool debugCamCube = false;
     bool debugIntersection = false;
+    bool debugPointCloud = false;
 
     bool novelRender = false;
     DebugCompute novelDebug;

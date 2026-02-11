@@ -314,6 +314,9 @@ void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager) {
         ImGui::Checkbox("Show Cam-cubes", &inputManager->debugCamCube);
         ImGui::Checkbox("Show frustum", &inputManager->debugFrustum);
         ImGui::Checkbox("Show intersections", &inputManager->debugIntersection);
+        if (ImGui::Checkbox("Point cloud", &inputManager->debugPointCloud) && inputManager->debugPointCloud) {
+            inputManager->startSynthesis = true;
+        }
     }
 }
 

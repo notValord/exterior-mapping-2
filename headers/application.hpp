@@ -37,7 +37,7 @@ private:
     Mesh mesh;
 
     CamerasManager camManager;
-    Uniforms uniforms;
+    UniformManager uniformManager;
     InputManager inputManager;
     DebugUtil debugUtil;
 
@@ -57,4 +57,5 @@ private:
     void recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
     void recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
     void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
+    void recordPointCloudCommandBuffer(VkCommandBuffer commandBuffer);
 };

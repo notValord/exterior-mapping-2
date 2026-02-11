@@ -14,7 +14,6 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 proj;
 } ubo;
 
-
 // set up push constant for offline rendering
 // for fragment shader have a depth flag to show depth values
 void main() {

@@ -7,8 +7,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-struct Vertex
-{
+struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoords;
@@ -29,3 +28,8 @@ namespace std {
         }
     };
 }
+
+struct CloudPoint {
+    glm::vec3 pos;
+    glm::vec3 col;
+};

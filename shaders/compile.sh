@@ -14,3 +14,5 @@
 /usr/bin/glslc offlineShader.frag -o offlineFrag.spv 
 
 /usr/bin/glslc rayIntersect.comp -o compute.spv
+
+/usr/bin/glslc pointCloud.comp -o pointCloud.spv

@@ -22,6 +22,18 @@ layout(set = 0, binding = 0) uniform OfflineRenderBuffer {
 
 layout(set = 0, binding = 1) uniform sampler2D novelSampler;
 layout(set = 1, binding = 0) uniform sampler2DArray offlineRenderSampler;
+layout(set = 1, binding = 1) uniform sampler2DArray offlineDepthSampler;
+
+vec4 sampleColor(vec3 UVcoords) {
+    vec4 result = vec4(0.0f);
+    if (ubo.presentationType == COLOR) {
+        result = texture(offlineRenderSampler, UVcoords);
+    }
+    else if (ubo.presentationType == DEPTH){
+        result = vec4(vec3(texture(offlineDepthSampler, UVcoords).r), 1.0f);
+    }
+    return result;
+}
 
 void main() {
     if (ubo.presentationMode == OFFLINE_RENDER) {
@@ -30,14 +42,15 @@ void main() {
             vec2 localUV = fract(texCoords * vec2(ubo.grid));       // transfer to local UV to sample the whole image
 
             if (camID.y * ubo.grid.x + camID.x < ubo.layerCnt) {
-                outColor = texture(offlineRenderSampler, vec3(localUV.x, localUV.y, float(camID.y * ubo.grid.x + camID.x)));
+                outColor = sampleColor(vec3(localUV.x, localUV.y, float(camID.y * ubo.grid.x + camID.x)));
+                // outColor = texture(offlineRenderSampler, vec3(localUV.x, localUV.y, float(camID.y * ubo.grid.x + camID.x)));
             }
             else {          // back out leftover cells in the grid
                 outColor = vec4(0.0f);
             }
         }
         else {      // present offline images one by one
-            outColor = texture(offlineRenderSampler, vec3(texCoords.x, texCoords.y, ubo.layerID));
+            outColor = sampleColor(vec3(texCoords.x, texCoords.y, ubo.layerID));
         }
     }
     else if (ubo.presentationMode == NOVEL_RENDER) {
