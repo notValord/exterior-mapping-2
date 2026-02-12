@@ -35,6 +35,15 @@ struct RasterizationFlags{
     VkFrontFace frontFace;
 };
 
+struct GraphicShaders {
+    std::string vert;
+    std::string frag;
+};
+
+struct ComputeShader {
+    std::string comp;
+};
+
 
 // Uniform Buffer Objects
 struct MVPBufferObject {

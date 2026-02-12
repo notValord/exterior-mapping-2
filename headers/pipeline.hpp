@@ -6,23 +6,10 @@
 #include <fstream>
 #include <vector>
 
+#include <structs.hpp>
+
 struct AttachementsFormats;
-
-enum class VertexInputFlags {
-    POS_COL_UV,
-    POS,
-    NONE
-};
-
-struct DepthStencilFlags{
-    VkBool32 testEnable;
-    VkBool32 writeEnable;
-};
-
-struct RasterizationFlags{
-    VkCullModeFlags cullMode;
-    VkFrontFace frontFace;
-};
+class DescriptorManager;
 
 class GraphicsPipeline{
 public:
@@ -74,23 +61,129 @@ private:
     void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
 };
 
-class ComputePipeline {
+// class ComputePipeline {
+// public:
+//     VkPipeline computePipeline;
+//     VkPipelineLayout pipelineLayout;
+
+//     VkPipeline pointCloudPipeline;
+//     VkPipelineLayout pointCloudPipelineLayout;
+
+//     ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const VkDescriptorSetLayout cloudDescriptorSL,
+//                     const std::string& computeFile = "../shaders/compute.spv", const std::string& pointCloudFile = "../shaders/pointCloud.spv");
+//     ~ComputePipeline();
+
+// private:
+//     std::string computeShader;
+
+//     // required Vulkan handle
+//     VkDevice deviceHandle;
+//     void createComputePipeline(VkPipelineLayout& pipelineLayout, std::string shaderFile, VkPipeline& pipeline);
+//     void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
+// };
+
+struct GraphicSetup {
+    VertexInputFlags vertexInput;
+    DepthStencilFlags depthFlags;
+    RasterizationFlags rastFlags;
+    VkPrimitiveTopology topology;
+};
+
+class GraphicPipeline {
 public:
-    VkPipeline computePipeline;
+    VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
 
-    VkPipeline pointCloudPipeline;
-    VkPipelineLayout pointCloudPipelineLayout;
-
-    ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const VkDescriptorSetLayout cloudDescriptorSL,
-                    const std::string& computeFile = "../shaders/compute.spv", const std::string& pointCloudFile = "../shaders/pointCloud.spv");
-    ~ComputePipeline();
+    GraphicPipeline(const VkDevice device, const VkRenderPass renderPass, const VkDescriptorSetLayout descriptorSL, 
+                     const GraphicShaders& shaderFiles, const GraphicSetup& pipelineSetup, const PipelineBuilder& builder);
+    ~GraphicPipeline();
 
 private:
-    std::string computeShader;
+    const GraphicShaders vertFragShaders;
+    VkRenderPass renderPass = VK_NULL_HANDLE;
 
     // required Vulkan handle
     VkDevice deviceHandle;
-    void createComputePipeline(VkPipelineLayout& pipelineLayout, std::string shaderFile, VkPipeline& pipeline);
-    void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
+};
+
+class ComputePipeline {
+public:
+    VkPipeline pipeline;
+    VkPipelineLayout pipelineLayout;
+
+    ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const ComputeShader& shaderFile,
+                    const PipelineBuilder& builder);
+    ~ComputePipeline();
+
+    // Not allowing copy constructors
+    ComputePipeline(const ComputePipeline&) = delete;
+    ComputePipeline& operator=(const ComputePipeline&) = delete;
+
+    // Not allowing move constructors
+    ComputePipeline(ComputePipeline&&) noexcept = delete;
+    ComputePipeline& operator=(ComputePipeline&&) noexcept = delete;
+
+
+private:
+    const ComputeShader computeShader;
+
+    // required Vulkan handle
+    VkDevice deviceHandle;
+};
+
+struct AttachementDescription {
+    VkFormat imageFormat;
+    VkAttachmentLoadOp loadOp;
+    VkAttachmentStoreOp storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageLayout finalLayout;
+};
+
+class PipelineBuilder {
+public:
+    PipelineBuilder(const VkDevice device);
+
+    VkPipelineLayout createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, uint32_t pushConstant = 0) const;
+    VkPipeline createComputePipeline(VkPipelineLayout pipelineLayout, const ComputeShader& shaderFile) const;
+    VkRenderPass createRenderPass(const AttachementDescription& colorAttachment, const AttachementDescription& depthAttachment) const;
+    VkPipeline createGraphicsPipeline(const GraphicShaders& shaderFiles, VkPipelineLayout& pipelineLayout, VkRenderPass& renderPass, const GraphicSetup& pipelineSetup) const;
+private:
+    VkDevice deviceHandle;
+
+    VkShaderModule createShaderModule(const std::string& fileName) const;
+};
+
+class RenderPassManager {
+public:
+    VkRenderPass renderPass;
+    VkRenderPass onTopRenderPass;
+
+    RenderPassManager(const VkDevice device, AttachementsFormats attachFormats, PipelineBuilder& builder);
+    ~RenderPassManager();
+private:
+    VkDevice deviceHandle;
+};
+
+class PipelineManager {
+public:
+    RenderPassManager renderPassMan;
+
+    ComputePipeline intersectPipeline;
+    ComputePipeline pointCloudPipeline;
+
+    GraphicPipeline renderPipeline;
+    GraphicPipeline frustumPipeline;
+    GraphicPipeline intersectionPipeline;
+
+    PipelineManager(const VkDevice device, const AttachementsFormats& imageFormats, DescriptorManager& descrMan);
+private:
+    PipelineBuilder builder;
+
+    const GraphicShaders renderFiles    = GraphicShaders{"../shaders/vert.spv", "../shaders/frag.spv"};
+    const GraphicShaders frustumFiles   = GraphicShaders{"../shaders/frustumVert.spv", "./shaders/frustumFrag.spv"};
+    const GraphicShaders lineFiles      = GraphicShaders{"../shaders/lineVert.spv", "../shaders/lineFrag.spv"};
+    const GraphicShaders camCuberFiles  = GraphicShaders{"../shaders/camCubeVert.spv", "../shaders/camCubeFrag.spv"};
+    const GraphicShaders offlineFiles   = GraphicShaders{"../shaders/offlineVert.spv", "../shaders/offlineFrag.spv"};
+    const ComputeShader intersectFile   =  ComputeShader{"../shaders/compute.spv"};
+    const ComputeShader pointCloudFile  =  ComputeShader{"../shaders/pointCloud.spv"};
 };
