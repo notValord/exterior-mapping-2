@@ -30,8 +30,9 @@ private:
     MemoryManager memManager;
     SwapChain swapchain;
     DescriptorManager descripManager;
-    GraphicsPipeline graphicsPipeline;
-    ComputePipeline computePipeline;
+    PipelineManager pipelineManager;
+    // GraphicsPipeline graphicsPipeline;
+    // ComputePipeline computePipeline;
     SyncManager syncManager;
     TexturesManager textureManager;
     Mesh mesh;
