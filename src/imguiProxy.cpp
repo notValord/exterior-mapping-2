@@ -279,8 +279,10 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
 
 void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputManager) {
     static int novelDebug = 0;
+    static int novelHeuristic = 0;
 
     if (ImGui::CollapsingHeader("Novel render")) {
+        const uint32_t minDebugSample = 0;
         const uint32_t minSample = 1;
         const uint32_t maxSample = 128;
 
@@ -289,7 +291,26 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
             inputManager->startSynthesis = true;
         }
         ImGui::EndDisabled();
-        ImGui::SliderScalar("Sample count", ImGuiDataType_U32, &camManager.sampleCount, &minSample, &maxSample);
+
+        if (ImGui::RadioButton("Color heuristic", &novelHeuristic, 0)) {
+            inputManager->novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Depth heuristic", &novelHeuristic, 1)) {
+            inputManager->novelHeuristic = NovelHeuristic::DEPTH_HEURISTIC;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Angle heuristic", &novelHeuristic, 2)) {
+            inputManager->novelHeuristic = NovelHeuristic::ANGLE_HEURISTIC;
+        }
+
+        uint32_t oldSampleCount = camManager.sampleCount;
+        if (ImGui::SliderScalar("Sample count", ImGuiDataType_U32, &camManager.sampleCount, &minSample, &maxSample)) {
+            if (camManager.sampleDebug == oldSampleCount) {
+                camManager.sampleDebug = camManager.sampleCount;
+            }
+        }
+        ImGui::SliderScalar("Curr sample", ImGuiDataType_U32, &camManager.sampleDebug, &minDebugSample, &camManager.sampleCount);
 
         if (ImGui::RadioButton("No debug", &novelDebug, 0)) {
         inputManager->novelDebug = DebugCompute::NO_DEBUG;
@@ -302,21 +323,28 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         if (ImGui::RadioButton("Cam ID", &novelDebug, 3)) {
             inputManager->novelDebug = DebugCompute::CAM_ID;
         }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Sample depth", &novelDebug, 4)) {
+            inputManager->novelDebug = DebugCompute::SAMPLE_DEPTH;
+        }
     }
 
     // todo later to input images from blender
 }
 
-void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager) {
+void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offlineRendred) {
     if (ImGui::CollapsingHeader("Debug info")) {
         ImGui::Text("FPS: %.1f", fps);
         ImGui::Checkbox("Grayscale", &inputManager->debugGrayscale);        // TODO
         ImGui::Checkbox("Show Cam-cubes", &inputManager->debugCamCube);
         ImGui::Checkbox("Show frustum", &inputManager->debugFrustum);
         ImGui::Checkbox("Show intersections", &inputManager->debugIntersection);
+
+        ImGui::BeginDisabled(!offlineRendred);
         if (ImGui::Checkbox("Point cloud", &inputManager->debugPointCloud) && inputManager->debugPointCloud) {
             inputManager->startSynthesis = true;
         }
+        ImGui::EndDisabled();
     }
 }
 
@@ -331,7 +359,7 @@ void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inp
     
     uiOfflineRender(camManager, inputManager);
     uiNovelRender(camManager, inputManager);
-    uiDebugInfo(fps, inputManager);
+    uiDebugInfo(fps, inputManager,camManager.offlineImagesRendered);
     
     ImGui::End();
 }

@@ -11,7 +11,14 @@ enum class DebugCompute : uint32_t {
     NO_DEBUG,
     INTERSECTION,
     CAM_COUNT,
-    CAM_ID
+    CAM_ID,
+    SAMPLE_DEPTH
+};
+
+enum class NovelHeuristic : uint32_t {
+    COLOR_HEURISTIC,
+    DEPTH_HEURISTIC,
+    ANGLE_HEURISTIC
 };
 
 enum class PresentationMode : uint32_t {
@@ -19,30 +26,6 @@ enum class PresentationMode : uint32_t {
     NOVEL_RENDER
 };
 
-enum class VertexInputFlags : uint32_t {
-    POS_COL_UV,
-    POS,
-    NONE
-};
-
-struct DepthStencilFlags{
-    VkBool32 testEnable;
-    VkBool32 writeEnable;
-};
-
-struct RasterizationFlags{
-    VkCullModeFlags cullMode;
-    VkFrontFace frontFace;
-};
-
-struct GraphicShaders {
-    std::string vert;
-    std::string frag;
-};
-
-struct ComputeShader {
-    std::string comp;
-};
 
 
 // Uniform Buffer Objects
@@ -65,14 +48,16 @@ struct OfflineBufferObject{
 };
 
 struct NovelBufferObject {
-    // mat4 viewMat;
+    glm::mat4 viewMat;
     glm::mat4 invViewMat;
-    // mat4 projMat;
+    glm::mat4 projMat;
     glm::mat4 invProjMat;
     glm::vec2 res;
     // glm::vec2 _pad0;        // renderdoc complains
     uint32_t camCnt;
     uint32_t sampleCount;
+    uint32_t sampleDebug;
+    NovelHeuristic heuristic;
     DebugCompute debugFlag;
     // uint32_t _padd1; 
 };

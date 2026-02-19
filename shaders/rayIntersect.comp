@@ -7,19 +7,26 @@
 const uint DEBUG_INTERSECTION = 1;
 const uint DEBUG_CAM_NUM      = 2;
 const uint DEBUG_CAM_ID       = 3;
+const uint DEBUG_SAMPLE_DEPTH = 4;
+
+const uint COLOR_HEURISTIC    = 0;
+const uint DEPTH_HEURISTIC    = 1;
+const uint ANGLE_HEURISTIC    = 2;
 
 // I will see what this means
 layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0) uniform NovelImageObject {
-    // mat4 viewMat;
+    mat4 viewMat;
     mat4 invViewMat;
-    // mat4 projMat;
+    mat4 projMat;
     mat4 invProjMat;
     vec2 res;
     // vec2 _pad0;
     uint camCnt;
     uint sampleCount;
+    uint sampleDebug;
+    uint heuristic;
     uint debugFlag;
     // uint _pad1;
 } ubo;
@@ -49,7 +56,7 @@ layout(set = 0, binding = 4, rgba8) uniform writeonly image2D NovelImage;
 
 layout(set = 1, binding = 0) uniform sampler2DArray RefImagesSampler;
 layout(set = 1, binding = 1) uniform sampler2DArray RefDepthSampler;
-// layout(set = 1, binding = 0) uniform sampler2DArray RefImagesSampler; maybe try in the future for better performance
+
 
 void castRay(in vec2 pixel, out vec3 rayOrigin, out vec3 rayDir) {
     vec2 ndcPixel = (pixel + 0.5f)/ubo.res * 2.0f - 1.0f; // transform to range (-1,-1) (1,1)
@@ -209,81 +216,261 @@ vec2 projectToCam(in vec3 worldPoint, in uint camIndex) {
     return (clipPoint.xy + 1.0f) * 0.5f;    // transform from [-1,-1] -> [0, 1] to sample texture
 }
 
-vec4 maxCamVisible(in uint arrLen) {
-    vec4 refColor = vec4(0.0f);
+vec3 maxCamVisible(in uint arrLen) {
+    vec3 refColor = vec3(0.0f);
     if (arrLen == 1) {
-        refColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
+        refColor = vec3(1.0f, 0.0f, 0.0f);
     }
     else if (arrLen == 2) {
-        refColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+        refColor = vec3(0.0f, 1.0f, 0.0f);
     }
     else if (arrLen == 3) {
-        refColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+        refColor = vec3(0.0f, 0.0f, 1.0f);
+    }
+    else if (arrLen == 4) {
+        refColor = vec3(1.0f, 1.0f, 0.0f);
+    }
+    else if (arrLen == 5) {
+        refColor = vec3(0.0f, 1.0f, 1.0f);
+    }
+    else if (arrLen == 6) {
+        refColor = vec3(0.0f, 1.0f, 1.0f);
+    }
+    else {
+        refColor = vec3(1.0f, 1.0f, 1.0f);
     }
 
-    return vec4(refColor.xyz, 1.0f);
+    return refColor;
 }
 
-vec4 camsVisible(in uint refCams[MAX_CAMS], in uint arrLen) {
-    vec4 refColor = vec4(0.0f);
+vec3 camsVisible(in uint refCams[MAX_CAMS], in uint arrLen) {
+    vec3 refColor = vec3(0.0f);
 
-    for (uint i = 0; i < arrLen; i++) {
+    for (uint i = 0u; i < arrLen; ++i) {
         uint camId = refCams[i];
         if (camId == 0) {
-            refColor += vec4(1.0f, 0.0f, 0.0f, 1.0f);
+            refColor += vec3(1.0f, 0.0f, 0.0f);
         }
         else if (camId == 1) {
-            refColor += vec4(0.0f, 1.0f, 0.0f, 1.0f);
+            refColor += vec3(0.0f, 1.0f, 0.0f);
         }
         else if (camId == 2) {
-            refColor += vec4(0.0f, 0.0f, 1.0f, 1.0f);
+            refColor += vec3(0.0f, 0.0f, 1.0f);
+        }
+        else if (camId == 3) {
+            refColor += vec3(1.0f, 1.0f, 0.0f);
+        }
+        else if (camId == 4) {
+            refColor += vec3(1.0f, 0.0f, 1.0f);
+        }
+        else if (camId == 5) {
+            refColor += vec3(0.0f, 1.0f, 1.0f);
         }
         else {
-            refColor += vec4(1.0f, 1.0f, 1.0f, 1.0f);
+            refColor += vec3(1.0f, 1.0f, 1.0f);
         }
     }
 
     refColor = refColor / float (arrLen);
 
-    return vec4(refColor.xyz, 1.0f);
+    return refColor;
 }
 
-vec4 colorHeuristic(in vec2 maxInterval, in uint rayStep, in vec3 rayOrigin, in vec3 rayDir, in uint refCams[MAX_CAMS], in uint arrLen) {
-    if (arrLen == 0) {
-        return vec4(0.0f);
+vec3 projectToWorld(vec2 uvCoords, float depth, uint camId) {
+    vec2 ndcPixel = uvCoords * 2.0f - 1.0f;
+    // might need to flip the Y coord
+
+    vec4 clipPoint = vec4(ndcPixel, depth, 1.0f);
+    vec4 viewPoint = camArrayIn[camId].invProjMat * clipPoint;
+    viewPoint = viewPoint / viewPoint.w;
+
+    return (camArrayIn[camId].invViewMat * viewPoint).xyz;
+}
+
+float pointRayDistance(in vec3 point, in vec3 rayOrigin, in vec3 rayDir) {
+    vec3 ap = point - rayOrigin;
+    float t = dot(ap, rayDir);       // projected to the ray, rayDir normalized
+
+    if (t < 0.0f) {        // geometry behind camera, ignore?
+        return distance(point, rayOrigin);
+    }
+    else {
+        return distance((rayOrigin + t * rayDir), point);       // get rid of distance calculation, keep it sqared
+    }
+}
+
+float worldPointDepth(in vec3 point) {
+    vec4 clipPos = ubo.projMat * ubo.viewMat * vec4(point, 1.0f);
+    float ndcDepth = clipPos.z / clipPos.w;
+    return ndcDepth;
+}
+
+vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in vec3 rayDir, in uint refCams[MAX_CAMS], in uint arrLen) {
+    if (arrLen <= 1u) {
+        return vec3(0.0f);
     }
 
-    float bestDiff = 10.0f;
-    vec4 bestAverage = vec4(0.0f);
+    float bestDepth = MAX_FLOAT;
+    vec3 bestColorAverage = vec3(0.0f);
+    float projectedDepth = 0.0f;
 
-    for (uint s = 0; s < ubo.sampleCount; s++) {
-        vec4 maxColor = vec4(0.0f);
-        vec4 minColor = vec4(1.0f);
-        vec4 newAverage = vec4(0.0f);
+    uint startSample = 0u;
+    uint endSample = ubo.sampleCount;
 
-        vec3 worldPoint = rayOrigin + (maxInterval.x + s * rayStep) * rayDir;
+    if (ubo.sampleDebug < ubo.sampleCount) {        // debug a single sample
+        startSample = ubo.sampleDebug;
+        endSample = ubo.sampleDebug + 1u;
+    }
+    
+    vec3 worldPoint = rayOrigin + (maxInterval.x + float(startSample) * rayStep) * rayDir;
+    vec3 sampleStep = rayStep * rayDir;
 
-        for (uint i = 0; i < arrLen; i++) {
+    for (uint s = startSample; s < endSample; ++s) {
+        float depthSum = 0.0f;
+        vec3 newAverage = vec3(0.0f);
+
+        for (uint i = 0u; i < arrLen; ++i) {
             uint camIndex = refCams[i];
             vec2 camUV = projectToCam(worldPoint, camIndex);
-            vec4 refColor = texture(RefImagesSampler, vec3(camUV, camIndex));      // No crash
-            // vec4 refColor = vec4(camUV, 0.0f, 0.0f);
+
+            float refDepth = texture(RefDepthSampler, vec3(camUV, camIndex)).r;
+            vec3 refWorldPoint = projectToWorld(camUV, refDepth, camIndex);         // try to get rid of the projection, compare depth difference?
+            depthSum += pointRayDistance(refWorldPoint, rayOrigin, rayDir);
+
+            vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
+            newAverage += refColor;
+            
+        }
+
+        if (depthSum < bestDepth) {
+            bestDepth = depthSum;
+            bestColorAverage = newAverage / float(arrLen);
+            projectedDepth = worldPointDepth(worldPoint);
+        }
+
+        worldPoint += sampleStep;
+    }
+
+    if (ubo.debugFlag == DEBUG_SAMPLE_DEPTH) {
+        return vec3(projectedDepth);
+    }
+    else {
+        return bestColorAverage;
+    }
+}
+
+float angleRayDistance(in vec3 point, in vec3 rayOrigin, in vec3 rayDir) {
+    vec3 pointDir = normalize(point - rayOrigin);
+    float angle = clamp(dot(rayDir, pointDir), -1.0f, 1.0f);
+    return acos(angle);
+
+    // float angle = dot(rayDir, pointDir);
+    // return 1.0f - angle;                            // ignore arccos to lower computational expense
+}
+
+vec3 angleHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in vec3 rayDir, in uint refCams[MAX_CAMS], in uint arrLen) {
+    if (arrLen <= 1u) {                             // result from a single camera will just produce a noise, first sample tested
+        return vec3(0.0f);
+    }
+
+    float bestDepth = MAX_FLOAT;
+    vec3 bestColorAverage = vec3(0.0f);
+    float sampleDepth = 0.0f;
+
+    uint startSample = 0u;
+    uint endSample = ubo.sampleCount;
+
+    if (ubo.sampleDebug < ubo.sampleCount) {        // debug a single sample
+        startSample = ubo.sampleDebug;
+        endSample = ubo.sampleDebug + 1u;
+    }
+    
+    vec3 worldPoint = rayOrigin + (maxInterval.x + float(startSample) * rayStep) * rayDir;
+    vec3 sampleStep = rayStep * rayDir;
+    for (uint s = startSample; s < endSample; ++s) {
+        float depthSum = 0.0f;
+        vec3 colorSum = vec3(0.0f);
+
+        for (uint i = 0u; i < arrLen; ++i) { 
+            uint camIndex = refCams[i];
+            vec2 camUV = projectToCam(worldPoint, camIndex);
+
+            float refDepth = texture(RefDepthSampler, vec3(camUV, camIndex)).r;
+            vec3 refWorldPoint = projectToWorld(camUV, refDepth, camIndex);
+            depthSum += angleRayDistance(refWorldPoint, rayOrigin, rayDir);
+
+            vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
+            colorSum += refColor;
+        }
+
+        if (depthSum < bestDepth) {
+            bestDepth = depthSum;
+            bestColorAverage = colorSum / float(arrLen);
+            sampleDepth = worldPointDepth(worldPoint);
+        }
+
+        worldPoint += sampleStep;
+    }
+
+    if (ubo.debugFlag == DEBUG_SAMPLE_DEPTH) {
+        return vec3(sampleDepth);
+    }
+    else {
+        return bestColorAverage;
+    }
+}
+
+vec3 colorHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in vec3 rayDir, in uint refCams[MAX_CAMS], in uint arrLen) {
+    if (arrLen <= 1u) {      // result from a single camera will just produce a noise, first sample tested
+        return vec3(0.0f);
+    }
+
+    float bestDiff = MAX_FLOAT;               // possible early exit if the result is good enough?
+    vec3 bestAverage = vec3(0.0f);
+    float projectedDepth = 0.0f;
+
+    uint startSample = 0u;
+    uint endSample = ubo.sampleCount;
+
+    if (ubo.sampleDebug < ubo.sampleCount) {        // debug a single sample
+        startSample = ubo.sampleDebug;
+        endSample = ubo.sampleDebug + 1u;
+    }
+
+    vec3 worldPoint = rayOrigin + (maxInterval.x + float(startSample) * rayStep) * rayDir;
+    vec3 sampleStep = rayStep * rayDir;
+    for (uint s = startSample; s < endSample; ++s) {
+        vec3 maxColor = vec3(0.0f);
+        vec3 minColor = vec3(1.0f);
+        vec3 newAverage = vec3(0.0f);
+
+        for (uint i = 0u; i < arrLen; ++i) {
+            uint camIndex = refCams[i];
+            vec2 camUV = projectToCam(worldPoint, camIndex);
+
+            vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
             newAverage += refColor;
 
             maxColor = max(maxColor, refColor);
             minColor = min(minColor, refColor);
-            
         }
 
-        vec4 currDiff = maxColor - minColor;
-        float diff = currDiff.x + currDiff.y + currDiff.z + currDiff.w;
+        float diff = dot(maxColor - minColor, vec3(1.0f));      // sum of vector components
         if (diff < bestDiff) {
             bestDiff = diff;
             bestAverage = newAverage / float(arrLen);
+            projectedDepth = worldPointDepth(worldPoint);       // debug sample depth
         }
+
+        worldPoint += sampleStep;
     }
 
-    return vec4(bestAverage.xyz, 1.0f);
+    if (ubo.debugFlag == DEBUG_SAMPLE_DEPTH) {
+        return vec3(projectedDepth);
+    }
+    else {
+        return bestAverage;
+    }
 }
 
 void main() {
@@ -341,8 +528,8 @@ void main() {
         return;     // just find the max interval to visualize
     }
 
-    uint rayStep = uint((maxInterval.y - maxInterval.x) / ubo.sampleCount);       // round to uint
-    vec4 finalColor = vec4(0.0f);
+    float rayStep = (maxInterval.y - maxInterval.x) / ubo.sampleCount;
+    vec3 finalColor = vec3(0.0f);
     if (ubo.debugFlag == DEBUG_CAM_NUM) {
         finalColor = maxCamVisible(arrLen);
     }
@@ -350,13 +537,19 @@ void main() {
         finalColor = camsVisible(refCams, arrLen);
     }
     else {
-        finalColor = colorHeuristic(maxInterval, rayStep, rayOrigin, rayDir, refCams, arrLen);
+        if (ubo.heuristic == COLOR_HEURISTIC) {
+            finalColor = colorHeuristic(maxInterval, rayStep, rayOrigin, rayDir, refCams, arrLen);
+        }
+        else if (ubo.heuristic == DEPTH_HEURISTIC) {
+            finalColor = depthHeuristic(maxInterval, rayStep, rayOrigin, rayDir, refCams, arrLen);
+        }
+        else if (ubo.heuristic == ANGLE_HEURISTIC) {
+            finalColor = angleHeuristic(maxInterval, rayStep, rayOrigin, rayDir, refCams, arrLen);
+        }
+        else {
+            finalColor = vec3(0.0f);
+        }
     }
 
-    // vec4 finalColor = vec4(0.0f);
-    // for (uint i = 0; i < ubo.camCnt; i++) {
-    //     finalColor += texture(RefImagesSampler, vec3(pixel/ubo.res, i));
-    // }
-
-    imageStore(NovelImage, ivec2(pixel), finalColor);
+    imageStore(NovelImage, ivec2(pixel), vec4(finalColor, 1.0f));
 }

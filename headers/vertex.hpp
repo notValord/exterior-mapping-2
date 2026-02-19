@@ -30,6 +30,9 @@ namespace std {
 }
 
 struct CloudPoint {
-    glm::vec3 pos;
-    glm::vec3 col;
+    glm::vec4 pos;
+    glm::vec4 col;
+
+    static VkVertexInputBindingDescription getBindingDescription();
+    static std::vector<VkVertexInputAttributeDescription> getAttribureDescriptions();
 };

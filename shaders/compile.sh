@@ -16,3 +16,5 @@
 /usr/bin/glslc rayIntersect.comp -o compute.spv
 
 /usr/bin/glslc pointCloud.comp -o pointCloud.spv
+/usr/bin/glslc pointCloud.vert -o pointVert.spv
+/usr/bin/glslc pointCloud.frag -o pointFrag.spv 

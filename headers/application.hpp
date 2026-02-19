@@ -59,4 +59,5 @@ private:
     void recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
     void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
     void recordPointCloudCommandBuffer(VkCommandBuffer commandBuffer);
+    void recordPointCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
 };

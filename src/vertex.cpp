@@ -40,3 +40,35 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttribureDescriptions(
 
     return attributeDescriptions;
 }
+
+
+
+VkVertexInputBindingDescription CloudPoint::getBindingDescription() {
+    VkVertexInputBindingDescription bindingDescription{
+        .binding = 0,
+        .stride = sizeof(CloudPoint),
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    };
+
+    return bindingDescription;
+}
+
+std::vector<VkVertexInputAttributeDescription> CloudPoint::getAttribureDescriptions() {
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    attributeDescriptions.reserve(2);
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
+        .location = 0,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset = offsetof(CloudPoint, pos)
+    });
+
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
+        .location = 1,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset = offsetof(CloudPoint, col)
+    });
+
+    return attributeDescriptions;
+}

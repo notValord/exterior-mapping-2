@@ -13,6 +13,7 @@
 class CamerasManager;
 enum class ImageViewType : uint32_t;
 enum class DebugCompute : uint32_t;
+enum class NovelHeuristic : uint32_t;
 
 class FPSCounter{
 public:
@@ -40,6 +41,7 @@ public:
 
     bool novelRender = false;
     DebugCompute novelDebug;
+    NovelHeuristic novelHeuristic;
     bool startSynthesis = false;
 
     InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,

@@ -24,6 +24,7 @@ public:
     VkImage depthLayeredImage = VK_NULL_HANDLE;
 
     uint32_t sampleCount = 16;
+    uint32_t sampleDebug = 16;
 
     bool offlineImagesRendered = false;
     bool postponeResize = false;

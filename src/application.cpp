@@ -5,6 +5,7 @@ static unsigned int SCREEN_HEIGHT = 600;
 
 static const std::string MODEL_PATH = "../resources/models/viking_room.obj";
 static const std::string TEXTURE_PATH = "../resources/textures/viking_room.png";
+static const std::string DAVID_TEXTURE_PATH = "../resources/textures/david.jpg";
 
 static const std::string CUBE_TEXTURE_PATH = "../resources/textures/camera.jpg";
 
@@ -22,10 +23,8 @@ App::App()
        swapchain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, vulkanContext.device, appWindow.window, memManager),
        descripManager(vulkanContext.device),
        pipelineManager(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager),
-    //    graphicsPipeline(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager.renderDescriptors.descriptorSetLayout),
-    //    computePipeline(vulkanContext.device, descripManager.computeDescriptors.descriptorSetLayout, descripManager.computeDescriptors.sharedDescriptorSetLayout, descripManager.pointCloudDescriptors.descriptorSetLayout),
        syncManager(vulkanContext.device),
-       textureManager(TEXTURE_PATH, CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
+       textureManager(DAVID_TEXTURE_PATH, CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        mesh(MODEL_PATH, vulkanContext.device, memManager),
        camManager(vulkanContext.device, memManager, swapchain.swapChainExtent, swapchain.getAttachementsFormats(), pipelineManager.renderPassMan.renderPass, vulkanContext.getDeviceProperties()),
        uniformManager(memManager, swapchain.swapChainExtent, camManager.getCamCount()),
@@ -34,14 +33,6 @@ App::App()
        debugUtil(memManager, camManager.getCamCount()){
     // order of members in a class
     
-    std::cout << "Initial done" << std::endl;
-
-    // Debug utils with separate pipelines
-    // graphicsPipeline.setupFrustumPipeline(descripManager.frustumDescriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
-    // graphicsPipeline.setupIntersectionPipeline(descripManager.frustumDescriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
-    // graphicsPipeline.setupCamCubePipeline(descripManager.camCubeDestriptors.descriptorSetLayout, swapchain.getAttachementsFormats());
-    // graphicsPipeline.setupOfflinePipeline(descripManager.offlineDescriptors.descriptorSetLayout, descripManager.computeDescriptors.sharedDescriptorSetLayout);
-
     swapchain.createFramebuffers(pipelineManager.renderPassMan.renderPass);
     descripManager.createDescriptorPoolSet(uniformManager, textureManager.modelTexture.getSamplerView(), textureManager.cubeTexture.getSamplerView(), camManager);
 
@@ -99,7 +90,8 @@ struct CommandRecordSetter{
 void App::recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     CommandRecordSetter::beginRenderPass(commandBuffer, pipelineManager.renderPassMan.renderPass, framebuffer, swapchain.swapChainExtent, true);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.renderPipeline.pipeline);
+    const GraphicPipeline& graphPipeline = pipelineManager.renderPipeline;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipeline);
 
     CommandRecordSetter::setViewport(commandBuffer, swapchain.swapChainExtent);
     CommandRecordSetter::setScissor(commandBuffer, swapchain.swapChainExtent);
@@ -110,23 +102,24 @@ void App::recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer frame
 
     vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.renderPipeline.pipelineLayout, 0, 1, &descripManager.renderDescriptors.descriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipelineLayout, 0, 1, &descripManager.renderDescriptors.descriptorSets[currentFrame], 0, nullptr);
 
-    vkCmdDrawIndexed(commandBuffer, mesh.getIndicesSize(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 6, 1, 0, 0, 0);     //mesh.getIndicesSize()
     vkCmdEndRenderPass(commandBuffer);
 }
 
 void App::recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     CommandRecordSetter::beginRenderPass(commandBuffer, pipelineManager.renderPassMan.onTopRenderPass, framebuffer, swapchain.swapChainExtent, false);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.frustumPipeline.pipeline);
+    const GraphicPipeline& graphPipeline = pipelineManager.frustumPipeline;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipeline);
 
     CommandRecordSetter::setViewport(commandBuffer, swapchain.swapChainExtent);
     CommandRecordSetter::setScissor(commandBuffer, swapchain.swapChainExtent);
 
     vkCmdBindIndexBuffer(commandBuffer, debugUtil.frustumIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.frustumPipeline.pipelineLayout, 0, 1, &descripManager.frustumDescriptors.descriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipelineLayout, 0, 1, &descripManager.frustumDescriptors.descriptorSets[currentFrame], 0, nullptr);
 
     for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
         VkBuffer vertexBuffers[] = {debugUtil.frustumVertexBuffers[currentFrame][i]};
@@ -142,12 +135,13 @@ void App::recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
 void App::recordCamCubeCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     CommandRecordSetter::beginRenderPass(commandBuffer, pipelineManager.renderPassMan.onTopRenderPass, framebuffer, swapchain.swapChainExtent, false);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.camCubePipeline.pipeline);
+    const GraphicPipeline& graphPipeline = pipelineManager.camCubePipeline;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipeline);
 
     CommandRecordSetter::setViewport(commandBuffer, swapchain.swapChainExtent);
     CommandRecordSetter::setScissor(commandBuffer, swapchain.swapChainExtent);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.camCubePipeline.pipelineLayout, 0, 1, &descripManager.camCubeDestriptors.descriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipelineLayout, 0, 1, &descripManager.camCubeDestriptors.descriptorSets[currentFrame], 0, nullptr);
 
     for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
         std::array<glm::mat4x4, 2> camMatrices{};
@@ -163,7 +157,8 @@ void App::recordCamCubeCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
 void App::recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     CommandRecordSetter::beginRenderPass(commandBuffer, pipelineManager.renderPassMan.renderPass, framebuffer, swapchain.swapChainExtent, true);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.offlinePipeline.pipeline);
+    const GraphicPipeline& graphPipeline = pipelineManager.offlinePipeline;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipeline);
 
     CommandRecordSetter::setViewport(commandBuffer, swapchain.swapChainExtent);
     CommandRecordSetter::setScissor(commandBuffer, swapchain.swapChainExtent);
@@ -186,7 +181,7 @@ void App::recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
     uniformManager.offlineUniforms.updateUniformBuffers(currentFrame, camManager, mode, inputManager.presentType);    // always update the uniform buffer
 
     VkDescriptorSet descriptorSets[] = {descripManager.offlineDescriptors.descriptorSets[currentFrame], descripManager.computeDescriptors.sharedDescriptorSet};
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.offlinePipeline.pipelineLayout, 0, 2, descriptorSets, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipelineLayout, 0, 2, descriptorSets, 0, nullptr);
 
     vkCmdDraw(commandBuffer, 6, 1, 0, 0);   // draw a quad
 
@@ -196,7 +191,8 @@ void App::recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffe
 void App::recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
     CommandRecordSetter::beginRenderPass(commandBuffer, pipelineManager.renderPassMan.onTopRenderPass, framebuffer, swapchain.swapChainExtent, false);
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.linePipeline.pipeline);
+    const GraphicPipeline& graphPipeline = pipelineManager.linePipeline;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipeline);
 
     CommandRecordSetter::setViewport(commandBuffer, swapchain.swapChainExtent);
     CommandRecordSetter::setScissor(commandBuffer, swapchain.swapChainExtent);
@@ -205,10 +201,30 @@ void App::recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer f
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineManager.linePipeline.pipelineLayout, 0, 1, &descripManager.frustumDescriptors.descriptorSets[currentFrame], 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipelineLayout, 0, 1, &descripManager.frustumDescriptors.descriptorSets[currentFrame], 0, nullptr);
 
     // get the number of vertices
     vkCmdDraw(commandBuffer, uniformManager.novelUnifroms.getIntersectCount(currentFrame), 1, 0, 0);
+    vkCmdEndRenderPass(commandBuffer);
+}
+
+void App::recordPointCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+    CommandRecordSetter::beginRenderPass(commandBuffer, pipelineManager.renderPassMan.renderPass, framebuffer, swapchain.swapChainExtent, true);
+
+    const GraphicPipeline& graphPipeline = pipelineManager.pointPipeline;
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipeline);
+
+    CommandRecordSetter::setViewport(commandBuffer, swapchain.swapChainExtent);
+    CommandRecordSetter::setScissor(commandBuffer, swapchain.swapChainExtent);
+
+    VkBuffer vertexBuffers[] = {uniformManager.pointCloudUniforms.pointCloudSSBOOut[currentFrame]};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphPipeline.pipelineLayout, 0, 1, &descripManager.frustumDescriptors.descriptorSets[currentFrame], 0, nullptr);
+
+    vkCmdDraw(commandBuffer, uniformManager.pointCloudUniforms.getPointCount(currentFrame), 1, 0, 0);
+
     vkCmdEndRenderPass(commandBuffer);
 }
 
@@ -345,7 +361,7 @@ void App::drawFrame() {
         recordOfflineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
     else if (inputManager.novelRender) {
-        uniformManager.novelUnifroms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager.novelDebug);
+        uniformManager.novelUnifroms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager.novelDebug, inputManager.novelHeuristic);
 
         if (uniformManager.novelUnifroms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change, but issue with the update of the both frames
             std::cout << "update CamArray data" << std::endl;
@@ -363,11 +379,11 @@ void App::drawFrame() {
             inputManager.startSynthesis = false;
         }
 
+        camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_GENERAL);
         recordComputeCommandBuffer(commandManager.commandBuffers[currentFrame]);
         // barier 
 
         recordOfflineCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
-        camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_GENERAL);
     }
     else {      // debug and setup
         recordCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
@@ -382,7 +398,7 @@ void App::drawFrame() {
         }
 
         if (inputManager.debugIntersection) {
-            uniformManager.novelUnifroms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, DebugCompute::INTERSECTION);
+            uniformManager.novelUnifroms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, DebugCompute::INTERSECTION, inputManager.novelHeuristic);
             camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_GENERAL);
             if (uniformManager.novelUnifroms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change
                 // if the ssbo was recreated, update the descriptors
@@ -401,7 +417,9 @@ void App::drawFrame() {
                 inputManager.startSynthesis = false;
             }
 
+            camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_GENERAL);
             recordPointCloudCommandBuffer(commandManager.commandBuffers[currentFrame]);
+            recordPointCommandBuffer(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
         }
     }
 

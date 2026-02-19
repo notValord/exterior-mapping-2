@@ -45,6 +45,7 @@ protected:
 };
 
 
+
 class RenderUniforms : public BaseUniforms {  // Graphics normal render
 public:
     std::vector<VkBuffer> fragmentUniformBuffers;
@@ -60,6 +61,7 @@ private:
 
     void createFragmentUniformBuffers(VkDeviceSize bufferSize = sizeof(RenderFragmentObject));
 };
+
 
 
 class OfflineUniforms : public BaseUniforms {
@@ -80,7 +82,7 @@ public:
     NovelUniforms(MemoryManager& memManager, const uint32_t camCount, const VkExtent2D& extentSize);
     ~NovelUniforms();
 
-    void updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag);
+    void updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag, NovelHeuristic heuristic);
 
     bool setCamArrayData(uint32_t currentImage, CamerasManager& camManager);
     uint32_t getIntersectCount(uint32_t currentImage);
@@ -102,6 +104,8 @@ private:
     void recreateIntersectionsSSBO(const uint32_t currentFrame);
 };
 
+
+
 class PointCloudUniforms : public BaseUniforms {        // Point cloud compute
 public:
     std::vector<VkBuffer> camMatricesSSBOIn;        // the In buffers are static, no need of copy 
@@ -114,6 +118,7 @@ public:
     void setScreenRes(const VkExtent2D& newScreenRes);
     void updateUniformBuffers(CamerasManager& camManager);      // update only once after the offline images are created with the set resolution
 
+    uint32_t getPointCount(uint32_t currentImage);
 private:
     std::vector<VmaAllocation> camMatricesSSBOMemory;
     std::vector<VmaAllocation> pointCloudSSBOMemory;
@@ -127,73 +132,7 @@ private:
     void updateStorageBuffers(CamerasManager& camManager);
 };
 
-// class Uniforms{
-// public:
-//     // Graphics normal render
-//     std::vector<VkBuffer> renderUniformBuffers;
-//     std::vector<VkBuffer> renderFragmentBuffers;
 
-//     // Offline ubo render buffer
-//     std::vector<VkBuffer> offlineRenderBuffers;
-
-//     // Compute intersection shader
-//     std::vector<VkBuffer> novelUniformBuffers;
-//     std::vector<VkBuffer> camArraySSBOIn;
-//     std::vector<VkBuffer> intersectionsSSBOOut;
-//     std::vector<VkBuffer> vertexCountSSBOOut;
-
-//     // Compute point cloud
-//     std::vector<VkBuffer> pointCloudUniformBuffers;
-//     std::vector<VkBuffer> CamMatricesSSBOIn;
-//     std::vector<VkBuffer> pointCloudSSBOOut;
-//     std::vector<VkBuffer> PointCountSSBOOut;
-
-
-//     Uniforms(const VkDevice device, MemoryManager& memManager, const VkExtent2D& extentSize, const uint32_t camCount);
-//     ~Uniforms();
-
-//     void updateRenderUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth);
-//     void updateOfflineRenderBuffers(uint32_t currentImage, CamerasManager& camManager, PresentationMode mode, ImageViewType viewType);
-//     void updateComputeUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag = DebugCompute::NO_DEBUG);
-
-//     bool setCamArrayData(uint32_t currentImage, CamerasManager& camManager);
-
-//     uint32_t getVertexCount(uint32_t currentImage);
-
-// private:
-//     std::vector<VmaAllocation> renderUniformBuffersMemory;
-//     std::vector<void*> renderUniformBuffersMapped;        // pointer to the mapped memory
-//     // The buffer stays mapped to this pointer for the application's whole lifetime ("persistent mapping") and works on all Vulkan implementations.
-//     // Not having to map the buffer every time increases performances, as mapping is not free.
-//     std::vector<VmaAllocation> renderFragmentBuffersMemory;
-//     std::vector<void*> renderFragmentBuffersMapped;
-
-//     std::vector<VmaAllocation>novelUniformBuffersMemory;
-//     std::vector<void*> novelUniformBuffersMapped;
-
-//     std::vector<VmaAllocation>offlineRenderBuffersMemory;
-//     std::vector<void*> offlineRenderBuffersMapped;
-
-//     std::vector<uint32_t> camArrayCounts;
-//     std::vector<VmaAllocation> camArraySSBOMemory;
-//     std::vector<VmaAllocation>intersectionsSSBOMemory;
-//     std::vector<VmaAllocation>vertexCountSSBOMemory;
-//     std::vector<void*> vertexCountSSBOMapped;        // pointer to the mapped memory
-
-//     // Vulkan handels
-//     VkDevice deviceHandle;
-//     MemoryManager& memManager;
-
-//     VkExtent2D maxScreenRes;
-//     bool resGrew = false;
-
-//     void createRenderUniformBuffers();
-//     void createOfflineBuffer();
-//     void createComputeBuffer(const uint32_t camCount);
-
-//     bool recreateCamArraySSBO(const uint32_t newCount, const uint32_t currentFrame);
-//     void recreateIntersectionsSSBO(const uint32_t currentFrame);
-// };
 
 class UniformManager {
 public:

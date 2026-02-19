@@ -6,81 +6,35 @@
 #include <fstream>
 #include <vector>
 
-#include <structs.hpp>
-
 struct AttachementsFormats;
 class DescriptorManager;
 
-// class GraphicsPipeline{
-// public:
-//     VkPipeline graphicsPipeline;
-//     VkRenderPass renderPass;
-//     VkPipelineLayout pipelineLayout;
+enum class VertexInputFlags : uint32_t {
+    POS_COL_UV,
+    POS_COL,
+    POS,
+    NONE
+};
 
-//     VkPipeline frustumPipeline = VK_NULL_HANDLE;
-//     VkRenderPass onTopRenderPass = VK_NULL_HANDLE;
-//     VkPipelineLayout frustumPipelineLayout = VK_NULL_HANDLE;
+struct DepthStencilFlags{
+    VkBool32 testEnable;
+    VkBool32 writeEnable;
+};
 
-//     VkPipeline intersectionPipeline = VK_NULL_HANDLE;               // uses onTopRenderPass
-//     VkPipelineLayout intersectionPipelineLayout = VK_NULL_HANDLE;
+struct RasterizationFlags{
+    VkCullModeFlags cullMode;
+    VkFrontFace frontFace;
+};
 
-//     VkPipeline camCubePipeline = VK_NULL_HANDLE;                    // uses onTopRenderPass
-//     VkPipelineLayout camCubePipelineLayout = VK_NULL_HANDLE;
+struct GraphicShaders {
+    std::string vert;
+    std::string frag;
+};
 
-//     VkPipeline offlineRenderPipeline = VK_NULL_HANDLE;              // uses graphics renderpass
-//     VkPipelineLayout offlineRenderPipelineLayout = VK_NULL_HANDLE;
+struct ComputeShader {
+    std::string comp;
+};
 
-
-//     GraphicsPipeline(const VkDevice device, const AttachementsFormats& imageFormats, const VkDescriptorSetLayout descriptorSL,
-//         const std::string& vertexFile = "../shaders/vert.spv", const std::string& fragFile = "../shaders/frag.spv");
-//     ~GraphicsPipeline();
-
-//     void setupFrustumPipeline(const VkDescriptorSetLayout descriptorSL, const AttachementsFormats& imageFormats,
-//          const std::string& vertexFile = "../shaders/frustumVert.spv", const std::string& fragFile = "../shaders/frustumFrag.spv");
-
-//     void setupIntersectionPipeline(const VkDescriptorSetLayout descriptorSL, const AttachementsFormats& imageFormats,
-//          const std::string& vertexFile = "../shaders/lineVert.spv", const std::string& fragFile = "../shaders/lineFrag.spv");
-    
-//     void setupCamCubePipeline(const VkDescriptorSetLayout descriptorSL, const AttachementsFormats& imageFormats,
-//          const std::string& vertexFile = "../shaders/camCubeVert.spv", const std::string& fragFile = "../shaders/camCubeFrag.spv");
-
-//     void setupOfflinePipeline(const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL,
-//          const std::string& vertexFile = "../shaders/offlineVert.spv", const std::string& fragFile = "../shaders/offlineFrag.spv");
-// private:
-//     std::string vertexShader;
-//     std::string fragmentShader;
-
-//     // required handles
-//     VkDevice deviceHandle;
-
-//     VkPipeline createGraphicsPipeline(const std::string& vertexShader, const std::string& fragmentShader, VkPipelineLayout& pipelineLayout,
-//          VkRenderPass& renderPass, VertexInputFlags vertexInput, VkPrimitiveTopology topology, DepthStencilFlags depthFlags, RasterizationFlags rastFlags);
-//     VkRenderPass createRenderPass(const AttachementsFormats& imageFormats);
-//     VkRenderPass createOnTopRenderPass(const AttachementsFormats& imageFormats);
-
-//     void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
-// };
-
-// class ComputePipeline {
-// public:
-//     VkPipeline computePipeline;
-//     VkPipelineLayout pipelineLayout;
-
-//     VkPipeline pointCloudPipeline;
-//     VkPipelineLayout pointCloudPipelineLayout;
-
-//     ComputePipeline(const VkDevice device, const VkDescriptorSetLayout descriptorSL, const VkDescriptorSetLayout sharedDescriptorSL, const VkDescriptorSetLayout cloudDescriptorSL,
-//                     const std::string& computeFile = "../shaders/compute.spv", const std::string& pointCloudFile = "../shaders/pointCloud.spv");
-//     ~ComputePipeline();
-
-// private:
-//     std::string computeShader;
-
-//     // required Vulkan handle
-//     VkDevice deviceHandle;
-//     void createComputePipeline(VkPipelineLayout& pipelineLayout, std::string shaderFile, VkPipeline& pipeline);
-//     void createPipelineLayout(std::vector<VkDescriptorSetLayout>& descriptorSL, VkPipelineLayout& pipelineLayout, uint32_t pushConstant = 0);
-// };
 
 struct GraphicSetup {
     GraphicShaders shaderFiles;
@@ -94,8 +48,7 @@ struct PipelineLayoutSetup {
     std::vector<VkDescriptorSetLayout> descriptorVec;
     uint32_t pushConstants = 0;
 
-    PipelineLayoutSetup(std::initializer_list<VkDescriptorSetLayout> layouts,
-                        uint32_t push = 0)
+    PipelineLayoutSetup(std::initializer_list<VkDescriptorSetLayout> layouts, uint32_t push = 0)
         : descriptorVec(layouts), pushConstants(push) {}
 };
 
@@ -115,7 +68,7 @@ public:
     VkPipelineLayout createPipelineLayout(const PipelineLayoutSetup& layoutSetup) const;
     VkPipeline createComputePipeline(VkPipelineLayout pipelineLayout, const ComputeShader& shaderFile) const;
     VkRenderPass createRenderPass(const AttachementDescription& colorAttachment, const AttachementDescription& depthAttachment) const;
-    VkPipeline createGraphicsPipeline(VkPipelineLayout pipelineLayout, VkRenderPass& renderPass, const GraphicSetup& pipelineSetup) const;
+    VkPipeline createGraphicsPipeline(VkPipelineLayout pipelineLayout, VkRenderPass renderPass, const GraphicSetup& pipelineSetup) const;
 private:
     VkDevice deviceHandle;
 
@@ -183,6 +136,25 @@ private:
 
 
 class PipelineManager {
+private:
+    PipelineBuilder builder;        // needs to be initialized first
+
+    static inline const GraphicShaders renderFiles    = GraphicShaders{"../shaders/vert.spv", "../shaders/frag.spv"};
+    static inline const GraphicShaders frustumFiles   = GraphicShaders{"../shaders/frustumVert.spv", "../shaders/frustumFrag.spv"};
+    static inline const GraphicShaders lineFiles      = GraphicShaders{"../shaders/lineVert.spv", "../shaders/lineFrag.spv"};
+    static inline const GraphicShaders camCuberFiles  = GraphicShaders{"../shaders/camCubeVert.spv", "../shaders/camCubeFrag.spv"};
+    static inline const GraphicShaders offlineFiles   = GraphicShaders{"../shaders/offlineVert.spv", "../shaders/offlineFrag.spv"};
+    static inline const GraphicShaders pointRendFiles = GraphicShaders{"../shaders/pointVert.spv", "../shaders/pointFrag.spv"};
+    static inline const ComputeShader intersectFile   =  ComputeShader{"../shaders/compute.spv"};
+    static inline const ComputeShader pointCloudFile  =  ComputeShader{"../shaders/pointCloud.spv"};
+
+    GraphicSetup setupRenderPipeline();
+    GraphicSetup setupFrustumPipeline();
+    GraphicSetup setupLinePipeline();
+    GraphicSetup setupCamCubePipeline();
+    GraphicSetup setupOfflinePipeline();
+    GraphicSetup setupPointPipeline();
+
 public:
     RenderPassManager renderPassMan;
 
@@ -194,22 +166,7 @@ public:
     GraphicPipeline linePipeline;
     GraphicPipeline camCubePipeline;
     GraphicPipeline offlinePipeline;
+    GraphicPipeline pointPipeline;
 
     PipelineManager(VkDevice device, const AttachementsFormats& imageFormats, DescriptorManager& descrMan);
-private:
-    PipelineBuilder builder;
-
-    const GraphicShaders renderFiles    = GraphicShaders{"../shaders/vert.spv", "../shaders/frag.spv"};
-    const GraphicShaders frustumFiles   = GraphicShaders{"../shaders/frustumVert.spv", "../shaders/frustumFrag.spv"};
-    const GraphicShaders lineFiles      = GraphicShaders{"../shaders/lineVert.spv", "../shaders/lineFrag.spv"};
-    const GraphicShaders camCuberFiles  = GraphicShaders{"../shaders/camCubeVert.spv", "../shaders/camCubeFrag.spv"};
-    const GraphicShaders offlineFiles   = GraphicShaders{"../shaders/offlineVert.spv", "../shaders/offlineFrag.spv"};
-    const ComputeShader intersectFile   =  ComputeShader{"../shaders/compute.spv"};
-    const ComputeShader pointCloudFile  =  ComputeShader{"../shaders/pointCloud.spv"};
-
-    GraphicSetup setupRenderPipeline();
-    GraphicSetup setupFrustumPipeline();
-    GraphicSetup setupLinePipeline();
-    GraphicSetup setupCamCubePipeline();
-    GraphicSetup setupOfflinePipeline();
 };
