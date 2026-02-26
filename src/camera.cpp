@@ -156,17 +156,17 @@ void NovelCamera::createNovelImage(VkExtent2D novelExtent, const VkFormat colorF
     }
 }
 
-void NovelCamera::swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImageLayout targetLayout, const VkFormat colorFormat) {
+void NovelCamera::swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImageLayout targetLayout, VkCommandBuffer commandBuffer, const VkFormat colorFormat) {
     if (targetLayout == novelImageLayout[currentFrame]) {
         return;
     }
 
     if (targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && novelImageLayout[currentFrame] == VK_IMAGE_LAYOUT_GENERAL) {
-        memManager.transitionImageLayout(novelImage[currentFrame], colorFormat, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        memManager.transitionImageLayout(novelImage[currentFrame], colorFormat, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, commandBuffer);
         novelImageLayout[currentFrame] = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     }
     else if (targetLayout == VK_IMAGE_LAYOUT_GENERAL && novelImageLayout[currentFrame] == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-        memManager.transitionImageLayout(novelImage[currentFrame], colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+        memManager.transitionImageLayout(novelImage[currentFrame], colorFormat, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 1 , commandBuffer);
         novelImageLayout[currentFrame] = VK_IMAGE_LAYOUT_GENERAL;
     }
     else {
@@ -177,21 +177,21 @@ void NovelCamera::swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImage
 
 OfflineCamera::OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass)
     : Camera(extentRatio), deviceHandle(device), memManager(memMan) {
-    createOfflineResources(renderpass, colorFormat, depthFormat, swapChainExtent);
+    // createOfflineResources(renderpass, colorFormat, depthFormat, swapChainExtent);
 }
 
 OfflineCamera::~OfflineCamera() {
     cleanupOfflineResources();
 }
 
-void OfflineCamera::createOfflineResources(const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent) {
-    memManager.createImage(swapChainExtent.width, swapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-         colorImage, VMA_MEMORY_USAGE_GPU_ONLY, colorImageMemory);
-    memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-         depthImage, VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
+void OfflineCamera::createOfflineResources(VkImage colorImage, VkImage depthImage, uint32_t camID, const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent) {
+    // memManager.createImage(swapChainExtent.width, swapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    //      colorImage, VMA_MEMORY_USAGE_GPU_ONLY, colorImageMemory);
+    // memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    //      depthImage, VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
 
-    colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
-    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle);
+    colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, 1, camID);
+    depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle, 1, camID);
 
     std::array<VkImageView, 2> attachements = {
         colorImageView,
@@ -223,15 +223,18 @@ void OfflineCamera::cleanupOfflineResources() {
         vkDestroyImageView(deviceHandle, colorImageView, nullptr);
         vkDestroyImageView(deviceHandle, depthImageView, nullptr);
 
-        memManager.destroyImage(colorImage, colorImageMemory);
-        memManager.destroyImage(depthImage, depthImageMemory);
+        // memManager.destroyImage(colorImage, colorImageMemory);
+        // memManager.destroyImage(depthImage, depthImageMemory);
+
+        colorImageView = VK_NULL_HANDLE;
+        depthImageView = VK_NULL_HANDLE;
     }
 }
 
-void OfflineCamera::recreateOfflineResources(VkExtent2D& swapChainExtent, VkRenderPass renderpass, const VkFormat colorFormat, const VkFormat depthFormat) {
+void OfflineCamera::recreateOfflineResources(VkImage colorImage, VkImage depthImage, uint32_t camID, VkExtent2D& swapChainExtent, VkRenderPass renderpass, const VkFormat colorFormat, const VkFormat depthFormat) {
     cleanupOfflineResources();
 
-    createOfflineResources(renderpass, colorFormat, depthFormat, swapChainExtent);
+    createOfflineResources(colorImage, depthImage, camID, renderpass, colorFormat, depthFormat, swapChainExtent);
 }
 
 CamArrayData OfflineCamera::getCamData() {

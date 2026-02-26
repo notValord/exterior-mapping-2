@@ -55,6 +55,8 @@ InputManager::InputManager(GLFWwindow* window, CamerasManager& camManager, const
     : fpsCnt(), imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent, memMan),
      windowHandle(window),  camManagerHandle(camManager){
     presentType = ImageViewType::COLOR;
+    novelDebug = DebugCompute::NO_DEBUG;
+    novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
 }
 
 InputManager::~InputManager() {

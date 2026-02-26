@@ -247,10 +247,6 @@ void CamCubeDescriptors::createDescriptorSets(const DescriptorBuilder& builder, 
 OfflineDescriptors::OfflineDescriptors(const DescriptorBuilder& builder, const VkDevice device)
         : BaseDescriptors(device)  {
     createDescriptorSetLayout(builder);
-
-    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        toUpdate.push_back(false);
-    }
 }
 
 void OfflineDescriptors::createDescriptorSetLayout(const DescriptorBuilder& builder) {
@@ -269,7 +265,7 @@ void OfflineDescriptors::createDescriptorSets(const DescriptorBuilder& builder, 
         VkDescriptorBufferInfo descriptorBufferI = DescriptorWriter::makeBufferInfo(offlineRenderBuffers[i], sizeof(OfflineBufferObject));
 
         // bind to dummy at the start
-        VkDescriptorImageInfo descriptorImageI = DescriptorWriter::makeImageInfo(camManager.imageSampler.getSampler(), camManager.novelView.getImageView(i));
+        VkDescriptorImageInfo descriptorImageI = DescriptorWriter::makeImageInfo(camManager.getSampler(ImageViewType::COLOR), camManager.novelView.getImageView(i));
 
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
         descriptorWrites[0] = DescriptorWriter::makeWrite(descriptorSets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBufferI);
@@ -279,29 +275,21 @@ void OfflineDescriptors::createDescriptorSets(const DescriptorBuilder& builder, 
     }
 }
 
-void OfflineDescriptors::updateDescriptorSets(CamerasManager& camManager, uint32_t currentFrame) {
-    if (toUpdate[currentFrame] == false) {
-        return;
-    }
-
-    VkDescriptorImageInfo descriptorImageI = DescriptorWriter::makeImageInfo(camManager.imageSampler.getSampler(),      // the same sampler as for the samplerArray
-                                                                             camManager.novelView.getImageView(currentFrame));
-
-    VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(descriptorSets[currentFrame],
-                                                                        1,
-                                                                        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                                                                        nullptr,
-                                                                        &descriptorImageI);
-
-    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
-    toUpdate[currentFrame] = false;
-}
-
-void OfflineDescriptors::setUpdateFlags() {
+void OfflineDescriptors::updateDescriptorSets(CamerasManager& camManager) {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        toUpdate[i] = true;
+        VkDescriptorImageInfo descriptorImageI = DescriptorWriter::makeImageInfo(camManager.getSampler(ImageViewType::COLOR),      // the same sampler as for the samplerArray
+                                                                             camManager.novelView.getImageView(i));
+
+        VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(descriptorSets[i],
+                                                                            1,
+                                                                            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                                            nullptr,
+                                                                            &descriptorImageI);
+
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
     }
 }
+
 
 
 
@@ -426,8 +414,8 @@ void ComputeDescriptors::updateDescriptorSets(uint32_t currentFrame, const std::
 }
 
 void ComputeDescriptors::updateSharedImageDescriptor(CamerasManager& camManager) {
-    VkDescriptorImageInfo descriptorImageSamplerI = DescriptorWriter::makeImageInfo(camManager.imageSampler.getSampler(), camManager.getImageView(ImageViewType::COLOR));
-    VkDescriptorImageInfo descriptorImageSamplerI2 = DescriptorWriter::makeImageInfo(camManager.depthSampler.getSampler(), camManager.getImageView(ImageViewType::DEPTH));
+    VkDescriptorImageInfo descriptorImageSamplerI = DescriptorWriter::makeImageInfo(camManager.getSampler(ImageViewType::COLOR), camManager.getImageView(ImageViewType::COLOR));
+    VkDescriptorImageInfo descriptorImageSamplerI2 = DescriptorWriter::makeImageInfo(camManager.getSampler(ImageViewType::DEPTH), camManager.getImageView(ImageViewType::DEPTH));
     std::array<VkWriteDescriptorSet, 2> descriptorWritesShared;
     descriptorWritesShared[0] = DescriptorWriter::makeWrite(sharedDescriptorSet,
                                                             0,
@@ -454,7 +442,7 @@ void ComputeDescriptors::updateImageDescriptors(CamerasManager& camManager) {
         vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrite, 0, nullptr);
     }
 
-    updateSharedImageDescriptor(camManager);
+    // updateSharedImageDescriptor(camManager);
 }
 
 PointCloudDescriptors::PointCloudDescriptors(const DescriptorBuilder& builder, const VkDevice device)

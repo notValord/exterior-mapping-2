@@ -1,7 +1,7 @@
 #include <util.hpp>
 #include <swapchain.hpp>
 
-VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice deviceHandle, uint32_t layerCnt) {
+VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags aspectFlags, const VkDevice deviceHandle, uint32_t layerCnt, uint32_t layerID) {
     VkImageViewCreateInfo imageViewCI{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
@@ -15,7 +15,7 @@ VkImageView createImageView(VkImage& image, VkFormat format, VkImageAspectFlags 
     imageViewCI.subresourceRange.aspectMask = aspectFlags;
     imageViewCI.subresourceRange.baseMipLevel = 0;
     imageViewCI.subresourceRange.levelCount = 1;
-    imageViewCI.subresourceRange.baseArrayLayer = 0;
+    imageViewCI.subresourceRange.baseArrayLayer = layerID;
     imageViewCI.subresourceRange.layerCount = layerCnt;
 
     if (layerCnt > 1) {

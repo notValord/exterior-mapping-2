@@ -33,16 +33,21 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 proj;
 } ubo;
 
+layout(push_constant) uniform PushConstant {
+    mat4 model;
+    mat4 projView;
+} pc;
+
 // set up push constant for offline rendering
 // for fragment shader have a depth flag to show depth values
 void main() {
-    int idx = quadIndices[gl_VertexIndex];
+    // int idx = quadIndices[gl_VertexIndex];
     
-    gl_Position = ubo.proj * ubo.view * vec4(positions[idx], 0.0, 1.0);
-    fragTexCoords = uvs[idx];
-    // gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+    // gl_Position = ubo.proj * ubo.view * vec4(positions[idx], 0.0, 1.0);
+    // fragTexCoords = uvs[idx];
+    gl_Position = pc.projView * pc.model * vec4(inPosition, 1.0);
 
     colorGrad = inColor;
-    // fragTexCoords = inTexCoords;
+    fragTexCoords = inTexCoords;
     depth = gl_Position.z/gl_Position.w;
 }

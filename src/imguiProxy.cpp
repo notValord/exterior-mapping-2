@@ -229,7 +229,7 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         }
         ImGui::EndDisabled();
 
-        if (camManager.offlineImagesRendered) {
+        if (camManager.imagesRendered()) {
             ImGui::SameLine(0, 30.0f);
             ImGui::Text("Snapshots taken!");
         }
@@ -246,14 +246,14 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.480f, 0.045f, 0.540f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.300f, 0.015f, 0.340f, 1.0f));
 
-        ImGui::BeginDisabled(!camManager.offlineImagesRendered);
+        ImGui::BeginDisabled(!camManager.imagesRendered());
         ImGui::BeginDisabled(inputManager->presentOfflineFlag);
         if (ImGui::Button("Save snapshots")) {
             if (depthFormat == 0) {
-                camManager.saveOfflineImages(memManager, snapshotsFiles, SaveImageFormat::HDR);
+                camManager.saveImages(snapshotsFiles, SaveImageFormat::HDR);
             }
             else {
-                camManager.saveOfflineImages(memManager, snapshotsFiles, SaveImageFormat::EXR);
+                camManager.saveImages(snapshotsFiles, SaveImageFormat::EXR);
             }
         }
         ImGui::EndDisabled();
@@ -286,7 +286,7 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         const uint32_t minSample = 1;
         const uint32_t maxSample = 128;
 
-        ImGui::BeginDisabled(!camManager.offlineImagesRendered);
+        ImGui::BeginDisabled(!camManager.imagesRendered());
         if (ImGui::Checkbox("Render novel view", &inputManager->novelRender) && inputManager->novelRender) {
             inputManager->startSynthesis = true;
         }
@@ -335,10 +335,13 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
 void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offlineRendred) {
     if (ImGui::CollapsingHeader("Debug info")) {
         ImGui::Text("FPS: %.1f", fps);
-        ImGui::Checkbox("Grayscale", &inputManager->debugGrayscale);        // TODO
+        ImGui::Checkbox("Grayscale", &inputManager->debugGrayscale);
         ImGui::Checkbox("Show Cam-cubes", &inputManager->debugCamCube);
         ImGui::Checkbox("Show frustum", &inputManager->debugFrustum);
-        ImGui::Checkbox("Show intersections", &inputManager->debugIntersection);
+        if (ImGui::Checkbox("Show intersections", &inputManager->debugIntersection) || inputManager->debugIntersection) {
+            inputManager->novelDebug = DebugCompute::INTERSECTION;
+        }
+        
 
         ImGui::BeginDisabled(!offlineRendred);
         if (ImGui::Checkbox("Point cloud", &inputManager->debugPointCloud) && inputManager->debugPointCloud) {
@@ -359,7 +362,7 @@ void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inp
     
     uiOfflineRender(camManager, inputManager);
     uiNovelRender(camManager, inputManager);
-    uiDebugInfo(fps, inputManager,camManager.offlineImagesRendered);
+    uiDebugInfo(fps, inputManager,camManager.imagesRendered());
     
     ImGui::End();
 }

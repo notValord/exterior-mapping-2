@@ -1,5 +1,7 @@
 #include <commandManager.hpp>
 #include <vulkanContext.hpp>
+#include <camManager.hpp>
+#include <pipeline.hpp>
 
 CommandManager::CommandManager(const QueueFamilyIndices& familyIndices, const VkDevice device)
     : deviceHandle(device) {
@@ -46,4 +48,187 @@ void CommandManager::createCommandBuffers() {
     if (vkAllocateCommandBuffers(deviceHandle, &commandBufferAI, offlineCommandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate command buffers!");
     }
+}
+
+
+
+struct CommandRecordSetter{
+    static void beginRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, const VkExtent2D& swapChainExtent, bool clearColor) {
+        std::array<VkClearValue, 2> baseColor{};
+        baseColor[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+        baseColor[1].depthStencil = {1.0f, 0};
+        
+        VkRenderPassBeginInfo renderPassBI{
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .renderPass = renderPass,
+            .framebuffer = frameBuffer,
+            .renderArea = {{0,0}, swapChainExtent},  // offset, extent
+            .clearValueCount = 0,
+            .pClearValues = VK_NULL_HANDLE
+        };
+
+        if (clearColor) {
+            renderPassBI.clearValueCount = static_cast<uint32_t>(baseColor.size()),
+            renderPassBI.pClearValues = baseColor.data();
+        }
+
+        vkCmdBeginRenderPass(commandBuffer, &renderPassBI, VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    static void setViewport(VkCommandBuffer commandBuffer, const VkExtent2D& swapChainExtent) {
+        VkViewport viewport{
+            .x = 0.0f,
+            .y = 0.0f,
+            .width = static_cast<float>(swapChainExtent.width),
+            .height = static_cast<float>(swapChainExtent.height),
+            .minDepth = 0.0f,
+            .maxDepth = 1.0f
+        };
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+    }
+
+    static void setScissor(VkCommandBuffer commandBuffer, const VkExtent2D& swapChainExtent, VkOffset2D offset = {0, 0}) {
+        VkRect2D scissor{
+            .offset = offset,
+            .extent = swapChainExtent
+        };
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+    }
+};
+
+void CommandRecorder::setPipeline(const GraphicPipeline& pipeline, VkRenderPass render, VkExtent2D extent) {
+    graphicPipeline = pipeline.pipeline;
+    graphicPipelineLayout = pipeline.pipelineLayout;
+    renderPass = render;
+    swapchainExtent = extent;
+}
+
+void CommandRecorder::setPipeline(const ComputePipeline& pipeline) {
+    computePipeline = pipeline.pipeline;
+    computePipelineLayout = pipeline.pipelineLayout;
+}
+
+void CommandRecorder::setRenderBuffers(VkBuffer vertex, uint32_t count, VkBuffer index) {
+    vertexBuffer = vertex;
+    indexCount = count;
+    indexBuffer = index;
+}
+
+void CommandRecorder::setComputeBuffer(VkBuffer dataBuffer, VkBuffer countBuffer) {
+    computeBuffer.dataBuffer =  dataBuffer;
+    computeBuffer.counterBuffer = countBuffer;
+}
+
+void CommandRecorder::recordRenderScene(VkCommandBuffer commandBuffer,
+                                        const std::vector<VkDescriptorSet>& descriptorSets,
+                                        VkFramebuffer framebuffer,
+                                        const std::vector<glm::mat4>& pushConstants) {
+    CommandRecordSetter::beginRenderPass(commandBuffer, renderPass, framebuffer, swapchainExtent, true);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipeline);
+
+    CommandRecordSetter::setViewport(commandBuffer, swapchainExtent);
+    CommandRecordSetter::setScissor(commandBuffer, swapchainExtent);
+
+    if (vertexBuffer != VK_NULL_HANDLE) {
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    }
+
+    if (!descriptorSets.empty()) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+    }
+
+    if (!pushConstants.empty()) {
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)*pushConstants.size(), pushConstants.data());
+    }
+
+    if (indexBuffer != VK_NULL_HANDLE) {
+        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffer, indexCount, 1, 0, 0, 0);
+    }
+    else {
+        vkCmdDraw(commandBuffer, indexCount, 1, 0, 0);
+    }
+    vkCmdEndRenderPass(commandBuffer);
+}
+
+void CommandRecorder::recordRenderCamCube(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, VkFramebuffer framebuffer, const CamerasManager& camManager) {
+    CommandRecordSetter::beginRenderPass(commandBuffer, renderPass, framebuffer, swapchainExtent, false);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipeline);
+
+    CommandRecordSetter::setViewport(commandBuffer, swapchainExtent);
+    CommandRecordSetter::setScissor(commandBuffer, swapchainExtent);
+
+    if (!descriptorSets.empty()) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+    }
+
+    for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
+        std::array<glm::mat4x4, 2> camMatrices{};
+        camMatrices[0] = glm::inverse(camManager.camArray[i].getViewMatrix());
+        camMatrices[1] = camManager.activeCam->getProjectionMatrix() * camManager.activeCam->getViewMatrix();
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)*2, camMatrices.data());
+        vkCmdDraw(commandBuffer, 36, 1, 0, 0);
+    }
+
+    vkCmdEndRenderPass(commandBuffer);
+}
+
+void CommandRecorder::clearComputeBuffer(VkCommandBuffer commandBuffer) {
+    vkCmdFillBuffer(commandBuffer, computeBuffer.dataBuffer, 0, VK_WHOLE_SIZE, 0);
+    vkCmdFillBuffer(commandBuffer, computeBuffer.counterBuffer, 0, sizeof(uint32_t), 0);
+
+    barrierComputeBuffer(commandBuffer);
+}
+
+void CommandRecorder::barrierComputeBuffer(VkCommandBuffer commandBuffer,
+                                           VkAccessFlags srcMask,
+                                           VkAccessFlags dstMask,
+                                           VkPipelineStageFlagBits srcStage,
+                                           VkPipelineStageFlagBits dstStage) {
+    std::array<VkBufferMemoryBarrier, 2> fillBarriers;
+    fillBarriers[0] = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = srcMask,
+        .dstAccessMask = dstMask,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = computeBuffer.dataBuffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE
+    };
+    fillBarriers[1] = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = srcMask,
+        .dstAccessMask = dstMask,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = computeBuffer.counterBuffer,
+        .offset = 0,
+        .size = sizeof(uint32_t)
+    };
+
+    vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, fillBarriers.size(), fillBarriers.data(), 0, nullptr);
+}
+
+void CommandRecorder::recordCompute(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, std::pair<uint32_t, uint32_t> dispatchSize) {
+    if (!computeBuffer.isEmpty()) {
+        clearComputeBuffer(commandBuffer);
+    }
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+    if (!descriptorSets.empty()) {
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+    }
+
+    vkCmdDispatch(commandBuffer, dispatchSize.first, dispatchSize.second, 1);
+
+    barrierComputeBuffer(commandBuffer,
+                         VK_ACCESS_SHADER_WRITE_BIT, 
+                         VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, 
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+                         VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 }

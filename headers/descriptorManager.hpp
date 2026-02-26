@@ -78,11 +78,9 @@ public:
     OfflineDescriptors(const DescriptorBuilder& builder, const VkDevice device);
 
     void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& offlineUniformBuffers, CamerasManager& camManager);
-    void updateDescriptorSets(CamerasManager& camManager, uint32_t currentFrame);
-    void setUpdateFlags();
-private:
-    std::vector<bool> toUpdate;
+    void updateDescriptorSets(CamerasManager& camManager);
 
+private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
 };
 

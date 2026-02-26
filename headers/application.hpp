@@ -42,6 +42,8 @@ private:
     InputManager inputManager;
     DebugUtil debugUtil;
 
+    CommandRecorder commandRecorder;
+
     uint32_t currentFrame = 0;
 
     void mainLoop();
@@ -60,4 +62,15 @@ private:
     void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
     void recordPointCloudCommandBuffer(VkCommandBuffer commandBuffer);
     void recordPointCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+
+    void drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, const Camera& renderView);
+    void computeNovel(VkCommandBuffer commandBuffer);
+    void computePointCloud(VkCommandBuffer commandBuffer);
+    void drawDebug(VkFramebuffer framebuffer);
+
+    void drawFrustumDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void drawCamCubeDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void drawIntersectionDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+    void drawPointCloudDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
 };

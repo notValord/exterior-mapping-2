@@ -454,7 +454,7 @@ PipelineManager::PipelineManager(VkDevice device, const AttachementsFormats& ima
       renderPassMan(device, imageFormats, builder),
       intersectPipeline(device, PipelineLayoutSetup{{descrMan.computeDescriptors.descriptorSetLayout, descrMan.computeDescriptors.sharedDescriptorSetLayout}}, intersectFile, builder),
       pointCloudPipeline(device, PipelineLayoutSetup{{descrMan.pointCloudDescriptors.descriptorSetLayout, descrMan.computeDescriptors.sharedDescriptorSetLayout}}, pointCloudFile, builder),
-      renderPipeline(device, renderPassMan.renderPass, PipelineLayoutSetup{{descrMan.renderDescriptors.descriptorSetLayout}}, setupRenderPipeline(), builder),
+      renderPipeline(device, renderPassMan.renderPass, PipelineLayoutSetup{{descrMan.renderDescriptors.descriptorSetLayout}, 1}, setupRenderPipeline(), builder),
       frustumPipeline(device, renderPassMan.onTopRenderPass, PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}}, setupFrustumPipeline(), builder),
       linePipeline(device, renderPassMan.onTopRenderPass, PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}}, setupLinePipeline(), builder),
       camCubePipeline(device, renderPassMan.onTopRenderPass, PipelineLayoutSetup{{descrMan.camCubeDestriptors.descriptorSetLayout}, 1}, setupCamCubePipeline(), builder),

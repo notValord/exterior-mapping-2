@@ -83,7 +83,7 @@ public:
     ~NovelCamera();
 
     void createNovelImage(VkExtent2D novelExtent, const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
-    void swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImageLayout targetLayout, const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
+    void swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImageLayout targetLayout, VkCommandBuffer commandBuffer, const VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
     VkImageView getImageView(uint32_t currentIndex);
 private:
     std::vector<VmaAllocation> novelImageMemory;
@@ -101,28 +101,28 @@ class OfflineCamera : public Camera {
 public:
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
 
-    VkImage colorImage = VK_NULL_HANDLE;
-    VkImage depthImage = VK_NULL_HANDLE;
+    // VkImage colorImage = VK_NULL_HANDLE;
+    // VkImage depthImage = VK_NULL_HANDLE;
 
     OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass);
     ~OfflineCamera();
 
-    void recreateOfflineResources(VkExtent2D& swapChainExtent, VkRenderPass renderpass, const VkFormat colorFormat, const VkFormat depthFormat);
+    void recreateOfflineResources(VkImage colorImage, VkImage depthImage, uint32_t camID, VkExtent2D& swapChainExtent, VkRenderPass renderpass, const VkFormat colorFormat, const VkFormat depthFormat);
 
     CamArrayData getCamData();
     VkImageView getImageView(ImageViewType type);
     
 private:
-    VmaAllocation colorImageMemory;
-    VmaAllocation depthImageMemory;
+    // VmaAllocation colorImageMemory;
+    // VmaAllocation depthImageMemory;
 
-    VkImageView colorImageView;
-    VkImageView depthImageView;
+    VkImageView colorImageView = VK_NULL_HANDLE;
+    VkImageView depthImageView = VK_NULL_HANDLE;
 
     // Vulkan Handles
     VkDevice deviceHandle;
     MemoryManager& memManager;
 
-    void createOfflineResources(const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent);
+    void createOfflineResources(VkImage colorImage, VkImage depthImage, uint32_t camID, const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent);
     void cleanupOfflineResources();
 };

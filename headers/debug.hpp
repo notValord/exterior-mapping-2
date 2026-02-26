@@ -16,17 +16,18 @@ extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 class DebugUtil {   // Debug frustum shader
 public:
-    std::vector<std::vector<VkBuffer>> frustumVertexBuffers;
-    VkBuffer frustumIndexBuffer;
+    std::vector<VkBuffer> frustumVertexBuffers;
+    std::vector<VkBuffer> frustumIndexBuffers;
 
     DebugUtil(MemoryManager& memMan, const uint32_t camCount);
     ~DebugUtil();
 
     void setFrustumData(CamerasManager& camManager, uint32_t currentFrame);
+    uint32_t getFrustumIndexCount(uint32_t curretnFrame) ;
 
 private:
-    std::vector<std::vector<VmaAllocation>> frustumVertexBufferMemories;
-    VmaAllocation frustumIndexBufferMemory;
+    std::vector<VmaAllocation> frustumVertexBufferMemories;
+    std::vector<VmaAllocation> frustumIndexBufferMemory;
 
     std::vector<uint32_t> frustumCounts;
 

@@ -314,14 +314,14 @@ void MemoryManager::copyBufferToImage(VkBuffer& buffer, VkImage& image, uint32_t
     endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
 }
 
-void MemoryManager::copyImageToBuffer(VkImage& image, VkFormat imageFormat, VkBuffer& buffer, uint32_t width, uint32_t height) {
+void MemoryManager::copyImageToBuffer(VkImage& image, VkFormat imageFormat, VkBuffer& buffer, uint32_t width, uint32_t height, uint32_t layerCount) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(deviceHandle, transferPoolHandle);
 
     VkImageSubresourceLayers imageSubresource{
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .mipLevel = 0,
         .baseArrayLayer = 0,
-        .layerCount = 1
+        .layerCount = layerCount
     };
     if (imageFormat == VK_FORMAT_D16_UNORM || imageFormat == VK_FORMAT_D32_SFLOAT) {
         imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -465,83 +465,87 @@ void MemoryManager::copyBuffer(VkBuffer& srcBuffer, VkBuffer& dstBuffer, VkDevic
 }
 
 void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, SaveImageFormat saveFormat, std::string filename, 
-                                uint32_t width, uint32_t height, float zNear, float zFar) {
+                                uint32_t width, uint32_t height, uint32_t layerCount, float zNear, float zFar) {
     void* mappedPtr;
     vmaMapMemory(allocator, allocation, &mappedPtr);
 
-    if (saveFormat == SaveImageFormat::PNG && imageFormat == VK_FORMAT_B8G8R8A8_SRGB) {       // if color image
-        uint8_t* pixels = reinterpret_cast<uint8_t*>(mappedPtr);
-        for (uint32_t i = 0; i < width * height; i++) {
-            uint8_t* p = &pixels[i * 4];
-            uint8_t tmp = p[0];  // Blue
-            p[0] = p[2];         // Replace with Red for RGB
-            p[2] = tmp;          // Replace with Blue for RGB
-        }
-        
-        stbi_write_png((filename+".png").c_str(), width, height, 4, mappedPtr, width * 4);
-    }
-    else if (imageFormat == VK_FORMAT_D32_SFLOAT) {     // if depth image
-        float* depthData = reinterpret_cast<float*>(mappedPtr);
-
-        if (saveFormat == SaveImageFormat::HDR) {
-            std::vector<float> hdrData(width*height);
-
-            for (uint32_t i = 0; i < width * height; i++) { // linerize and normalize the depth data
-                float linearize =  (zNear * zFar) / (zFar - depthData[i] * (zFar - zNear));
-                float normalize = (linearize - zNear) / (zFar - zNear);
-
-                hdrData[i] = normalize;
-            }
-            stbi_write_hdr((filename+".hdr").c_str(), width, height, 1, hdrData.data());
-        }
-        else if (saveFormat == SaveImageFormat::EXR) {
-            // used example form https://github.com/syoyo/tinyexr.git
-            EXRHeader header;
-            InitEXRHeader(&header);
-
-            EXRImage image_exr;
-            InitEXRImage(&image_exr);
-
-            image_exr.num_channels = 3;
-            float* channels[3] = { depthData, depthData, depthData };
-            image_exr.images = reinterpret_cast<unsigned char**>(channels);
-            image_exr.width = width;
-            image_exr.height = height;
-
-            header.num_channels = 3;
-            header.channels = (EXRChannelInfo *)malloc(sizeof(EXRChannelInfo) * header.num_channels);
-            // Must be (A)BGR order, since most of EXR viewers expect this channel order.
-            strncpy(header.channels[0].name, "B", 255); header.channels[0].name[strlen("B")] = '\0';
-            strncpy(header.channels[1].name, "G", 255); header.channels[1].name[strlen("G")] = '\0';
-            strncpy(header.channels[2].name, "R", 255); header.channels[2].name[strlen("R")] = '\0';
-
-            header.pixel_types = (int *)malloc(sizeof(int) * header.num_channels);
-            header.requested_pixel_types = (int *)malloc(sizeof(int) * header.num_channels);
-            
-            for (int i = 0; i < header.num_channels; i++) {
-                header.pixel_types[i] = TINYEXR_PIXELTYPE_FLOAT; // pixel type of input image
-                header.requested_pixel_types[i] = TINYEXR_PIXELTYPE_HALF; // pixel type of output image to be stored in .EXR
+    for (uint32_t i = 0; i < layerCount; i++) {
+        if (saveFormat == SaveImageFormat::PNG && imageFormat == VK_FORMAT_B8G8R8A8_SRGB) {       // if color image
+            uint8_t* pixels = reinterpret_cast<uint8_t*>(mappedPtr);
+            for (uint32_t i = 0; i < width * height; i++) {
+                uint8_t* p = &pixels[i * 4];
+                uint8_t tmp = p[0];  // Blue
+                p[0] = p[2];         // Replace with Red for RGB
+                p[2] = tmp;          // Replace with Blue for RGB
             }
             
-            const char* err = NULL; // or nullptr in C++11 or later.
-            int ret = SaveEXRImageToFile(&image_exr, &header, (filename+".exr").c_str(), &err);
-            if (ret != TINYEXR_SUCCESS) {
-                std::cerr << "Save EXR err:" << err << std::endl;
-                FreeEXRErrorMessage(err); // free's buffer for an error message
+            stbi_write_png((filename + std::to_string(i) + ".png").c_str(), width, height, 4, mappedPtr, width * 4);
+        }
+        else if (imageFormat == VK_FORMAT_D32_SFLOAT) {     // if depth image
+            float* depthData = reinterpret_cast<float*>(mappedPtr);
+
+            if (saveFormat == SaveImageFormat::HDR) {
+                std::vector<float> hdrData(width*height);
+
+                for (uint32_t i = 0; i < width * height; i++) { // linerize and normalize the depth data
+                    float linearize =  (zNear * zFar) / (zFar - depthData[i] * (zFar - zNear));
+                    float normalize = (linearize - zNear) / (zFar - zNear);
+
+                    hdrData[i] = normalize;
+                }
+                stbi_write_hdr((filename + std::to_string(i) + ".hdr").c_str(), width, height, 1, hdrData.data());
             }
+            else if (saveFormat == SaveImageFormat::EXR) {
+                // used example form https://github.com/syoyo/tinyexr.git
+                EXRHeader header;
+                InitEXRHeader(&header);
 
-            free(header.channels);
-            free(header.pixel_types);
-            free(header.requested_pixel_types);
+                EXRImage image_exr;
+                InitEXRImage(&image_exr);
 
+                image_exr.num_channels = 3;
+                float* channels[3] = { depthData, depthData, depthData };
+                image_exr.images = reinterpret_cast<unsigned char**>(channels);
+                image_exr.width = width;
+                image_exr.height = height;
+
+                header.num_channels = 3;
+                header.channels = (EXRChannelInfo *)malloc(sizeof(EXRChannelInfo) * header.num_channels);
+                // Must be (A)BGR order, since most of EXR viewers expect this channel order.
+                strncpy(header.channels[0].name, "B", 255); header.channels[0].name[strlen("B")] = '\0';
+                strncpy(header.channels[1].name, "G", 255); header.channels[1].name[strlen("G")] = '\0';
+                strncpy(header.channels[2].name, "R", 255); header.channels[2].name[strlen("R")] = '\0';
+
+                header.pixel_types = (int *)malloc(sizeof(int) * header.num_channels);
+                header.requested_pixel_types = (int *)malloc(sizeof(int) * header.num_channels);
+                
+                for (int i = 0; i < header.num_channels; i++) {
+                    header.pixel_types[i] = TINYEXR_PIXELTYPE_FLOAT; // pixel type of input image
+                    header.requested_pixel_types[i] = TINYEXR_PIXELTYPE_HALF; // pixel type of output image to be stored in .EXR
+                }
+                
+                const char* err = NULL; // or nullptr in C++11 or later.
+                int ret = SaveEXRImageToFile(&image_exr, &header, (filename+".exr").c_str(), &err);
+                if (ret != TINYEXR_SUCCESS) {
+                    std::cerr << "Save EXR err:" << err << std::endl;
+                    FreeEXRErrorMessage(err); // free's buffer for an error message
+                }
+
+                free(header.channels);
+                free(header.pixel_types);
+                free(header.requested_pixel_types);
+
+            }
+            else {
+                std::cerr << "Failed to save image: Unknown depth format!" << std::endl;
+            }
         }
         else {
-            std::cerr << "Failed to save image: Unknown depth format!" << std::endl;
+            std::cerr << "Failed to save image: Unknown format!" << std::endl;
         }
-    }
-    else {
-        std::cerr << "Failed to save image: Unknown format!" << std::endl;
-    }
 
+        mappedPtr += width * height * 4;
+    }
+    
     vmaUnmapMemory(allocator, allocation);
 }

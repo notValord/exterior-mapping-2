@@ -117,13 +117,13 @@ public:
     ComputePipeline(VkDevice device, const PipelineLayoutSetup& layoutSetup, const ComputeShader& shaderFile, const PipelineBuilder& builder);
     ~ComputePipeline();
 
-    // Not allowing copy constructors
-    ComputePipeline(const ComputePipeline&) = delete;
-    ComputePipeline& operator=(const ComputePipeline&) = delete;
+    // // Not allowing copy constructors
+    // ComputePipeline(const ComputePipeline&) = delete;
+    // ComputePipeline& operator=(const ComputePipeline&) = delete;
 
-    // Not allowing move constructors
-    ComputePipeline(ComputePipeline&&) noexcept = delete;
-    ComputePipeline& operator=(ComputePipeline&&) noexcept = delete;
+    // // Not allowing move constructors
+    // ComputePipeline(ComputePipeline&&) noexcept = delete;
+    // ComputePipeline& operator=(ComputePipeline&&) noexcept = delete;
 
 
 private:
