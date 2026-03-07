@@ -1,7 +1,7 @@
 #include <vertex.hpp>
 
 bool Vertex::operator==(const Vertex& other) const {
-    return pos == other.pos && color == other.color && texCoords == other.texCoords;
+    return pos == other.pos && color == other.color && texCoords == other.texCoords && normal == other.normal;
 }
 
 VkVertexInputBindingDescription Vertex::getBindingDescription() {
@@ -16,7 +16,7 @@ VkVertexInputBindingDescription Vertex::getBindingDescription() {
 
 std::vector<VkVertexInputAttributeDescription> Vertex::getAttribureDescriptions() {
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-    attributeDescriptions.reserve(3);
+    attributeDescriptions.reserve(4);
     attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
         .location = 0,
         .binding = 0,
@@ -28,11 +28,18 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttribureDescriptions(
         .location = 1,
         .binding = 0,
         .format = VK_FORMAT_R32G32B32_SFLOAT,
-        .offset = offsetof(Vertex, color)
+        .offset = offsetof(Vertex, normal)
     });
 
     attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
         .location = 2,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .offset = offsetof(Vertex, color)
+    });
+
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
+        .location = 3,
         .binding = 0,
         .format = VK_FORMAT_R32G32_SFLOAT,
         .offset = offsetof(Vertex, texCoords)

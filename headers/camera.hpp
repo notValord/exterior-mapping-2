@@ -35,6 +35,7 @@ public:
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix() const;
     glm::vec2 getNearFar() const;
+    float getFOV() const;
 
     void updateRatio(float newRatio);
     void updateYawPitch(float yaw, float pitch);
@@ -54,6 +55,7 @@ public:
     float& getPitchRef();
     float& getSpeedRef();
     float& getSpeedStepRef();
+    glm::vec3 getPosition() const;
 
     void recalculateVectors();
 

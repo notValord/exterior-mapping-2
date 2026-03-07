@@ -35,6 +35,10 @@ glm::vec2 Camera::getNearFar() const {
     return glm::vec2(nearPlane, farPlane);
 }
 
+float Camera::getFOV() const {
+    return fov;
+}
+ 
 void Camera::updateRatio(float newRatio){
     aspectRatio = newRatio;
 }
@@ -114,6 +118,10 @@ float& Camera::getSpeedRef() {
 
 float& Camera::getSpeedStepRef() {
     return speedStep;
+}
+
+glm::vec3 Camera::getPosition() const {
+    return pos;
 }
 
 NovelCamera::NovelCamera(float extentRatio, VkDevice device, MemoryManager& memMan)

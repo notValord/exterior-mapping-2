@@ -196,8 +196,8 @@ void CamerasManager::transferLayeredLayout(VkImageLayout layout, VkCommandBuffer
 
 
 OfflineResources::OfflineResources(VkDevice device, const VkPhysicalDeviceProperties& prop, MemoryManager& memMan, VkFormat colorFormat, VkFormat depthFormat, VkExtent2D swapChainExtent)
-    : imageSampler(device, prop),
-      depthSampler(device, prop),
+    : imageSampler(device, prop, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
+      depthSampler(device, prop, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
       deviceHandle(device),
       memManager(memMan),
       usedLayerCount(START_CAM_COUNT) {

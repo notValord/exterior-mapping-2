@@ -167,7 +167,7 @@ VkShaderModule PipelineBuilder::createShaderModule(const std::string& fileName) 
 }
 
 VkPipelineLayout PipelineBuilder::createPipelineLayout(const PipelineLayoutSetup& layoutSetup) const {
-    VkPushConstantRange pushConstantRange{};
+    VkPushConstantRange pushConstantRange;
 
     VkPipelineLayoutCreateInfo pipelineLayoutCI{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
@@ -180,13 +180,20 @@ VkPipelineLayout PipelineBuilder::createPipelineLayout(const PipelineLayoutSetup
     if (layoutSetup.pushConstants == 1) {                            // deal with later
         pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
         pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(glm::mat4) * 2; // view + proj
+        pushConstantRange.size = sizeof(glm::mat4); // model * view * proj
+    }
+    else if (layoutSetup.pushConstants == 2) {
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(glm::mat4) + 2*sizeof(uint32_t); // material flag
+    }
+    else if (layoutSetup.pushConstants > 2) {
+        throw std::runtime_error("Multiple push constants not impelmented yet!");
+    }
 
+    if (layoutSetup.pushConstants > 0) {
         pipelineLayoutCI.pushConstantRangeCount = 1;
         pipelineLayoutCI.pPushConstantRanges = &pushConstantRange;
-    }
-    else if (layoutSetup.pushConstants != 0) {
-        throw std::runtime_error("Multiple push constants not impelmented yet!");
     }
 
     VkPipelineLayout pipelineLayout;
@@ -329,7 +336,7 @@ VkPipeline PipelineBuilder::createGraphicsPipeline(VkPipelineLayout pipelineLayo
         bindingDescription = CloudPoint::getBindingDescription();
         attributeDescription = CloudPoint::getAttribureDescriptions();
     }
-    else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL_UV) {
+    else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL_UV_NORM) {
         bindingDescription = Vertex::getBindingDescription();
         attributeDescription = Vertex::getAttribureDescriptions();
     }
@@ -452,14 +459,48 @@ RenderPassManager::~RenderPassManager() {
 PipelineManager::PipelineManager(VkDevice device, const AttachementsFormats& imageFormats, DescriptorManager& descrMan)
     : builder(device),
       renderPassMan(device, imageFormats, builder),
-      intersectPipeline(device, PipelineLayoutSetup{{descrMan.computeDescriptors.descriptorSetLayout, descrMan.computeDescriptors.sharedDescriptorSetLayout}}, intersectFile, builder),
-      pointCloudPipeline(device, PipelineLayoutSetup{{descrMan.pointCloudDescriptors.descriptorSetLayout, descrMan.computeDescriptors.sharedDescriptorSetLayout}}, pointCloudFile, builder),
-      renderPipeline(device, renderPassMan.renderPass, PipelineLayoutSetup{{descrMan.renderDescriptors.descriptorSetLayout}, 1}, setupRenderPipeline(), builder),
-      frustumPipeline(device, renderPassMan.onTopRenderPass, PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}}, setupFrustumPipeline(), builder),
-      linePipeline(device, renderPassMan.onTopRenderPass, PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}}, setupLinePipeline(), builder),
-      camCubePipeline(device, renderPassMan.onTopRenderPass, PipelineLayoutSetup{{descrMan.camCubeDestriptors.descriptorSetLayout}, 1}, setupCamCubePipeline(), builder),
-      offlinePipeline(device, renderPassMan.renderPass, PipelineLayoutSetup{{descrMan.offlineDescriptors.descriptorSetLayout, descrMan.computeDescriptors.sharedDescriptorSetLayout}}, setupOfflinePipeline(), builder),
-      pointPipeline(device, renderPassMan.renderPass, PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}}, setupPointPipeline(), builder) {
+      intersectPipeline(device, 
+                        PipelineLayoutSetup{{descrMan.computeDescriptors.descriptorSetLayout,
+                                             descrMan.computeDescriptors.sharedDescriptorSetLayout}},
+                        intersectFile,
+                        builder),
+      pointCloudPipeline(device,
+                         PipelineLayoutSetup{{descrMan.pointCloudDescriptors.descriptorSetLayout,
+                                              descrMan.computeDescriptors.sharedDescriptorSetLayout}},
+                         pointCloudFile,
+                         builder),
+      renderPipeline(device,
+                     renderPassMan.renderPass,
+                     PipelineLayoutSetup{{descrMan.renderDescriptors.descriptorSetLayout,
+                                          descrMan.renderDescriptors.samplerDescriptorSetLayout}, 2},
+                     setupRenderPipeline(),
+                     builder),
+      frustumPipeline(device,
+                      renderPassMan.onTopRenderPass,
+                      PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}},
+                      setupFrustumPipeline(),
+                      builder),
+      linePipeline(device,
+                   renderPassMan.onTopRenderPass,
+                   PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}},
+                   setupLinePipeline(),
+                   builder),
+      camCubePipeline(device,
+                      renderPassMan.onTopRenderPass,
+                      PipelineLayoutSetup{{descrMan.camCubeDestriptors.descriptorSetLayout}, 1},
+                      setupCamCubePipeline(),
+                      builder),
+      offlinePipeline(device,
+                      renderPassMan.renderPass,
+                      PipelineLayoutSetup{{descrMan.offlineDescriptors.descriptorSetLayout,
+                                           descrMan.computeDescriptors.sharedDescriptorSetLayout}},
+                      setupOfflinePipeline(),
+                      builder),
+      pointPipeline(device,
+                    renderPassMan.renderPass,
+                    PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}},
+                    setupPointPipeline(),
+                    builder) {
     ;
 }
 
@@ -475,7 +516,7 @@ GraphicSetup PipelineManager::setupRenderPipeline(){
 
     return GraphicSetup {
         .shaderFiles = renderFiles,
-        .vertexInput = VertexInputFlags::POS_COL_UV,
+        .vertexInput = VertexInputFlags::POS_COL_UV_NORM,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .depthFlags = depthFlags,
         .rastFlags = rastFlags,
@@ -494,7 +535,7 @@ GraphicSetup PipelineManager::setupFrustumPipeline(){
 
     return GraphicSetup {
         .shaderFiles = frustumFiles,
-        .vertexInput = VertexInputFlags::POS_COL_UV,
+        .vertexInput = VertexInputFlags::POS_COL,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .depthFlags = depthFlags,
         .rastFlags = rastFlags,

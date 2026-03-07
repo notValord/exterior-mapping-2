@@ -52,17 +52,9 @@ private:
     void renderOfflineImages();
 
     void handleResize();
+    void changeScene();
 
     // Command buffer recordings
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordFrustumCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordCamCubeCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordOfflineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordLineCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-    void recordComputeCommandBuffer(VkCommandBuffer commandBuffer);
-    void recordPointCloudCommandBuffer(VkCommandBuffer commandBuffer);
-    void recordPointCommandBuffer(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
-
     void drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
     void drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, const Camera& renderView);
     void computeNovel(VkCommandBuffer commandBuffer);

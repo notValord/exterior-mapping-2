@@ -2,6 +2,7 @@
 #include <vulkanContext.hpp>
 #include <camManager.hpp>
 #include <pipeline.hpp>
+#include <mesh.hpp>
 
 CommandManager::CommandManager(const QueueFamilyIndices& familyIndices, const VkDevice device)
     : deviceHandle(device) {
@@ -166,12 +167,63 @@ void CommandRecorder::recordRenderCamCube(VkCommandBuffer commandBuffer, const s
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
     }
 
+    glm::mat4 viewProj = camManager.activeCam->getProjectionMatrix() * camManager.activeCam->getViewMatrix();
     for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
-        std::array<glm::mat4x4, 2> camMatrices{};
-        camMatrices[0] = glm::inverse(camManager.camArray[i].getViewMatrix());
-        camMatrices[1] = camManager.activeCam->getProjectionMatrix() * camManager.activeCam->getViewMatrix();
-        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4)*2, camMatrices.data());
+        glm::mat4x4 camMat = viewProj * glm::inverse(camManager.camArray[i].getViewMatrix());
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &camMat);
         vkCmdDraw(commandBuffer, 36, 1, 0, 0);
+    }
+
+    vkCmdEndRenderPass(commandBuffer);
+}
+
+void CommandRecorder::recordMultiScene(VkCommandBuffer commandBuffer,
+                                        const std::vector<VkDescriptorSet>& descriptorSets,
+                                        VkFramebuffer framebuffer,
+                                        const std::vector<glm::mat4>& pushConstants,
+                                        const std::vector<SubMesh>& meshes,
+                                        const std::vector<VkDescriptorSet>& materialSets) {
+    CommandRecordSetter::beginRenderPass(commandBuffer, renderPass, framebuffer, swapchainExtent, true);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipeline);
+
+    CommandRecordSetter::setViewport(commandBuffer, swapchainExtent);
+    CommandRecordSetter::setScissor(commandBuffer, swapchainExtent);
+
+    if (vertexBuffer != VK_NULL_HANDLE) {
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+    }
+
+    if (!pushConstants.empty()) {       // set the MVP matrix per frame
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::mat4), pushConstants.data());
+    }
+
+    if (!descriptorSets.empty()) {      // bind the uniform buffer
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+    }
+
+    if (indexBuffer == VK_NULL_HANDLE) {
+        throw std::runtime_error("Missing index buffer!");
+    }
+
+    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    uint32_t meshID = 0;
+    for (const auto& mesh: meshes) {
+        uint32_t hasTexture = 0;
+        if (mesh.hasTexture()) {
+            hasTexture = 1;
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipelineLayout, 1, 1, &materialSets[mesh.textureID], 0, nullptr);
+        }
+        else {
+            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipelineLayout, 1, 1, &materialSets[0], 0, nullptr);     // dummy
+        }
+
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t), &hasTexture);
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4) + sizeof(uint32_t), sizeof(uint32_t), &meshID);
+        vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
+        meshID++;
     }
 
     vkCmdEndRenderPass(commandBuffer);

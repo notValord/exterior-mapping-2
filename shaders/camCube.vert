@@ -45,12 +45,11 @@ const int cubeIndices[36] = int[36](
 layout(location = 0) out vec2 texCoords;
 
 layout(push_constant) uniform PushConstant {
-    mat4 view;
-    mat4 proj;
+    mat4 viewProj;
 } pc;
 
 void main() {
     int idx = cubeIndices[gl_VertexIndex];
-    gl_Position = pc.proj * pc.view * vec4(cubeVertices[idx], 1.0);
+    gl_Position = pc.viewProj * vec4(cubeVertices[idx], 1.0);
     texCoords = cubeTexCoords[idx];
 }

@@ -51,12 +51,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 }
 
 InputManager::InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent, MemoryManager& memMan)
-    : fpsCnt(), imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent, memMan),
-     windowHandle(window),  camManagerHandle(camManager){
+     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent, MemoryManager& memMan,
+     Mesh& mesh)
+    : fpsCnt(),
+      imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent, memMan),
+     windowHandle(window),
+     camManagerHandle(camManager),
+     meshRef(mesh){
     presentType = ImageViewType::COLOR;
     novelDebug = DebugCompute::NO_DEBUG;
     novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
+
+    distance = DistanceType::POINT;
 }
 
 InputManager::~InputManager() {
@@ -140,7 +146,7 @@ void InputManager::frame() {
     fpsCnt.frame();     // Get the approximate fps
 
     if (showUIFlag) {
-        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle, this);
+        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle, this, meshRef);
     }
 }
 

@@ -6,6 +6,7 @@
 #include <inputManager.hpp>
 #include <memManager.hpp>
 #include <uniforms.hpp>
+#include <mesh.hpp>
 
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
@@ -76,19 +77,20 @@ ImguiProxy::~ImguiProxy() {
     vkDestroyDescriptorPool(deviceHandle, descriptorPool, nullptr);
 }
 
-void ImguiProxy::rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager) {
+void ImguiProxy::rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh) {
     // Tell ImGui to start a new frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     // ImGui::ShowDemoWindow();
-    drawUI(fps, camManager, inputManager);
+    drawUI(fps, camManager, inputManager, mesh);
 
     ImGui::Render();
 }
 
-void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
+void ImguiProxy::uiActiveCam(CamerasManager& camManager, Mesh& mesh) {
+    static float sceneScale = 0;
     if (ImGui::CollapsingHeader("Active camera")) {
         float& yaw = camManager.activeCam->getYawRef();
 
@@ -119,10 +121,17 @@ void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
         ImGui::SeparatorText("Cam Speed");
         ImGui::SliderFloat("speed", &camManager.activeCam->getSpeedRef(), CAM_MIN_SPEED, CAM_MAX_SPEED, "%.1f");
         ImGui::DragFloat("speed step", &camManager.activeCam->getSpeedStepRef(), 0.05f , 0.0f, 10.0f, "%0.1f");
+
+        ImGui::SeparatorText("Scene");
+        ImGui::SliderFloat("scale", &sceneScale, 0, 20, "%.1f");
+
+        ImGui::DragFloat3("position##Light", glm::value_ptr(mesh.getLightRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
     }
 }
 
 void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManager) {
+    const char* sceneFiles[] = { "vikingRoom", "city", "porsche"};
+
     if (ImGui::CollapsingHeader("Novel camera")) {
         bool novelToggle = camManager.novelViewToggeled();
 
@@ -138,6 +147,11 @@ void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManag
         ImGui::SliderFloat("pitch##Novel_view", &camManager.novelView.getPitchRef(), -180.0f, 180.0f);
 
         ImGui::EndDisabled();
+
+        ImGui::SeparatorText("Scene");
+        if (ImGui::Combo("scene", &inputManager->sceneSelected, sceneFiles, IM_ARRAYSIZE(sceneFiles))) {
+            inputManager->sceneChanged = true;
+        }
     }
 }
 
@@ -280,11 +294,14 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
 void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputManager) {
     static int novelDebug = 0;
     static int novelHeuristic = 0;
+    static int distanceType = 0;
+    static int coneType = 0;
 
     if (ImGui::CollapsingHeader("Novel render")) {
         const uint32_t minDebugSample = 0;
         const uint32_t minSample = 1;
         const uint32_t maxSample = 128;
+        const uint32_t maxNeighbour = 100;
 
         ImGui::BeginDisabled(!camManager.imagesRendered());
         if (ImGui::Checkbox("Render novel view", &inputManager->novelRender) && inputManager->novelRender) {
@@ -292,16 +309,26 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         }
         ImGui::EndDisabled();
 
-        if (ImGui::RadioButton("Color heuristic", &novelHeuristic, 0)) {
+        ImGui::SeparatorText("Heuristic");
+        if (ImGui::RadioButton("color", &novelHeuristic, 0)) {
             inputManager->novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("Depth heuristic", &novelHeuristic, 1)) {
+        if (ImGui::RadioButton("depth", &novelHeuristic, 1)) {
             inputManager->novelHeuristic = NovelHeuristic::DEPTH_HEURISTIC;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("Angle heuristic", &novelHeuristic, 2)) {
+        if (ImGui::RadioButton("angle", &novelHeuristic, 2)) {
             inputManager->novelHeuristic = NovelHeuristic::ANGLE_HEURISTIC;
+        }
+
+        ImGui::SeparatorText("Distance");
+        if (ImGui::RadioButton("point - point", &distanceType, 0)) {
+            inputManager->distance = DistanceType::POINT;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("point - ray", &distanceType, 1)) {
+            inputManager->distance = DistanceType::POINT_RAY;
         }
 
         uint32_t oldSampleCount = camManager.sampleCount;
@@ -312,6 +339,23 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         }
         ImGui::SliderScalar("Curr sample", ImGuiDataType_U32, &camManager.sampleDebug, &minDebugSample, &camManager.sampleCount);
 
+        ImGui::SeparatorText("Cone Marching");
+        if (ImGui::RadioButton("No cone", &coneType, 0)) {
+            inputManager->coneMarching = ConeMarching::NO_CONE;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Only in cone", &coneType, 1)) {
+            inputManager->coneMarching = ConeMarching::ONLY_CONE;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Conditional in cone", &coneType, 2)) {
+            inputManager->coneMarching = ConeMarching::PARTIAL_CONE;
+        }
+
+        ImGui::SliderScalar("Neighbourhood", ImGuiDataType_U32, &inputManager->neighbourCount, &minSample, &maxNeighbour);
+        ImGui::SliderFloat("In cone percentage", &inputManager->inConePercentage, 0.0f, 1.0f, "%0.1f%");
+
+        ImGui::SeparatorText("Debug");
         if (ImGui::RadioButton("No debug", &novelDebug, 0)) {
         inputManager->novelDebug = DebugCompute::NO_DEBUG;
         }
@@ -351,10 +395,10 @@ void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offline
     }
 }
 
-void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inputManager) {
+void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh) {
     // Draw the UI
     ImGui::Begin("Info");
-    uiActiveCam(camManager);
+    uiActiveCam(camManager, mesh);
 
     uiNovelCam(camManager, inputManager);
     uiObserver(camManager);

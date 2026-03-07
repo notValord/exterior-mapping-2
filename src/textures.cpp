@@ -5,9 +5,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-TexturesManager::TexturesManager(const std::string& textureFile, const std::string& cubeTextureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
-    : properties(prop), modelTexture(textureFile, device, memManager, prop), cubeTexture(cubeTextureFile, device, memManager, prop, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
-    offlineSampler(device, prop) {
+static const std::string TEXTURE_DIR = "../resources/textures/";;
+
+TexturesManager::TexturesManager(const std::string& cubeTextureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
+    : properties(prop),
+      cubeTexture(cubeTextureFile, device, memManager),
+      cubeSampler(device, prop, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE) {
     ;
 }
 
@@ -15,8 +18,14 @@ TexturesManager::~TexturesManager() {
     ;
 }
 
-Texture::Texture(const std::string& textureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode)
-    : Sampler(device, prop, addressMode),  deviceHandle(device), memManager(memManager) {
+TextureSamplerView TexturesManager::getSamplerView() {
+    return TextureSamplerView{cubeSampler.getSampler(), cubeTexture.textureImageView};
+}
+
+
+
+Texture::Texture(const std::string& textureFile, const VkDevice device, MemoryManager& memManager)
+    : deviceHandle(device), memManager(memManager) {
     createTextureImage(textureFile);
     createTextureImageView();
 }
@@ -26,18 +35,14 @@ Texture::~Texture() {
     memManager.destroyImage(textureImage, textureImageMemory);
 }
 
-TextureSamplerView Texture::getSamplerView() {
-    return TextureSamplerView{textureSampler, textureImageView};
-}
-
 void Texture::createTextureImage(const std::string& texturePath) {
     int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc *pixels = stbi_load((TEXTURE_DIR + texturePath).c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     // using STBI_rgb_aplha forces the image to be loaded rgba for the consistency even though the format does not have to have one
     VkDeviceSize imageSize = texWidth * texHeight * 4;      // the texChannels contains the number of channels of the original format, doesn't have to be 4
 
     if (!pixels) {
-        throw std::runtime_error("Failed to sload texture image!");
+        throw std::runtime_error("Failed to sload texture image: " + (TEXTURE_DIR + texturePath));
     }
 
     VkBuffer stagingBuffer;
@@ -60,6 +65,9 @@ void Texture::createTextureImage(const std::string& texturePath) {
 void Texture::createTextureImageView() {
     textureImageView = createImageView(textureImage, textureFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
 }
+
+
+
 
 Sampler::Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode)
     : deviceHandle(device) {

@@ -3,14 +3,20 @@
 static unsigned int SCREEN_WIDTH = 800;
 static unsigned int SCREEN_HEIGHT = 600;
 
+static const std::string VIKING_FILE = "../resources/models/rotatedRoom.obj";
+static const std::string CITY_FILE = "../resources/models/city.obj";
+static const std::string PORSCHE_FILE = "../resources/models/porsche.obj";
+
 static const std::string MODEL_PATH = "../resources/models/viking_room.obj";
 static const std::string TEXTURE_PATH = "../resources/textures/viking_room.png";
 static const std::string DAVID_TEXTURE_PATH = "../resources/textures/david.jpg";
 
-static const std::string CUBE_TEXTURE_PATH = "../resources/textures/camera.jpg";
+static const std::string CUBE_TEXTURE_PATH = "camera.jpg";
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
+
+// TODO percentage idea?
 void App::run() {;
     mainLoop();
 }
@@ -24,18 +30,18 @@ App::App()
        descripManager(vulkanContext.device),
        pipelineManager(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager),
        syncManager(vulkanContext.device),
-       textureManager(TEXTURE_PATH, CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
-       mesh(MODEL_PATH, vulkanContext.device, memManager),
+       textureManager(CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
+       mesh(PORSCHE_FILE, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        camManager(vulkanContext.device, memManager, swapchain.swapChainExtent, swapchain.getAttachementsFormats(), pipelineManager.renderPassMan.renderPass, vulkanContext.getDeviceProperties()),
        uniformManager(memManager, swapchain.swapChainExtent, camManager.getCamCount()),
        inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
-            vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager),
+            vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager, mesh),
        debugUtil(memManager, camManager.getCamCount()),
        commandRecorder(){
     // order of members in a class
     
     swapchain.createFramebuffers(pipelineManager.renderPassMan.renderPass);
-    descripManager.createDescriptorPoolSet(uniformManager, textureManager.modelTexture.getSamplerView(), textureManager.cubeTexture.getSamplerView(), camManager);
+    descripManager.createDescriptorPoolSet(uniformManager, mesh.getMeshUniforms(), textureManager.getSamplerView(), camManager);
 
     inputManager.setCallbacks();
 }
@@ -52,18 +58,19 @@ void App::handleResize() {
 
 void App::drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, const Camera& renderView) {
     // update both MVP and RFO, can get rid of the MVP in the future fot push constans
-    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), inputManager.debugGrayscale); // MVP matrix
+    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), inputManager.debugGrayscale, mesh.getLight()); // MVP matrix
 
     commandRecorder.setPipeline(pipelineManager.renderPipeline, pipelineManager.renderPassMan.renderPass, swapchain.swapChainExtent);
     commandRecorder.setRenderBuffers(mesh.vertexBuffer, mesh.getIndicesSize(), mesh.indexBuffer);
 
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.renderDescriptors.descriptorSets[currentFrame] };
-    glm::mat4 model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    model = glm::scale(model, glm::vec3(5.0f));
+    // glm::mat4 model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    // model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    // model = glm::scale(model, glm::vec3(5.0f));
+    glm::mat4 model = renderView.getProjectionMatrix() * renderView.getViewMatrix();
 
-    std::vector<glm::mat4> pushMats = { model, renderView.getProjectionMatrix() * renderView.getViewMatrix() };
-    commandRecorder.recordRenderScene(commandBuffer, descriptorSets, framebuffer, pushMats);
+    std::vector<glm::mat4> pushMats = { model };
+    commandRecorder.recordMultiScene(commandBuffer, descriptorSets, framebuffer, pushMats, mesh.getSubMeshes(), descripManager.renderDescriptors.samplerDescriptorSets);
 }
 
 void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
@@ -95,7 +102,7 @@ void App::computeNovel(VkCommandBuffer commandBuffer) {
         throw std::runtime_error("Working with images that are not rendered!");
     }
 
-    uniformManager.novelUnifroms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager.novelDebug, inputManager.novelHeuristic);
+    uniformManager.novelUnifroms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager);
 
     if (uniformManager.novelUnifroms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change, but issue with the update of the both frames
         // if the ssbo was recreated, update the descriptors
@@ -133,7 +140,7 @@ void App::computePointCloud(VkCommandBuffer commandBuffer) {
     }
     camManager.transferLayeredLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
 
-    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), false);       // need to update the MVP
+    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), false, mesh.getLight());       // need to update the MVP
     // buffers are updated when the images are taken
 
 
@@ -343,10 +350,35 @@ void App::renderOfflineImages() {
     camManager.setImagesRendered();
 }  
 
+void App::changeScene() {
+    vkDeviceWaitIdle(vulkanContext.device);
+
+    std::string meshFile;
+    if (inputManager.sceneSelected == 0) {
+        meshFile = VIKING_FILE;
+    }
+    else if (inputManager.sceneSelected == 1) {
+        meshFile = CITY_FILE;
+    }
+    else if (inputManager.sceneSelected == 2) {
+        meshFile = PORSCHE_FILE;
+    }
+    else {
+        throw std::runtime_error("Unknown scene!");
+    }
+    mesh.changeModel(meshFile);
+    // descripManager.renderDescriptors.updateSamplerDescriptorSets(mesh.getSampler(), mesh.getMaterialViews());
+    descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());
+}
+
 void App::mainLoop() {
     while (!glfwWindowShouldClose(appWindow.window)) {
         glfwPollEvents();
         inputManager.frame();
+        if (inputManager.sceneChanged) {
+            changeScene();
+            inputManager.sceneChanged = false;
+        }
         if (inputManager.renderOfflineFlag) {
             renderOfflineImages();
             inputManager.renderOfflineFlag = false;

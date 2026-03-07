@@ -176,34 +176,34 @@ void DebugUtil::setFrustumData(CamerasManager& camManager, uint32_t currentFrame
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 
-    std::vector<Vertex> frustrumPoints(frustumVertexCount * frustumCounts[currentFrame]);
+    std::vector<CloudPoint> frustrumPoints(frustumVertexCount * frustumCounts[currentFrame]);
     for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
         CamArrayData camData = camManager.camArray[i].getCamData();
         uint32_t camOffset = frustumVertexCount * i;
 
-        frustrumPoints[camOffset + 0].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[3]); // near, left, top
-        frustrumPoints[camOffset + 1].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[2]); // near, left, bottom
+        frustrumPoints[camOffset + 0].pos = {intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[3]), 1.0f}; // near, left, top
+        frustrumPoints[camOffset + 1].pos = {intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[0], camData.frustumPlanes[2]), 1.0f}; // near, left, bottom
 
-        frustrumPoints[camOffset + 2].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[3]); // near, right, top
-        frustrumPoints[camOffset + 3].pos = intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[2]); // near, right, bottom
+        frustrumPoints[camOffset + 2].pos = {intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[3]), 1.0f}; // near, right, top
+        frustrumPoints[camOffset + 3].pos = {intersectPlanes(camData.frustumPlanes[4], camData.frustumPlanes[1], camData.frustumPlanes[2]), 1.0f}; // near, right, bottom
 
-        frustrumPoints[camOffset + 4].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[3]); // far, left, top
-        frustrumPoints[camOffset + 5].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[2]); // far, left, bottom
+        frustrumPoints[camOffset + 4].pos = {intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[3]), 1.0f}; // far, left, top
+        frustrumPoints[camOffset + 5].pos = {intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[0], camData.frustumPlanes[2]), 1.0f}; // far, left, bottom
 
-        frustrumPoints[camOffset + 6].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[3]); // far, right, top
-        frustrumPoints[camOffset + 7].pos = intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[2]); // far, right, bottom
+        frustrumPoints[camOffset + 6].pos = {intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[3]), 1.0f}; // far, right, top
+        frustrumPoints[camOffset + 7].pos = {intersectPlanes(camData.frustumPlanes[5], camData.frustumPlanes[1], camData.frustumPlanes[2]), 1.0f}; // far, right, bottom
 
         // near plane (z = near)
-        frustrumPoints[camOffset + 0].color = glm::vec3(1.0f, 0.0f, 0.0f); // top-left near - red
-        frustrumPoints[camOffset + 1].color = glm::vec3(0.0f, 1.0f, 0.0f); // bottom-left near - green
-        frustrumPoints[camOffset + 2].color = glm::vec3(0.0f, 0.0f, 1.0f); // top-right near - blue
-        frustrumPoints[camOffset + 3].color = glm::vec3(1.0f, 1.0f, 0.0f); // bottom-right near - yellow
+        frustrumPoints[camOffset + 0].col = glm::vec4(1.0f, 0.0f, 0.0f, 0.3f); // top-left near - red
+        frustrumPoints[camOffset + 1].col = glm::vec4(0.0f, 1.0f, 0.0f, 0.3f); // bottom-left near - green
+        frustrumPoints[camOffset + 2].col = glm::vec4(0.0f, 0.0f, 1.0f, 0.3f); // top-right near - blue
+        frustrumPoints[camOffset + 3].col = glm::vec4(1.0f, 1.0f, 0.0f, 0.3f); // bottom-right near - yellow
 
         // far plane (z = far)
-        frustrumPoints[camOffset + 4].color = glm::vec3(1.0f, 0.5f, 0.5f); // top-left far - light red
-        frustrumPoints[camOffset + 5].color = glm::vec3(0.5f, 1.0f, 0.5f); // bottom-left far - light green
-        frustrumPoints[camOffset + 6].color = glm::vec3(0.5f, 0.5f, 1.0f); // top-right far - light blue
-        frustrumPoints[camOffset + 7].color = glm::vec3(1.0f, 1.0f, 0.5f); // bottom-right far - light yellow
+        frustrumPoints[camOffset + 4].col = glm::vec4(1.0f, 0.5f, 0.5f, 0.3f); // top-left far - light red
+        frustrumPoints[camOffset + 5].col = glm::vec4(0.5f, 1.0f, 0.5f, 0.3f); // bottom-left far - light green
+        frustrumPoints[camOffset + 6].col = glm::vec4(0.5f, 0.5f, 1.0f, 0.3f); // top-right far - light blue
+        frustrumPoints[camOffset + 7].col = glm::vec4(1.0f, 1.0f, 0.5f, 0.3f); // bottom-right far - light yellow
     }
 
     allocInfo = memManager.createBuffer(sizeof(Vertex) * frustrumPoints.size(),

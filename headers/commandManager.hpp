@@ -11,6 +11,7 @@
 
 extern const size_t MAX_FRAMES_IN_FLIGHT;
 struct QueueFamilyIndices;
+struct SubMesh;
 
 class CamerasManager;
 class GraphicPipeline;
@@ -61,6 +62,13 @@ public:
     void setComputeBuffer(VkBuffer dataBuffer, VkBuffer countBuffer);
 
     void recordRenderScene(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, VkFramebuffer framebuffer, const std::vector<glm::mat4>& pushConstants = std::vector<glm::mat4>{});
+
+    void recordMultiScene(VkCommandBuffer commandBuffer,
+                          const std::vector<VkDescriptorSet>& descriptorSets,
+                          VkFramebuffer framebuffer,
+                          const std::vector<glm::mat4>& pushConstants,
+                          const std::vector<SubMesh>& meshes,
+                          const std::vector<VkDescriptorSet>& materialSets);
     
     void recordRenderCamCube(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, VkFramebuffer framebuffer, const CamerasManager& camManager);
 

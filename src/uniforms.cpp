@@ -2,6 +2,7 @@
 #include <memManager.hpp>
 #include <camManager.hpp>
 #include <vertex.hpp>
+#include <inputManager.hpp>
 
 BaseUniforms::BaseUniforms(MemoryManager& memManager)
         : memManagerRef(memManager) {
@@ -68,7 +69,7 @@ void RenderUniforms::createFragmentUniformBuffers(VkDeviceSize bufferSize) {
     }
 }
 
-void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth) {
+void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth, const glm::vec3& light) {
     // static auto startTime = std::chrono::high_resolution_clock::now();
 
     // auto currentTime = std::chrono::high_resolution_clock::now();
@@ -76,8 +77,8 @@ void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& c
 
     MVPBufferObject ubo{};
     // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    ubo.model = glm::rotate(ubo.model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::mat4(1.0f);
+    // ubo.model = glm::rotate(ubo.model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = cam.getViewMatrix();
     ubo.proj = cam.getProjectionMatrix();
 
@@ -88,6 +89,8 @@ void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& c
     else {
         rfo.depth = 0;
     }
+    rfo.camPos = cam.getPosition();
+    rfo.lightPos = light;
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(MVPBufferObject));
     memcpy(fragmentUniformBuffersMapped[currentImage], &rfo, sizeof(RenderFragmentObject));
@@ -184,7 +187,7 @@ void NovelUniforms::createStorageBuffers(const uint32_t camCount) {
     }   
 }
 
-void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag, NovelHeuristic heuristic) {
+void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, const InputManager& input) {
     NovelBufferObject nbo {
         .viewMat = camManager.novelView.getViewMatrix(),
         .invViewMat = glm::inverse(camManager.novelView.getViewMatrix()),
@@ -194,8 +197,12 @@ void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& 
         .camCnt = camManager.getCamCount(),
         .sampleCount = camManager.sampleCount,
         .sampleDebug = camManager.sampleDebug,
-        .heuristic = heuristic,
-        .debugFlag = debugFlag
+        .heuristic = input.novelHeuristic,
+        .debugFlag = input.novelDebug,
+        .distanceFlag = input.distance,
+        .coneFlag = input.coneMarching,
+        .pixelRadius = static_cast<float>(2 * tan(camManager.activeCam->getFOV()/2.0) / (extent.height / input.neighbourCount)),
+        .inConePercentage = input.inConePercentage
     };
 
     if (extent.width > maxScreenRes.width || extent.height > maxScreenRes.height) {

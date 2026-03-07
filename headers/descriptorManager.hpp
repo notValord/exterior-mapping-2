@@ -10,6 +10,7 @@
 extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 struct TextureSamplerView;
+struct MeshUniforms;
 class CamerasManager;
 class UniformManager;
 class RenderUniforms;
@@ -88,11 +89,23 @@ private:
 
 class RenderDescriptors : public BaseDescriptors{
 public:
-    RenderDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+    VkDescriptorSetLayout samplerDescriptorSetLayout;
+    std::vector<VkDescriptorSet> samplerDescriptorSets;
 
-    void createDescriptorSets(const DescriptorBuilder& builder, const RenderUniforms& renderUniforms, const TextureSamplerView& textureSamplerView);
+    RenderDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+    ~RenderDescriptors();
+
+    void createDescriptorSets(const DescriptorBuilder& builder,
+                              const RenderUniforms& renderUniforms,
+                              const MeshUniforms& meshData);
+    void updateSamplerDescriptorSets(const VkSampler& sampler, const std::vector<VkImageView>& materials);
+    void updateMaterialDescriptosSets(VkBuffer materials);
+    void updateMeshData(const MeshUniforms& meshData);
+    // void updateMaterialDescriptorSets(const uint32_t materialCount, VkBuffer materialBuffer);
 private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+    void createSamplerDescriptorSets(const DescriptorBuilder& builder, const VkSampler& sampler, const std::vector<VkImageView>& materials);
+    // void createMaterialDescriptorSets(const DescriptorBuilder& builder, const uint32_t materialCount, VkBuffer materialBuffer);
 };
 
 
@@ -138,7 +151,10 @@ public:
     DescriptorManager(const VkDevice device);
     ~DescriptorManager();
 
-    void createDescriptorPoolSet(const UniformManager& uniformManager, const TextureSamplerView& textureSamplerView, const TextureSamplerView& cubeSamplerView, CamerasManager& camManager);
+    void createDescriptorPoolSet(const UniformManager& uniformManager,
+                                 const MeshUniforms& meshData,
+                                 const TextureSamplerView& cubeSamplerView,
+                                 CamerasManager& camManager);
 private:
     VkDescriptorPool descriptorPool;
 

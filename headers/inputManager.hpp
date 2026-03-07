@@ -9,11 +9,14 @@
 
 // user include
 #include <imguiProxy.hpp>
+#include <structs.hpp>
 
 class CamerasManager;
-enum class ImageViewType : uint32_t;
-enum class DebugCompute : uint32_t;
-enum class NovelHeuristic : uint32_t;
+// enum class ImageViewType : uint32_t;
+// enum class DebugCompute : uint32_t;
+// enum class NovelHeuristic : uint32_t;
+// enum class DistanceType : uint32_t;
+// enum class ConeMarching  : uint32_t;
 
 class FPSCounter{
 public:
@@ -44,9 +47,17 @@ public:
     NovelHeuristic novelHeuristic;
     bool startSynthesis = false;
 
+    DistanceType distance;
+    uint32_t neighbourCount = 1;
+    ConeMarching coneMarching;
+    float inConePercentage = 0.0f;
+
+    int sceneSelected = 0;
+    bool sceneChanged = false;
+
     InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
      const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent,
-     MemoryManager& memMan);
+     MemoryManager& memMan, Mesh& mesh);
     ~InputManager();
 
     void setCallbacks();
@@ -63,6 +74,7 @@ private:
     // vulkan handless
     GLFWwindow* windowHandle;
     CamerasManager& camManagerHandle;
+    Mesh& meshRef;
 
     float lastFrameTime = 0.0f;
     double lastX = 0.0, lastY = 0.0;

@@ -22,6 +22,7 @@ extern const size_t MAX_FRAMES_IN_FLIGHT;
 class MemoryManager;
 class Camera;
 class CamerasManager;
+class InputManager;
 
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
@@ -53,7 +54,7 @@ public:
     RenderUniforms(MemoryManager& memManager);
     ~RenderUniforms();
 
-    void updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth);
+    void updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth, const glm::vec3& light);
 
 private:
     std::vector<VmaAllocation> fragmentUniformBuffersMemory;
@@ -82,7 +83,7 @@ public:
     NovelUniforms(MemoryManager& memManager, const uint32_t camCount, const VkExtent2D& extentSize);
     ~NovelUniforms();
 
-    void updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, DebugCompute debugFlag, NovelHeuristic heuristic);
+    void updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, const InputManager& input);
 
     bool setCamArrayData(uint32_t currentImage, CamerasManager& camManager);
     uint32_t getIntersectCount(uint32_t currentImage);

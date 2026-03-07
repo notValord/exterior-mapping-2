@@ -13,8 +13,21 @@ const uint COLOR_HEURISTIC    = 0;
 const uint DEPTH_HEURISTIC    = 1;
 const uint ANGLE_HEURISTIC    = 2;
 
+const uint POINT_DISTANCE     = 0;
+const uint POINT_RAY_DISTANCE = 1;
+
+const uint NO_CONE = 0;
+const uint ONLY_CONE = 1;
+const uint PARTIAL_CONE = 2;
+
 // I will see what this means
 layout(local_size_x = 16, local_size_y = 16) in;
+
+struct ConeBB {
+    uint coneFlag;
+    float pixelRadius;
+    float camPercentage;
+};
 
 layout(set = 0, binding = 0) uniform NovelImageObject {
     mat4 viewMat;
@@ -28,9 +41,12 @@ layout(set = 0, binding = 0) uniform NovelImageObject {
     uint sampleDebug;
     uint heuristic;
     uint debugFlag;
+    uint distanceFlag;
+    ConeBB coneMarching;
     // uint _pad1;
 } ubo;
 
+//  pixelRadius = 2 * tan(FOV/2) / screenHeight
 
 struct CamArrayData {       // combine view * proj into one matrix to save sapce
     vec4 frustumPlanes[6];
@@ -212,6 +228,10 @@ vec2 findMaxInterval(in vec2 inArr[MAX_CAMS], in vec2 outArr[MAX_CAMS], inout ui
 // might need to flip the Y coordinate
 vec2 projectToCam(in vec3 worldPoint, in uint camIndex) {
     vec4 clipPoint = camArrayIn[camIndex].projMat * camArrayIn[camIndex].viewMat * vec4(worldPoint, 1.0f);
+    if (clipPoint.w <= 0.0) {
+        return vec2(0.0f);
+    }
+
     clipPoint = clipPoint / clipPoint.w;
     return (clipPoint.xy + 1.0f) * 0.5f;    // transform from [-1,-1] -> [0, 1] to sample texture
 }
@@ -299,6 +319,10 @@ float pointRayDistance(in vec3 point, in vec3 rayOrigin, in vec3 rayDir) {
     }
 }
 
+float pointDistance(in vec3 point1, in vec3 point2) {
+    return distance(point1, point2);
+}
+
 float worldPointDepth(in vec3 point) {
     vec4 clipPos = ubo.projMat * ubo.viewMat * vec4(point, 1.0f);
     float ndcDepth = clipPos.z / clipPos.w;
@@ -311,7 +335,7 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
     }
 
     float bestDepth = MAX_FLOAT;
-    vec3 bestColorAverage = vec3(0.0f);
+    vec3 bestColorAverage = vec3(1.0, 0.0, 1.0);
     float projectedDepth = 0.0f;
 
     uint startSample = 0u;
@@ -322,10 +346,19 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
         endSample = ubo.sampleDebug + 1u;
     }
     
-    vec3 worldPoint = rayOrigin + (maxInterval.x + float(startSample) * rayStep) * rayDir;
+    float d = maxInterval.x + float(startSample) * rayStep;
+    vec3 worldPoint = rayOrigin + d * rayDir;
     vec3 sampleStep = rayStep * rayDir;
+    worldPoint += 0.1 * sampleStep;
+
+    float distanceRadius = d * ubo.coneMarching.pixelRadius;
+    float distanceStep = rayStep * ubo.coneMarching.pixelRadius;
 
     for (uint s = startSample; s < endSample; ++s) {
+        uint inCone = 0;
+        float coneDepthSum = 0.0f;
+        vec3 coneAverage = vec3(0.0f);
+
         float depthSum = 0.0f;
         vec3 newAverage = vec3(0.0f);
 
@@ -335,20 +368,59 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
 
             float refDepth = texture(RefDepthSampler, vec3(camUV, camIndex)).r;
             vec3 refWorldPoint = projectToWorld(camUV, refDepth, camIndex);         // try to get rid of the projection, compare depth difference?
-            depthSum += pointRayDistance(refWorldPoint, rayOrigin, rayDir);
 
-            vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
-            newAverage += refColor;
-            
+            if (ubo.distanceFlag == POINT_DISTANCE) {
+                d = pointDistance(refWorldPoint, worldPoint);
+            }
+            else if (ubo.distanceFlag == POINT_RAY_DISTANCE) {
+                d = pointRayDistance(refWorldPoint, rayOrigin, rayDir);
+            }
+            else {
+                d = MAX_FLOAT;
+            }
+
+            if (ubo.coneMarching.coneFlag != NO_CONE && d <= distanceRadius) {
+                coneDepthSum += d;
+
+                vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
+                coneAverage += refColor;
+
+                inCone++;
+            }
+            else if (ubo.coneMarching.coneFlag != ONLY_CONE) {
+                depthSum += d;
+
+                vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
+                newAverage += refColor;
+            }
         }
 
-        if (depthSum < bestDepth) {
-            bestDepth = depthSum;
-            bestColorAverage = newAverage / float(arrLen);
+        uint hitCount = arrLen;
+        if (ubo.coneMarching.coneFlag != NO_CONE && inCone != 0) {
+            if (inCone < arrLen * ubo.coneMarching.camPercentage) {
+                worldPoint += sampleStep;
+                distanceRadius += distanceStep;
+
+                continue;
+            }
+            depthSum = coneDepthSum;
+            newAverage = coneAverage;
+
+            hitCount = inCone;
+        }
+        else if (ubo.coneMarching.coneFlag == ONLY_CONE && inCone == 0) {
+            depthSum = MAX_FLOAT;
+        }
+
+        float avarageDepth = depthSum / max(float(hitCount), 1.0f);
+        if (avarageDepth < bestDepth) {
+            bestDepth = avarageDepth;
+            bestColorAverage = newAverage / float(hitCount);
             projectedDepth = worldPointDepth(worldPoint);
         }
 
         worldPoint += sampleStep;
+        distanceRadius += distanceStep;
     }
 
     if (ubo.debugFlag == DEBUG_SAMPLE_DEPTH) {
@@ -387,6 +459,7 @@ vec3 angleHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
     
     vec3 worldPoint = rayOrigin + (maxInterval.x + float(startSample) * rayStep) * rayDir;
     vec3 sampleStep = rayStep * rayDir;
+
     for (uint s = startSample; s < endSample; ++s) {
         float depthSum = 0.0f;
         vec3 colorSum = vec3(0.0f);
@@ -439,6 +512,8 @@ vec3 colorHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
 
     vec3 worldPoint = rayOrigin + (maxInterval.x + float(startSample) * rayStep) * rayDir;
     vec3 sampleStep = rayStep * rayDir;
+    worldPoint += 0.1 * sampleStep;
+
     for (uint s = startSample; s < endSample; ++s) {
         vec3 maxColor = vec3(0.0f);
         vec3 minColor = vec3(1.0f);

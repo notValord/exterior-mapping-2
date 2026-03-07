@@ -21,6 +21,7 @@ struct QueueFamilyIndices;
 class CamerasManager;
 class InputManager;
 class MemoryManager;
+class Mesh;
 
 class ImguiProxy {
 public:
@@ -29,7 +30,7 @@ public:
      VkExtent2D& swapChainExtent, MemoryManager& memMan);
     ~ImguiProxy();
 
-    void rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager);
+    void rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh);
     void recreateFramebuffers(const std::vector<VkImageView>& swapChainImageViews, const VkExtent2D& swapChainExtent);
     VkCommandBuffer recordCommandBuffer(uint32_t currentFrame, uint32_t imageIndex);
     
@@ -53,9 +54,9 @@ private:
     void createFramebuffers(const std::vector<VkImageView>& swapChainImageViews);
     void createCommandBuffers(const QueueFamilyIndices& familyIndices);
 
-    void drawUI(float fps, CamerasManager& camManager, InputManager* inputManager);
+    void drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh);
 
-    void uiActiveCam(CamerasManager& camManager);
+    void uiActiveCam(CamerasManager& camManager, Mesh& mesh);
     void uiNovelCam(CamerasManager& camManager, InputManager* inputManager);
     void uiObserver(CamerasManager& camManager);
     void uiCamArray(CamerasManager& camManager, InputManager* inputManager);

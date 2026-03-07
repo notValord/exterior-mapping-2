@@ -10,7 +10,7 @@ struct AttachementsFormats;
 class DescriptorManager;
 
 enum class VertexInputFlags : uint32_t {
-    POS_COL_UV,
+    POS_COL_UV_NORM,
     POS_COL,
     POS,
     NONE
