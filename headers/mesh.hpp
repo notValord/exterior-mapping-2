@@ -66,6 +66,8 @@ public:
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VkBuffer materialBuffer = VK_NULL_HANDLE;
 
+    float scale = 1.0f;
+
     Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
     ~Mesh();
 

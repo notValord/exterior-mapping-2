@@ -50,10 +50,10 @@ float differentDepth() {
     return (2.0 * zNear) / (zFar + zNear - z * (zFar - zNear));
 }
 
-vec3 ambientLight() {
-    float ambientStrength = 0.05;
+vec3 ambientLight(in vec3 diffuseColor) {
+    float ambientStrength = 0.02;
 
-    return materialIn[pc.materialID].ambient * ambientStrength * lightColor;        // WRONG
+    return diffuseColor * ambientStrength * lightColor;        // WRONG
 }
 
 vec3 diffuseLight(in vec3 diffuseColor, in vec3 norm, in vec3 lightDir) {
@@ -62,6 +62,12 @@ vec3 diffuseLight(in vec3 diffuseColor, in vec3 norm, in vec3 lightDir) {
 }
 
 vec3 specularLight(in vec3 norm, in vec3 viewDir, in vec3 lightDir) {
+    // Only calculate specular if surface is facing the light
+    float diffuseFactor = dot(norm, lightDir);
+    if (diffuseFactor <= 0.0) {
+        return vec3(0.0);
+    }
+
     vec3 reflectDir = reflect(-lightDir, norm);
 
     float shininess = clamp(materialIn[pc.materialID].shininess / 10.0, 1.0, 128.0);      // convert the value form blender
@@ -76,8 +82,7 @@ vec4 basicLighting(vec4 objectColor) {
     vec3 lightDir = normalize(rfo.lightPos - fragPosition);
     vec3 viewDir = normalize(rfo.camPos - fragPosition);
 
-    return vec4(diffuseLight(objectColor.xyz, norm, lightDir) + specularLight(norm, viewDir, lightDir), objectColor.w);
-    // return vec4(specularLight(norm, viewDir, lightDir), objectColor.w);
+    return vec4(ambientLight(objectColor.xyz) + diffuseLight(objectColor.xyz, norm, lightDir) + specularLight(norm, viewDir, lightDir), objectColor.w);
 }
 
 void main() {

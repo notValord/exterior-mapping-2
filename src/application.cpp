@@ -15,9 +15,12 @@ static const std::string CUBE_TEXTURE_PATH = "camera.jpg";
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
+// DO UI -  scene studff, scale, light position, remove observer position, do separate cone stuff
+// make image for novel view for mip map depth, check how mip map is done
 
-// TODO percentage idea?
-void App::run() {;
+// Idea: binary array for cameras in mip maps
+//       in distance select 5 best
+void App::run() {
     mainLoop();
 }
 
@@ -58,16 +61,13 @@ void App::handleResize() {
 
 void App::drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, const Camera& renderView) {
     // update both MVP and RFO, can get rid of the MVP in the future fot push constans
-    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), inputManager.debugGrayscale, mesh.getLight()); // MVP matrix
+    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), inputManager.debugGrayscale, mesh.getLight(), mesh.scale); // MVP matrix
 
     commandRecorder.setPipeline(pipelineManager.renderPipeline, pipelineManager.renderPassMan.renderPass, swapchain.swapChainExtent);
     commandRecorder.setRenderBuffers(mesh.vertexBuffer, mesh.getIndicesSize(), mesh.indexBuffer);
 
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.renderDescriptors.descriptorSets[currentFrame] };
-    // glm::mat4 model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-    // model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    // model = glm::scale(model, glm::vec3(5.0f));
-    glm::mat4 model = renderView.getProjectionMatrix() * renderView.getViewMatrix();
+    glm::mat4 model = renderView.getProjectionMatrix() * renderView.getViewMatrix() * glm::scale(glm::mat4(1.0f), glm::vec3(mesh.scale));
 
     std::vector<glm::mat4> pushMats = { model };
     commandRecorder.recordMultiScene(commandBuffer, descriptorSets, framebuffer, pushMats, mesh.getSubMeshes(), descripManager.renderDescriptors.samplerDescriptorSets);
@@ -140,7 +140,7 @@ void App::computePointCloud(VkCommandBuffer commandBuffer) {
     }
     camManager.transferLayeredLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
 
-    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), false, mesh.getLight());       // need to update the MVP
+    uniformManager.renderUniforms.updateUniformBuffers(currentFrame, *(camManager.activeCam), false, mesh.getLight(), mesh.scale);       // need to update the MVP
     // buffers are updated when the images are taken
 
 
@@ -367,7 +367,6 @@ void App::changeScene() {
         throw std::runtime_error("Unknown scene!");
     }
     mesh.changeModel(meshFile);
-    // descripManager.renderDescriptors.updateSamplerDescriptorSets(mesh.getSampler(), mesh.getMaterialViews());
     descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());
 }
 

@@ -300,7 +300,6 @@ RenderDescriptors::RenderDescriptors(const DescriptorBuilder& builder, const VkD
 
 RenderDescriptors::~RenderDescriptors() {
     vkDestroyDescriptorSetLayout(deviceHandle, samplerDescriptorSetLayout, nullptr);
-    // vkDestroyDescriptorSetLayout(deviceHandle, materialDescriptorSetLayout, nullptr);
 }
 
 void RenderDescriptors::createDescriptorSetLayout(const DescriptorBuilder& builder) {
@@ -314,10 +313,6 @@ void RenderDescriptors::createDescriptorSetLayout(const DescriptorBuilder& build
     descriptorSLBs.clear();
     builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     samplerDescriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
-
-    // descriptorSLBs.clear();
-    // builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    // materialDescriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
 }
 
 void RenderDescriptors::createDescriptorSets(const DescriptorBuilder& builder,
@@ -338,16 +333,14 @@ void RenderDescriptors::createDescriptorSets(const DescriptorBuilder& builder,
         vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
 
-    // std::cout << meshData.materialCount << std::endl;
     createSamplerDescriptorSets(builder, meshData.sampler, meshData.textures);
-    // createMaterialDescriptorSets(builder, meshData.materialCount, meshData.materials);
 }
 
 void RenderDescriptors::updateMaterialDescriptosSets(VkBuffer materials) {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         VkDescriptorBufferInfo descriptorBufferI2 = DescriptorWriter::makeBufferInfo(materials, VK_WHOLE_SIZE);
         std::array<VkWriteDescriptorSet, 1> descriptorWrites;
-        descriptorWrites[2] = DescriptorWriter::makeWrite(descriptorSets[i], 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descriptorBufferI2);
+        descriptorWrites[0] = DescriptorWriter::makeWrite(descriptorSets[i], 2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descriptorBufferI2);
 
         vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
@@ -383,27 +376,7 @@ void RenderDescriptors::updateMeshData(const MeshUniforms& meshData) {
     updateSamplerDescriptorSets(meshData.sampler, meshData.textures);
 }
 
-// void RenderDescriptors::createMaterialDescriptorSets(const DescriptorBuilder& builder, const uint32_t materialCount, VkBuffer materialBuffer) {
-//     materialDescriptorSets.resize(MAX_MATERIALS_COUNT);         // number of materials
-//     builder.buildDescriptorSets(materialDescriptorSets, materialDescriptorSetLayout, MAX_MATERIALS_COUNT);
 
-//     std::cout << materialCount << std::endl;
-//     updateMaterialDescriptorSets(materialCount, materialBuffer);
-// }
-
-// void RenderDescriptors::updateMaterialDescriptorSets(const uint32_t materialCount, VkBuffer materialBuffer) {
-//     std::cout << "Final: " << materialCount << std::endl;
-//     if (materialCount > MAX_MATERIALS_COUNT) {
-//         throw std::runtime_error("Needs to allocate more materials " + std::to_string(materialCount) + "!");
-//     }
-
-//     for (uint32_t materialID = 0; materialID < materialCount; materialID++) {
-//         VkDescriptorBufferInfo descriptorBufferI = DescriptorWriter::makeBufferInfo(materialBuffer, sizeof(RenderMaterialObject), materialID * sizeof(RenderMaterialObject));
-//         VkWriteDescriptorSet descriptorWrite = DescriptorWriter::makeWrite(materialDescriptorSets[materialID], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBufferI);
-
-//         vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrite, 0, nullptr);
-//     }
-// }
 
 
 ComputeDescriptors::ComputeDescriptors(const DescriptorBuilder& builder, const VkDevice device)

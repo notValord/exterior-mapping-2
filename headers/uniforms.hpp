@@ -54,7 +54,7 @@ public:
     RenderUniforms(MemoryManager& memManager);
     ~RenderUniforms();
 
-    void updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth, const glm::vec3& light);
+    void updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth, const glm::vec3& light, float modelScale);
 
 private:
     std::vector<VmaAllocation> fragmentUniformBuffersMemory;

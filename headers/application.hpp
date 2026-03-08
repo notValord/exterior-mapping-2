@@ -31,8 +31,6 @@ private:
     SwapChain swapchain;
     DescriptorManager descripManager;
     PipelineManager pipelineManager;
-    // GraphicsPipeline graphicsPipeline;
-    // ComputePipeline computePipeline;
     SyncManager syncManager;
     TexturesManager textureManager;
     Mesh mesh;

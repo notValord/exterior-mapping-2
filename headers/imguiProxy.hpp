@@ -56,9 +56,9 @@ private:
 
     void drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh);
 
-    void uiActiveCam(CamerasManager& camManager, Mesh& mesh);
+    void uiActiveCam(CamerasManager& camManager);
     void uiNovelCam(CamerasManager& camManager, InputManager* inputManager);
-    void uiObserver(CamerasManager& camManager);
+    void uiScene(InputManager* inputManager, Mesh& mesh);
     void uiCamArray(CamerasManager& camManager, InputManager* inputManager);
     void uiOfflineRender(CamerasManager& camManager, InputManager* inputManager);
     void uiNovelRender(CamerasManager& camManager, InputManager* inputManager);

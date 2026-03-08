@@ -69,7 +69,7 @@ void RenderUniforms::createFragmentUniformBuffers(VkDeviceSize bufferSize) {
     }
 }
 
-void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth, const glm::vec3& light) {
+void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& cam, bool showDepth, const glm::vec3& light, float modelScale) {
     // static auto startTime = std::chrono::high_resolution_clock::now();
 
     // auto currentTime = std::chrono::high_resolution_clock::now();
@@ -77,7 +77,7 @@ void RenderUniforms::updateUniformBuffers(uint32_t currentImage, const Camera& c
 
     MVPBufferObject ubo{};
     // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    ubo.model = glm::mat4(1.0f);
+    ubo.model = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
     // ubo.model = glm::rotate(ubo.model, glm::radians(-90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = cam.getViewMatrix();
     ubo.proj = cam.getProjectionMatrix();

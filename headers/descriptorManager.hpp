@@ -101,11 +101,9 @@ public:
     void updateSamplerDescriptorSets(const VkSampler& sampler, const std::vector<VkImageView>& materials);
     void updateMaterialDescriptosSets(VkBuffer materials);
     void updateMeshData(const MeshUniforms& meshData);
-    // void updateMaterialDescriptorSets(const uint32_t materialCount, VkBuffer materialBuffer);
 private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
     void createSamplerDescriptorSets(const DescriptorBuilder& builder, const VkSampler& sampler, const std::vector<VkImageView>& materials);
-    // void createMaterialDescriptorSets(const DescriptorBuilder& builder, const uint32_t materialCount, VkBuffer materialBuffer);
 };
 
 

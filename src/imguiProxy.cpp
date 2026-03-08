@@ -89,8 +89,23 @@ void ImguiProxy::rebuildUI(float fps, CamerasManager& camManager, InputManager* 
     ImGui::Render();
 }
 
-void ImguiProxy::uiActiveCam(CamerasManager& camManager, Mesh& mesh) {
-    static float sceneScale = 0;
+void ImguiProxy::uiScene(InputManager* inputManager, Mesh& mesh) {
+    const char* sceneFiles[] = { "vikingRoom", "city", "porsche"};
+
+    if (ImGui::CollapsingHeader("Scene")) {
+        if (ImGui::Combo("selected", &inputManager->sceneSelected, sceneFiles, IM_ARRAYSIZE(sceneFiles))) {
+            inputManager->sceneChanged = true;
+        }
+
+        ImGui::SliderFloat("scale", &mesh.scale, 0, 20, "%.1f");
+
+
+        ImGui::SeparatorText("Light");
+        ImGui::DragFloat3("position##Light", glm::value_ptr(mesh.getLightRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
+    }
+}
+
+void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
     if (ImGui::CollapsingHeader("Active camera")) {
         float& yaw = camManager.activeCam->getYawRef();
 
@@ -121,17 +136,10 @@ void ImguiProxy::uiActiveCam(CamerasManager& camManager, Mesh& mesh) {
         ImGui::SeparatorText("Cam Speed");
         ImGui::SliderFloat("speed", &camManager.activeCam->getSpeedRef(), CAM_MIN_SPEED, CAM_MAX_SPEED, "%.1f");
         ImGui::DragFloat("speed step", &camManager.activeCam->getSpeedStepRef(), 0.05f , 0.0f, 10.0f, "%0.1f");
-
-        ImGui::SeparatorText("Scene");
-        ImGui::SliderFloat("scale", &sceneScale, 0, 20, "%.1f");
-
-        ImGui::DragFloat3("position##Light", glm::value_ptr(mesh.getLightRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
     }
 }
 
 void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManager) {
-    const char* sceneFiles[] = { "vikingRoom", "city", "porsche"};
-
     if (ImGui::CollapsingHeader("Novel camera")) {
         bool novelToggle = camManager.novelViewToggeled();
 
@@ -148,29 +156,12 @@ void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManag
 
         ImGui::EndDisabled();
 
-        ImGui::SeparatorText("Scene");
-        if (ImGui::Combo("scene", &inputManager->sceneSelected, sceneFiles, IM_ARRAYSIZE(sceneFiles))) {
-            inputManager->sceneChanged = true;
-        }
-    }
-}
-
-void ImguiProxy::uiObserver(CamerasManager& camManager) {
-    if (ImGui::CollapsingHeader("Observer")) {
+        ImGui::SeparatorText("Observer cam");
         bool observerToggle = camManager.observerToggeled();
 
         if (ImGui::Checkbox("Observer toggeled", &observerToggle)) {
             camManager.toggleObserver();
         }
-
-        ImGui::SeparatorText("Cam Orientation");
-        ImGui::BeginDisabled();     // read only
-
-        ImGui::DragFloat3("position##Observer", glm::value_ptr(camManager.observer.getPositionRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
-        ImGui::DragFloat("yaw##Observer", &camManager.observer.getYawRef(), 1.0f, -180.0f, 180.0f, "%0.1f");
-        ImGui::SliderFloat("pitch##Observer", &camManager.observer.getPitchRef(), -180.0f, 180.0f);
-
-        ImGui::EndDisabled();
     }
 }
 
@@ -322,15 +313,6 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
             inputManager->novelHeuristic = NovelHeuristic::ANGLE_HEURISTIC;
         }
 
-        ImGui::SeparatorText("Distance");
-        if (ImGui::RadioButton("point - point", &distanceType, 0)) {
-            inputManager->distance = DistanceType::POINT;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("point - ray", &distanceType, 1)) {
-            inputManager->distance = DistanceType::POINT_RAY;
-        }
-
         uint32_t oldSampleCount = camManager.sampleCount;
         if (ImGui::SliderScalar("Sample count", ImGuiDataType_U32, &camManager.sampleCount, &minSample, &maxSample)) {
             if (camManager.sampleDebug == oldSampleCount) {
@@ -339,21 +321,34 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         }
         ImGui::SliderScalar("Curr sample", ImGuiDataType_U32, &camManager.sampleDebug, &minDebugSample, &camManager.sampleCount);
 
-        ImGui::SeparatorText("Cone Marching");
-        if (ImGui::RadioButton("No cone", &coneType, 0)) {
-            inputManager->coneMarching = ConeMarching::NO_CONE;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Only in cone", &coneType, 1)) {
-            inputManager->coneMarching = ConeMarching::ONLY_CONE;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Conditional in cone", &coneType, 2)) {
-            inputManager->coneMarching = ConeMarching::PARTIAL_CONE;
-        }
+        ImGui::Indent(); // add left spacing
+        if (ImGui::CollapsingHeader("Depth settings")) {
+            ImGui::SeparatorText("Distance");
+            if (ImGui::RadioButton("point - point", &distanceType, 0)) {
+                inputManager->distance = DistanceType::POINT;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("point - ray", &distanceType, 1)) {
+                inputManager->distance = DistanceType::POINT_RAY;
+            }
 
-        ImGui::SliderScalar("Neighbourhood", ImGuiDataType_U32, &inputManager->neighbourCount, &minSample, &maxNeighbour);
-        ImGui::SliderFloat("In cone percentage", &inputManager->inConePercentage, 0.0f, 1.0f, "%0.1f%");
+            ImGui::SeparatorText("Cone Marching");
+            if (ImGui::RadioButton("No cone", &coneType, 0)) {
+                inputManager->coneMarching = ConeMarching::NO_CONE;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Only in cone", &coneType, 1)) {
+                inputManager->coneMarching = ConeMarching::ONLY_CONE;
+            }
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Conditional in cone", &coneType, 2)) {
+                inputManager->coneMarching = ConeMarching::PARTIAL_CONE;
+            }
+
+            ImGui::SliderScalar("Neighbourhood", ImGuiDataType_U32, &inputManager->neighbourCount, &minSample, &maxNeighbour);
+            ImGui::SliderFloat("In cone percentage", &inputManager->inConePercentage, 0.0f, 1.0f, "%0.1f%");
+        }
+        ImGui::Unindent();
 
         ImGui::SeparatorText("Debug");
         if (ImGui::RadioButton("No debug", &novelDebug, 0)) {
@@ -398,10 +393,10 @@ void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offline
 void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh) {
     // Draw the UI
     ImGui::Begin("Info");
-    uiActiveCam(camManager, mesh);
+    uiScene(inputManager, mesh);
 
+    uiActiveCam(camManager);
     uiNovelCam(camManager, inputManager);
-    uiObserver(camManager);
     uiCamArray(camManager, inputManager);
     
     uiOfflineRender(camManager, inputManager);
