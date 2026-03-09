@@ -243,7 +243,8 @@ void App::drawFrame() {
     }
     else if (inputManager.debugPointCloud) {        // debug without scene rendering
         computePointCloud(commandManager.commandBuffers[currentFrame]);
-        drawPointCloudDebug(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+        //camManager.updateNovel();
+        drawPointCloudDebug(commandManager.commandBuffers[currentFrame], camManager.getNovelFramebuffer(imageIndex));
     }
     else {      // debug and setup
         drawScene(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex], *(camManager.activeCam));

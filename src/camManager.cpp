@@ -21,7 +21,8 @@ CamerasManager::CamerasManager(VkDevice device,
       colorFormat(formats.colorImageFormat),
       depthFormat(formats.depthFormat),
       camCount(START_CAM_COUNT),
-      resources(device, prop, memMan, formats.colorImageFormat, formats.depthFormat, swapChainExtent) {
+      offlineRes(device, prop, memMan, formats.colorImageFormat, formats.depthFormat, swapChainExtent),
+      novelRes(device, memMan, renderpass, swapChainExtent, formats) {
 
     camArray.reserve(MAX_CAM_COUNT);
     for (int i = 0; i < camCount; i++) {
@@ -46,7 +47,12 @@ void CamerasManager::updateResize(VkExtent2D swapChainExtent) {
         cam.updateRatio(extentRatio);
     }
 
-    resources.updateLayered(swapChainExtent);
+    offlineRes.updateLayered(swapChainExtent);
+    novelRes.updateExtent(swapChainExtent);
+}
+
+void CamerasManager::updateNovel() {
+    novelRes.recreateFrameBuffers();
 }
 
 uint32_t CamerasManager::getCamCount() const {
@@ -113,8 +119,8 @@ void CamerasManager::addCam(MemoryManager& memManager) {
     camArray.emplace_back(extentRatio, deviceHandle, memManager, swapChainExtentHandle, colorFormat, depthFormat, renderpassHandle);
     camCount++;
 
-    resources.setLayerCount(camCount);
-    resources.offlineImagesRendered = false;
+    offlineRes.setLayerCount(camCount);
+    offlineRes.offlineImagesRendered = false;
     framebuffersInvalid = true;
 }
 
@@ -135,23 +141,23 @@ void CamerasManager::deleteCam(MemoryManager& memManager) {
     camArray.pop_back();
     camCount--;
 
-    resources.setLayerCount(camCount);
+    offlineRes.setLayerCount(camCount);
 }
 
 VkImageView CamerasManager::getImageView(ImageViewType type) {
-    return resources.getImageView(type);
+    return offlineRes.getImageView(type);
 }
 
 void CamerasManager::createLayeredImages() {
-    resources.createLayeredImage(colorFormat, depthFormat);
+    offlineRes.createLayeredImage(colorFormat, depthFormat);
 
     if (!framebuffersInvalid) {
         return;
     }
 
     for (uint32_t i = 0; i < camArray.size(); i++) {
-        camArray[i].recreateOfflineResources(resources.layeredImage,
-                                             resources.depthLayeredImage,
+        camArray[i].recreateOfflineResources(offlineRes.layeredImage,
+                                             offlineRes.depthLayeredImage,
                                              i,
                                              swapChainExtentHandle,
                                              renderpassHandle,
@@ -162,21 +168,21 @@ void CamerasManager::createLayeredImages() {
 }
 
 bool CamerasManager::imagesRendered() {
-    return resources.offlineImagesRendered;
+    return offlineRes.offlineImagesRendered;
 }
 void CamerasManager::setImagesRendered() {
-    resources.setRendered();
+    offlineRes.setRendered();
 }
 bool CamerasManager::imagesInvalid() {
-    return resources.imagesInvalid || framebuffersInvalid;
+    return offlineRes.imagesInvalid || framebuffersInvalid;
 }
 
 VkSampler CamerasManager::getSampler(ImageViewType type) {
     if (type == ImageViewType::COLOR) {
-        return resources.imageSampler.getSampler();
+        return offlineRes.imageSampler.getSampler();
     }
     else if (type == ImageViewType::DEPTH) {
-        return resources.depthSampler.getSampler();
+        return offlineRes.depthSampler.getSampler();
     }
     else {      // unknown type 
         return VK_NULL_HANDLE;
@@ -184,12 +190,16 @@ VkSampler CamerasManager::getSampler(ImageViewType type) {
     }
 
 void CamerasManager::saveImages(std::string& filename, SaveImageFormat depthSaveFormat) {
-    resources.saveLayeredImages(filename, depthSaveFormat, colorFormat, depthFormat, camArray[0].getNearFar());
+    offlineRes.saveLayeredImages(filename, depthSaveFormat, colorFormat, depthFormat, camArray[0].getNearFar());
 }
 
 
 void CamerasManager::transferLayeredLayout(VkImageLayout layout, VkCommandBuffer commandBuffer) {
-    resources.transferLayered(layout, colorFormat, depthFormat, commandBuffer);
+    offlineRes.transferLayered(layout, colorFormat, depthFormat, commandBuffer);
+}
+
+VkFramebuffer CamerasManager::getNovelFramebuffer(uint32_t imageIndex) {
+    return novelRes.novelFramebuffers[imageIndex];
 }
 
 
@@ -347,4 +357,123 @@ void OfflineResources::transferLayered(VkImageLayout newLayout, VkFormat colorFo
     }
 
     layeredLayout = newLayout;
+}
+
+
+NovelResources::NovelResources(VkDevice device, MemoryManager& memMan, VkRenderPass renderPass, VkExtent2D extent, const AttachementsFormats& formats)
+    : deviceHandle(device),
+      memManager(memMan),
+      renderpassHandle(renderPass),
+      imageExtent(extent) {
+    colorFormat = formats.colorImageFormat;
+    depthFormat = formats.depthFormat;
+    metadataFormat = VK_FORMAT_R32G32_UINT;
+
+    createFrameBuffers();
+}
+
+NovelResources::~NovelResources() {
+    destroyFrameBuffers();
+}
+
+void NovelResources::destroyFrameBuffers() {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        vkDestroyFramebuffer(deviceHandle, novelFramebuffers[i], nullptr);
+
+        vkDestroyImageView(deviceHandle, colorImageView[i], nullptr);
+        vkDestroyImageView(deviceHandle, depthImageView[i], nullptr);
+        vkDestroyImageView(deviceHandle, metadataImageView[i], nullptr);
+
+        memManager.destroyImage(colorImage[i], colorImageMemory[i]);
+        memManager.destroyImage(depthImage[i], depthImageMemory[i]);
+        memManager.destroyImage(metadataImage[i], metadataImageMemory[i]);
+    }
+}
+
+void NovelResources::updateExtent(VkExtent2D newExtent) {
+    imageExtent = newExtent;
+    extentChanged = true;
+}
+
+void NovelResources::recreateFrameBuffers() {
+    if (!extentChanged) {
+        return;
+    }
+
+    destroyFrameBuffers();
+    createFrameBuffers();
+    extentChanged = false;
+}
+
+void NovelResources::createFrameBuffers() {
+    createBaseImages();
+    
+    novelFramebuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        std::array<VkImageView, 2> attachements = {
+            colorImageView[i],
+            depthImageView[i]
+        };
+
+        VkFramebufferCreateInfo framebufferCI{
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = renderpassHandle,
+            .attachmentCount = static_cast<uint32_t>(attachements.size()),
+            .pAttachments = attachements.data(),
+            .width = imageExtent.width,
+            .height = imageExtent.height,
+            .layers = 1
+        };
+
+        if (vkCreateFramebuffer(deviceHandle, &framebufferCI, nullptr, &novelFramebuffers[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to create frambuffers!");
+        }
+    }
+}
+
+void NovelResources::createBaseImages() {
+    colorImage.resize(MAX_FRAMES_IN_FLIGHT);
+    colorImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    colorImageView.resize(MAX_FRAMES_IN_FLIGHT);
+
+    depthImage.resize(MAX_FRAMES_IN_FLIGHT);
+    depthImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    depthImageView.resize(MAX_FRAMES_IN_FLIGHT);
+
+    metadataImage.resize(MAX_FRAMES_IN_FLIGHT);
+    metadataImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    metadataImageView.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        memManager.createImage(imageExtent.width,
+                                imageExtent.height,
+                                colorFormat,
+                                VK_IMAGE_TILING_OPTIMAL,
+                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                colorImage[i],
+                                VMA_MEMORY_USAGE_GPU_ONLY,
+                                colorImageMemory[i]);
+        colorImageView[i] = createImageView(colorImage[i], colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
+        
+        memManager.createImage(imageExtent.width,
+                                imageExtent.height,
+                                depthFormat,
+                                VK_IMAGE_TILING_OPTIMAL,
+                                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                depthImage[i],
+                                VMA_MEMORY_USAGE_GPU_ONLY,
+                                depthImageMemory[i]);
+        depthImageView[i] = createImageView(depthImage[i], depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle);
+
+        memManager.createImage(imageExtent.width,
+                                imageExtent.height,
+                                metadataFormat,
+                                VK_IMAGE_TILING_OPTIMAL,
+                                VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                metadataImage[i],
+                                VMA_MEMORY_USAGE_GPU_ONLY,
+                                metadataImageMemory[i]);
+        metadataImageView[i] = createImageView(metadataImage[i], metadataFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
+    }
 }

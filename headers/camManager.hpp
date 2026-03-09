@@ -7,6 +7,8 @@
 // system includes
 #include <vector>
 
+extern const size_t MAX_FRAMES_IN_FLIGHT;
+
 enum class SaveImageFormat;
 
 class OfflineResources {
@@ -50,6 +52,46 @@ private:
     void destroyLayeredImage();
 };
 
+class NovelResources {
+public:
+    std::vector<VkImage> colorImage;
+    std::vector<VkImage> depthImage;
+    std::vector<VkImage> metadataImage;
+
+    std::vector<VkFramebuffer> novelFramebuffers;
+
+    NovelResources(VkDevice device, MemoryManager& memMan, VkRenderPass renderPass, VkExtent2D extent, const AttachementsFormats& formats);
+    ~NovelResources();
+
+    void updateExtent(VkExtent2D newExtent);
+
+    void recreateFrameBuffers();
+private:
+    std::vector<VmaAllocation> colorImageMemory;
+    std::vector<VmaAllocation> depthImageMemory;
+    std::vector<VmaAllocation> metadataImageMemory;
+
+    std::vector<VkImageView> colorImageView;
+    std::vector<VkImageView> depthImageView;
+    std::vector<VkImageView> metadataImageView;
+
+    VkExtent2D imageExtent;
+    bool extentChanged = false;
+
+    VkFormat colorFormat;
+    VkFormat depthFormat;
+    VkFormat metadataFormat;
+
+    VkDevice deviceHandle;
+    VkRenderPass renderpassHandle;
+    MemoryManager& memManager;
+
+    void createBaseImages();
+    void createFrameBuffers();
+
+    void destroyFrameBuffers();
+};
+
 class CamerasManager {
 public:
     Camera* activeCam;
@@ -65,6 +107,7 @@ public:
     ~CamerasManager();
 
     void updateResize(VkExtent2D swapChainExtent);
+    void updateNovel();
     void toggleNovel();
     void toggleObserver();
     void nextCam(bool ignoreNovelView = false);
@@ -88,8 +131,11 @@ public:
 
     void saveImages(std::string& filename, SaveImageFormat depthSaveFormat);
     void transferLayeredLayout(VkImageLayout layout, VkCommandBuffer commandBuffer);
+
+    VkFramebuffer getNovelFramebuffer(uint32_t imageIndex);
 private:
-    OfflineResources resources;
+    OfflineResources offlineRes;
+    NovelResources novelRes;
     bool framebuffersInvalid = true;
 
     bool novelViewActive = true;
