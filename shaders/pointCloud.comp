@@ -19,7 +19,8 @@ layout(std430, set = 0, binding = 1) readonly buffer CamMatricesSSBOIn {
 // might need padding
 struct Point {
     vec4 pos;
-    vec4 col;
+    vec3 col;
+    uint camID;
 };
 
 layout(std430, set = 0, binding = 2) writeonly buffer pointCloudSSBOOut {
@@ -57,6 +58,6 @@ void main() {
         vec3 worldPoint = projectToWorld(uvCoords, depth.x, i);
 
         uint index = atomicAdd(count, 1);
-        pointCloud[index] = Point(vec4(worldPoint, 0.0f), color);
+        pointCloud[index] = Point(vec4(worldPoint, 0.0f), color.xyz, i);
     }
 }

@@ -176,7 +176,7 @@ void DebugUtil::setFrustumData(CamerasManager& camManager, uint32_t currentFrame
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 
-    std::vector<CloudPoint> frustrumPoints(frustumVertexCount * frustumCounts[currentFrame]);
+    std::vector<Point> frustrumPoints(frustumVertexCount * frustumCounts[currentFrame]);
     for (uint32_t i = 0; i < camManager.getCamCount(); i++) {
         CamArrayData camData = camManager.camArray[i].getCamData();
         uint32_t camOffset = frustumVertexCount * i;

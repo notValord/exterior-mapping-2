@@ -1,0 +1,53 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) uniform RayDataObject {
+    mat4 invViewMat;
+    mat4 invProjMat;
+    uvec2 res;
+} ubo;
+
+struct RayData {
+    vec3 origin;
+    uint coordX;
+    vec3 dir;
+    uint coordY;
+};
+
+layout(std430, set = 1, binding = 0) writeonly buffer RayDataSSBOIn {
+   RayData rayDataIn[];
+};
+
+layout(std430, set = 1, binding = 1) writeonly buffer RayCountSSBOIn {
+   uint rayCount;
+};
+
+void castRay(in uvec2 pixel, out vec3 rayOrigin, out vec3 rayDir) {
+    vec2 ndcPixel = (pixel + 0.5f)/ubo.res * 2.0f - 1.0f; // transform to range (-1,-1) (1,1)
+
+    vec4 viewNear = ubo.invProjMat * vec4(ndcPixel, 0.0f, 1.0f);
+    vec4 viewFar = ubo.invProjMat * vec4(ndcPixel, 1.0f, 1.0f);
+
+    viewNear = viewNear / viewNear.w;
+    viewFar = viewFar / viewFar.w;
+
+    vec4 worldNear = ubo.invViewMat * viewNear;
+    vec4 worldFar = ubo.invViewMat * viewFar;
+
+    rayOrigin = worldNear.xyz;
+    rayDir = normalize((worldFar-worldNear).xyz);
+}
+
+void main() {
+    uvec2 pixel = gl_GlobalInvocationID.xy;
+    if (pixel.x >= ubo.res.x || pixel.y >= ubo.res.y) {
+        return;
+    }
+
+    vec3 rayOrigin = vec3(0.0f);
+    vec3 rayDir = vec3(1.0f);
+    castRay(pixel, rayOrigin, rayDir);
+    rayDataIn[pixel.y*ubo.res.x + pixel.x] = RayData(rayOrigin, pixel.x, rayDir, pixel.y);
+    atomicAdd(rayCount, 1u);
+}

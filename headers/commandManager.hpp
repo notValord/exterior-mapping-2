@@ -61,6 +61,10 @@ public:
     void setRenderBuffers(VkBuffer vertexBuffer, uint32_t indexCount, VkBuffer indexBuffer);
     void setComputeBuffer(VkBuffer dataBuffer, VkBuffer countBuffer);
 
+    void clearStorageImage(VkCommandBuffer commandBuffer, VkImage storageImage);
+    void barrierStorageImage(VkCommandBuffer commandBuffer, const std::vector<VkImage>& storageImages, uint32_t layerCount);
+    void barrierStorageBuffer(VkCommandBuffer commandBuffer, VkBuffer storageBuffer, VkAccessFlags srcMask, VkAccessFlags dstMask, VkPipelineStageFlagBits srcStage, VkPipelineStageFlagBits dstStage);
+
     void recordRenderScene(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, VkFramebuffer framebuffer, const std::vector<glm::mat4>& pushConstants = std::vector<glm::mat4>{});
 
     void recordMultiScene(VkCommandBuffer commandBuffer,

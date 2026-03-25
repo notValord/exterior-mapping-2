@@ -191,7 +191,7 @@ void Mesh::loadMesh(const std::string& modelFile) {
         meshes.emplace_back(SubMesh{ static_cast<uint32_t>(subMesh.size()),
                                      static_cast<uint32_t>(indices.size()),
                                      textureId });
-        meshes[meshes.size()-1].print();
+        // meshes[meshes.size()-1].print();
         indices.insert(indices.end(), subMesh.begin(), subMesh.end());
     }
 }
@@ -257,7 +257,7 @@ std::vector<Material> Mesh::loadMaterials(const std::vector<tinyobj::material_t>
         material.lightProp = prop;
 
         materials.push_back(material);
-        material.print();
+        // material.print();
     }
 
     return materials;

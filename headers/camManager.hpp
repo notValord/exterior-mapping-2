@@ -19,6 +19,11 @@ public:
     VkImage layeredImage = VK_NULL_HANDLE;
     VkImage depthLayeredImage = VK_NULL_HANDLE;
 
+    VkImage depthMipMap0 = VK_NULL_HANDLE;
+    VkImage depthMipMap1 = VK_NULL_HANDLE;
+    VkImage depthMipMap2 = VK_NULL_HANDLE;
+    VkImage depthMipMap3 = VK_NULL_HANDLE;
+
     bool offlineImagesRendered = false;
     bool imagesInvalid = false;
 
@@ -29,8 +34,9 @@ public:
     void saveLayeredImages(std::string& filename, SaveImageFormat depthSaveFormat, VkFormat colorFormat, VkFormat depthFormat, glm::vec2 nearFar);
 
     void createLayeredImage(VkFormat colorFormat, VkFormat depthFormat, bool dummy = false);
+    void createMipMapImages(VkFormat depthFormat, bool dummy = false, VkCommandBuffer commandBuffer = VK_NULL_HANDLE);
 
-    VkImageView getImageView(ImageViewType type);
+    VkImageView getImageView(ImageViewType type, int mipMapID = -1);
     void setLayerCount(u_int32_t count);
     void setRendered();
     void transferLayered(VkImageLayout newLayout, VkFormat colorFormat, VkFormat depthFormat, VkCommandBuffer commandBuffer);
@@ -41,44 +47,58 @@ private:
     VmaAllocation depthLayeredImageMemory;
     VkImageView depthLayeredImageView;
 
+    VmaAllocation depthMipMap0Memory;
+    VmaAllocation depthMipMap1Memory;
+    VmaAllocation depthMipMap2Memory;
+    VmaAllocation depthMipMap3Memory;
+    VkImageView depthMipMap0View;
+    VkImageView depthMipMap1View;
+    VkImageView depthMipMap2View;
+    VkImageView depthMipMap3View;
+
     VkImageLayout layeredLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkExtent2D layeredExtent;
     uint32_t usedLayerCount;            // equal to camCount
     uint32_t allocatedLayerCount = 0;       // the image is not recreated when deleting cameras
 
+    VkExtent2D mipMap0Extent = {1024, 1024};
+    VkExtent2D mipMap1Extent = {256, 128};
+    VkExtent2D mipMap2Extent = {32, 32};
+    VkExtent2D mipMap3Extent = {8, 4};
+
     VkDevice deviceHandle;
     MemoryManager& memManager;
 
+    void setMipMapDataLayout(VkFormat depthFormat, VkCommandBuffer commandBuffer);
+
     void destroyLayeredImage();
+    void destroyMipMapImages();
 };
 
 class NovelResources {
 public:
-    std::vector<VkImage> colorImage;
-    std::vector<VkImage> depthImage;
     std::vector<VkImage> metadataImage;
+
+    std::vector<VkImageView> depthImageView;
+    std::vector<VkImageView> metadataImageView;
 
     std::vector<VkFramebuffer> novelFramebuffers;
 
-    NovelResources(VkDevice device, MemoryManager& memMan, VkRenderPass renderPass, VkExtent2D extent, const AttachementsFormats& formats);
+    NovelResources(VkDevice device, MemoryManager& memMan, VkRenderPass renderPass, VkExtent2D extent, const AttachementsFormats& formats, const std::vector<VkImageView>& swapChainImageViews);
     ~NovelResources();
 
     void updateExtent(VkExtent2D newExtent);
 
-    void recreateFrameBuffers();
+    void recreateFrameBuffers(const std::vector<VkImageView>& swapChainImageViews);
 private:
-    std::vector<VmaAllocation> colorImageMemory;
     std::vector<VmaAllocation> depthImageMemory;
     std::vector<VmaAllocation> metadataImageMemory;
 
-    std::vector<VkImageView> colorImageView;
-    std::vector<VkImageView> depthImageView;
-    std::vector<VkImageView> metadataImageView;
+    std::vector<VkImage> depthImage;
 
     VkExtent2D imageExtent;
-    bool extentChanged = false;
+    uint32_t imageCount;
 
-    VkFormat colorFormat;
     VkFormat depthFormat;
     VkFormat metadataFormat;
 
@@ -87,7 +107,7 @@ private:
     MemoryManager& memManager;
 
     void createBaseImages();
-    void createFrameBuffers();
+    void createFrameBuffers(const std::vector<VkImageView>& swapChainImageViews);
 
     void destroyFrameBuffers();
 };
@@ -103,11 +123,10 @@ public:
     uint32_t sampleCount = 16;
     uint32_t sampleDebug = 16;
 
-    CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass, const VkPhysicalDeviceProperties& prop);
+    CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass, const VkPhysicalDeviceProperties& prop, const std::vector<VkImageView>& swapChainImageViews);
     ~CamerasManager();
 
-    void updateResize(VkExtent2D swapChainExtent);
-    void updateNovel();
+    void updateResize(VkExtent2D swapChainExtent, const std::vector<VkImageView>& swapChainImageViews);
     void toggleNovel();
     void toggleObserver();
     void nextCam(bool ignoreNovelView = false);
@@ -122,7 +141,10 @@ public:
     bool observerToggeled();
 
     VkImageView getImageView(ImageViewType type);
+    std::array<VkImageView, 4> getReduceDepthViews();
+    std::vector<VkImage> getReduceStorageImages();
     void createLayeredImages();
+    void createMipMapImages(VkCommandBuffer commandBuffer);
 
     bool imagesInvalid();
     bool imagesRendered();
@@ -133,6 +155,8 @@ public:
     void transferLayeredLayout(VkImageLayout layout, VkCommandBuffer commandBuffer);
 
     VkFramebuffer getNovelFramebuffer(uint32_t imageIndex);
+    std::vector<VkImageView> getNovelStorageViews();
+    VkImage getNovelStorageImage(uint32_t currentFrame);
 private:
     OfflineResources offlineRes;
     NovelResources novelRes;

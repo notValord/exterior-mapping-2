@@ -106,7 +106,6 @@ private:
 };
 
 
-
 class PointCloudUniforms : public BaseUniforms {        // Point cloud compute
 public:
     std::vector<VkBuffer> camMatricesSSBOIn;        // the In buffers are static, no need of copy 
@@ -134,6 +133,62 @@ private:
 };
 
 
+class RayDataUniforms : public BaseUniforms {
+public:
+    std::vector<VkBuffer> rayDataSSBOIn;
+    std::vector<VkBuffer> rayCountSSBOIn;
+
+    RayDataUniforms(MemoryManager& memManager, VkExtent2D screenRes);
+    ~RayDataUniforms();
+
+    bool updateUniformBuffers(uint32_t currentImage, Camera& novelCam, VkExtent2D screenRes);
+private:
+    std::vector<VmaAllocation> rayDataSSBOMemory;
+    std::vector<VmaAllocation> rayCountSSBOMemory;
+    std::vector<VkExtent2D> maxScreenRes;
+
+    void createRayDataBuffers();
+    void recreateRayDataBuffers(uint32_t currentImage);
+
+    void destroyDataBuffers(uint32_t currentImage);
+};
+
+
+class NovelSynthUniforms : public BaseUniforms {
+public:
+    std::vector<VkImageView> debugImageView;
+    std::vector<VkImageView> resultImageView;
+
+    NovelSynthUniforms(MemoryManager& memManager, VkDevice device, const uint32_t camCount, VkExtent2D screenRes);
+    ~NovelSynthUniforms();
+
+    void setCamCount(const uint32_t camCount);
+    bool setResolution(VkExtent2D screenRes, uint32_t currentFrame);
+private:
+    std::vector<VkImage> debugImage;
+    std::vector<VmaAllocation> debugImageMemory;
+
+    std::vector<VkImage> resultImage;
+    std::vector<VmaAllocation> resultImageMemory;
+
+    uint32_t layerCount;
+    std::vector<VkExtent2D> currScreenRes;
+
+    VkDevice deviceHandle;
+
+    void createDebugImages();
+    void recreateDebugImages();
+
+    void createDataImages();
+    void recreateDataImages(uint32_t currentFrame);
+
+    void recreateAllImages();
+
+    void destroyDebugImages();
+    void destroyDataImages(uint32_t currentFrame);
+};
+
+
 
 class UniformManager {
 public:
@@ -141,6 +196,8 @@ public:
     OfflineUniforms offlineUniforms;
     NovelUniforms novelUnifroms;
     PointCloudUniforms pointCloudUniforms;
+    RayDataUniforms rayDataUniforms;
+    NovelSynthUniforms novelSynthUniforms;
 
-    UniformManager(MemoryManager& memManager, const VkExtent2D& extentSize, const uint32_t camCount);
+    UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount);
 };

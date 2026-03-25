@@ -43,6 +43,13 @@ struct MeshUniforms{
     VkBuffer materials;
 };
 
+struct RayData{
+    glm::vec3 origin;
+    uint32_t coordX;
+    glm::vec3 dir;
+    uint32_t coordY;
+};
+
 
 // Uniform Buffer Objects
 struct MVPBufferObject {
@@ -53,6 +60,7 @@ struct MVPBufferObject {
 
 struct RenderFragmentObject {
     glm::vec3 lightPos;
+    float _padd;
     glm::vec3 camPos;
     uint32_t depth;
 };
@@ -94,6 +102,12 @@ struct NovelBufferObject {
 struct PointCloudObject {
     glm::vec2 res;
     uint32_t camCnt;
+};
+
+struct RayDataObject {
+    glm::mat4 invViewMat;
+    glm::mat4 invProjMat;
+    glm::uvec2 res;
 };
 
 

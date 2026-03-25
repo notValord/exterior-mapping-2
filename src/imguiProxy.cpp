@@ -298,6 +298,10 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         if (ImGui::Checkbox("Render novel view", &inputManager->novelRender) && inputManager->novelRender) {
             inputManager->startSynthesis = true;
         }
+
+        if (ImGui::Checkbox("New novel render novel", &inputManager->newNovelRender) && inputManager->newNovelRender) {
+            inputManager->startSynthesis = true;
+        }
         ImGui::EndDisabled();
 
         ImGui::SeparatorText("Heuristic");

@@ -340,14 +340,14 @@ void MemoryManager::copyImageToBuffer(VkImage& image, VkFormat imageFormat, VkBu
     endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
 }
 
-void MemoryManager::copyImage(VkImage& srcImage, VkFormat srcImageFormat, VkImage& dstImage, VkFormat dstImageFormat, VkExtent3D extent) {
+void MemoryManager::copyImage(VkImage& srcImage, VkFormat srcImageFormat, VkImage& dstImage, VkFormat dstImageFormat, VkExtent3D extent, uint32_t layerCount) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(deviceHandle, transferPoolHandle);
 
     VkImageSubresourceLayers srcImageSubresource{
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .mipLevel = 0,
         .baseArrayLayer = 0,
-        .layerCount = 1
+        .layerCount = layerCount
     };
     if (srcImageFormat == VK_FORMAT_D16_UNORM || srcImageFormat == VK_FORMAT_D32_SFLOAT) {
         srcImageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -357,7 +357,7 @@ void MemoryManager::copyImage(VkImage& srcImage, VkFormat srcImageFormat, VkImag
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .mipLevel = 0,
         .baseArrayLayer = 0,
-        .layerCount = 1
+        .layerCount = layerCount
     };
     if (dstImageFormat == VK_FORMAT_D16_UNORM || dstImageFormat == VK_FORMAT_D32_SFLOAT) {
         dstImageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -402,6 +402,30 @@ void MemoryManager::copyLayeredImage(VkCommandBuffer& commandBuffer, VkImage& sr
         .extent = extent,
     };
     vkCmdCopyImage(commandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopy);
+}
+
+void MemoryManager::resampleImage(VkCommandBuffer& commandBuffer,
+                                  VkImage& srcImage,
+                                  VkImageAspectFlags srcImageAspect,
+                                  VkImage& dstImage,
+                                  VkImageAspectFlags dstImageAspect,
+                                  VkOffset3D srcOffset,
+                                  VkOffset3D dstOffset,
+                                  uint32_t layerCount) {
+    VkImageBlit region{};
+    region.srcSubresource.aspectMask = srcImageAspect;
+    region.srcSubresource.layerCount = layerCount;
+
+    region.srcOffsets[0] = {0,0,0};
+    region.srcOffsets[1] = srcOffset;
+
+    region.dstSubresource.aspectMask = dstImageAspect;
+    region.dstSubresource.layerCount = layerCount;
+
+    region.dstOffsets[0] = {0,0,0};
+    region.dstOffsets[1] = dstOffset;
+
+    vkCmdBlitImage(commandBuffer, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region, VK_FILTER_NEAREST);
 }
 
 VmaAllocationInfo MemoryManager::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkSharingMode sharingMode, VkBuffer& buffer,

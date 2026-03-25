@@ -30,9 +30,22 @@ namespace std {
     };
 }
 
-struct CloudPoint {
+
+
+struct Point {
     glm::vec4 pos;
     glm::vec4 col;
+
+    static VkVertexInputBindingDescription getBindingDescription();
+    static std::vector<VkVertexInputAttributeDescription> getAttribureDescriptions();
+};
+
+
+
+struct CloudPoint {
+    glm::vec4 pos;
+    glm::vec3 col;
+    uint32_t camID;
 
     static VkVertexInputBindingDescription getBindingDescription();
     static std::vector<VkVertexInputAttributeDescription> getAttribureDescriptions();

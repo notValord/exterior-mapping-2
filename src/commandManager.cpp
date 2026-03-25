@@ -120,6 +120,7 @@ void CommandRecorder::setComputeBuffer(VkBuffer dataBuffer, VkBuffer countBuffer
     computeBuffer.counterBuffer = countBuffer;
 }
 
+
 void CommandRecorder::recordRenderScene(VkCommandBuffer commandBuffer,
                                         const std::vector<VkDescriptorSet>& descriptorSets,
                                         VkFramebuffer framebuffer,
@@ -153,6 +154,9 @@ void CommandRecorder::recordRenderScene(VkCommandBuffer commandBuffer,
         vkCmdDraw(commandBuffer, indexCount, 1, 0, 0);
     }
     vkCmdEndRenderPass(commandBuffer);
+
+    vertexBuffer = VK_NULL_HANDLE;
+    indexBuffer = VK_NULL_HANDLE;
 }
 
 void CommandRecorder::recordRenderCamCube(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, VkFramebuffer framebuffer, const CamerasManager& camManager) {
@@ -175,6 +179,9 @@ void CommandRecorder::recordRenderCamCube(VkCommandBuffer commandBuffer, const s
     }
 
     vkCmdEndRenderPass(commandBuffer);
+
+    vertexBuffer = VK_NULL_HANDLE;
+    indexBuffer = VK_NULL_HANDLE;
 }
 
 void CommandRecorder::recordMultiScene(VkCommandBuffer commandBuffer,
@@ -227,6 +234,67 @@ void CommandRecorder::recordMultiScene(VkCommandBuffer commandBuffer,
     }
 
     vkCmdEndRenderPass(commandBuffer);
+
+    vertexBuffer = VK_NULL_HANDLE;
+    indexBuffer = VK_NULL_HANDLE;
+}
+
+void CommandRecorder::clearStorageImage(VkCommandBuffer commandBuffer, VkImage storageImage) {
+    VkClearColorValue clearColor = { .float32 = {0.0f, 0.0f, 0.0f, 0.0f} };
+
+    VkImageSubresourceRange range = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1,
+    };
+
+    vkCmdClearColorImage(commandBuffer, storageImage, VK_IMAGE_LAYOUT_GENERAL, &clearColor, 1, &range);
+
+    VkImageMemoryBarrier imageMemoryBarrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = storageImage,
+        .subresourceRange = range,
+    };
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
+}
+
+void CommandRecorder::barrierStorageImage(VkCommandBuffer commandBuffer, const std::vector<VkImage>& storageImages, uint32_t layerCount) {
+    VkImageSubresourceRange range = {
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = layerCount,
+    };
+
+    std::vector<VkImageMemoryBarrier> imageMemoryBarriers;
+    imageMemoryBarriers.reserve(storageImages.size());
+    for (const VkImage image : storageImages ) {
+        VkImageMemoryBarrier imageMemoryBarrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
+            .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
+            .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .newLayout = VK_IMAGE_LAYOUT_GENERAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = image,
+            .subresourceRange = range,
+        };
+
+        imageMemoryBarriers.emplace_back(imageMemoryBarrier);
+    }
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, imageMemoryBarriers.size(), imageMemoryBarriers.data());
 }
 
 void CommandRecorder::clearComputeBuffer(VkCommandBuffer commandBuffer) {
@@ -234,6 +302,26 @@ void CommandRecorder::clearComputeBuffer(VkCommandBuffer commandBuffer) {
     vkCmdFillBuffer(commandBuffer, computeBuffer.counterBuffer, 0, sizeof(uint32_t), 0);
 
     barrierComputeBuffer(commandBuffer);
+}
+
+void CommandRecorder::barrierStorageBuffer(VkCommandBuffer commandBuffer,
+                                           VkBuffer storageBuffer,
+                                           VkAccessFlags srcMask,
+                                           VkAccessFlags dstMask,
+                                           VkPipelineStageFlagBits srcStage,
+                                           VkPipelineStageFlagBits dstStage) {
+    VkBufferMemoryBarrier fillBarriers = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+        .srcAccessMask = srcMask,
+        .dstAccessMask = dstMask,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = storageBuffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE
+    };
+
+    vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 1, &fillBarriers, 0, nullptr);
 }
 
 void CommandRecorder::barrierComputeBuffer(VkCommandBuffer commandBuffer,
@@ -278,9 +366,14 @@ void CommandRecorder::recordCompute(VkCommandBuffer commandBuffer, const std::ve
 
     vkCmdDispatch(commandBuffer, dispatchSize.first, dispatchSize.second, 1);
 
-    barrierComputeBuffer(commandBuffer,
-                         VK_ACCESS_SHADER_WRITE_BIT, 
-                         VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, 
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
-                         VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+    if (!computeBuffer.isEmpty()) {
+        barrierComputeBuffer(commandBuffer,
+                        VK_ACCESS_SHADER_WRITE_BIT, 
+                        VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT, 
+                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 
+                        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
+    }
+
+    computeBuffer.dataBuffer = VK_NULL_HANDLE;     // clear buffers
+    computeBuffer.counterBuffer = VK_NULL_HANDLE;
 }

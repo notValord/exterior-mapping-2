@@ -50,6 +50,36 @@ std::vector<VkVertexInputAttributeDescription> Vertex::getAttribureDescriptions(
 
 
 
+VkVertexInputBindingDescription Point::getBindingDescription() {
+    VkVertexInputBindingDescription bindingDescription{
+        .binding = 0,
+        .stride = sizeof(Point),
+        .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+    };
+
+    return bindingDescription;
+}
+
+std::vector<VkVertexInputAttributeDescription> Point::getAttribureDescriptions() {
+    std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+    attributeDescriptions.reserve(2);
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
+        .location = 0,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .offset = offsetof(Point, pos)
+    });
+
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
+        .location = 1,
+        .binding = 0,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .offset = offsetof(Point, col)
+    });
+
+    return attributeDescriptions;
+}
+
 VkVertexInputBindingDescription CloudPoint::getBindingDescription() {
     VkVertexInputBindingDescription bindingDescription{
         .binding = 0,
@@ -62,11 +92,11 @@ VkVertexInputBindingDescription CloudPoint::getBindingDescription() {
 
 std::vector<VkVertexInputAttributeDescription> CloudPoint::getAttribureDescriptions() {
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-    attributeDescriptions.reserve(2);
+    attributeDescriptions.reserve(3);
     attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
         .location = 0,
         .binding = 0,
-        .format = VK_FORMAT_R32G32B32_SFLOAT,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
         .offset = offsetof(CloudPoint, pos)
     });
 
@@ -75,6 +105,13 @@ std::vector<VkVertexInputAttributeDescription> CloudPoint::getAttribureDescripti
         .binding = 0,
         .format = VK_FORMAT_R32G32B32_SFLOAT,
         .offset = offsetof(CloudPoint, col)
+    });
+
+    attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
+        .location = 2,
+        .binding = 0,
+        .format = VK_FORMAT_R32_UINT,
+        .offset = offsetof(CloudPoint, camID)
     });
 
     return attributeDescriptions;

@@ -16,6 +16,8 @@ class UniformManager;
 class RenderUniforms;
 class NovelUniforms;
 class PointCloudUniforms;
+class RayDataUniforms;
+class NovelSynthUniforms;
 
 class DescriptorBuilder{
 public:
@@ -125,14 +127,60 @@ private:
 
 class PointCloudDescriptors : public BaseDescriptors {
 public:
+    VkDescriptorSetLayout imageDescriptorSetLayout;
+    std::vector<VkDescriptorSet> imageDescriptorSets;
 
     PointCloudDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+    ~PointCloudDescriptors();
 
-    void createDescriptorSets(const DescriptorBuilder& builder, const PointCloudUniforms& pointCloudUniforms);
+    void createDescriptorSets(const DescriptorBuilder& builder, const PointCloudUniforms& pointCloudUniforms, const std::vector<VkImageView>& metadataImageViews);
     void updateDescriptorSets(const PointCloudUniforms& pointCloudUniforms);        // update once both before running the shader
+
+    void createImageDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkImageView>& metadataImageViews);
+    void updateImageDescriptorSets(const std::vector<VkImageView>& metadataImageViews);
 private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
 };
+
+class ReduceDescriptors : public BaseDescriptors {
+public:
+    ReduceDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+
+    void createDescriptorSets(const DescriptorBuilder& builder, VkSampler sampler, const std::array<VkImageView, 4>& depthImages);
+    void updateDescriptorSets(VkSampler sampler, const std::array<VkImageView, 4>& depthImages);
+private:
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+};
+
+class NovelSynthDescriptors : public BaseDescriptors {
+public:
+    VkDescriptorSetLayout debugDescriptorSetLayout;
+    std::vector<VkDescriptorSet> debugDescriptorSets;
+
+    NovelSynthDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+    ~NovelSynthDescriptors();
+
+    void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& camArraySSBOIn, const NovelSynthUniforms& novelSynthUniforms);
+    void updatePerCamDescriptorSets(const std::vector<VkBuffer>& camArraySSBOIn, const NovelSynthUniforms& novelSynthUniforms);
+    void updatePerResizeDescriptorSets(const std::vector<VkImageView>& resultImageViews);
+private:
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+};
+
+class RayDataDescriptors : public BaseDescriptors {
+public:
+    VkDescriptorSetLayout storageDescriptorSetLayout;
+    std::vector<VkDescriptorSet> storageDescriptorSets;
+
+    RayDataDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+    ~RayDataDescriptors();
+
+    void createDescriptorSets(const DescriptorBuilder& builder, const RayDataUniforms& novelSynthUniforms);
+    void updateStorageDescriptorSets(const RayDataUniforms& novelSynthUniforms, uint32_t currentFrame);
+private:
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+};
+
 
 
 class DescriptorManager{
@@ -145,6 +193,10 @@ public:
     CamCubeDescriptors camCubeDestriptors;
     OfflineDescriptors offlineDescriptors;
     PointCloudDescriptors pointCloudDescriptors;
+
+    RayDataDescriptors rayDataDescriptors;
+    ReduceDescriptors reduceDescriptors;
+    NovelSynthDescriptors novelSynthDescriptors;
 
     DescriptorManager(const VkDevice device);
     ~DescriptorManager();

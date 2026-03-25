@@ -333,6 +333,10 @@ VkPipeline PipelineBuilder::createGraphicsPipeline(VkPipelineLayout pipelineLayo
         });
     }
     else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL) {
+        bindingDescription = Point::getBindingDescription();
+        attributeDescription = Point::getAttribureDescriptions();
+    }
+    else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL_CAMID) {
         bindingDescription = CloudPoint::getBindingDescription();
         attributeDescription = CloudPoint::getAttribureDescriptions();
     }
@@ -469,6 +473,21 @@ PipelineManager::PipelineManager(VkDevice device, const AttachementsFormats& ima
                                               descrMan.computeDescriptors.sharedDescriptorSetLayout}},
                          pointCloudFile,
                          builder),
+      rayDataPipeline(device,
+                      PipelineLayoutSetup({descrMan.rayDataDescriptors.descriptorSetLayout, descrMan.rayDataDescriptors.storageDescriptorSetLayout}),
+                      rayDataFile,
+                      builder),
+      reduceDepthPipeline(device,
+                          PipelineLayoutSetup({descrMan.reduceDescriptors.descriptorSetLayout}),
+                          reduceDepthFile,
+                          builder),
+      novelSynthPipeline(device,
+                         PipelineLayoutSetup({descrMan.reduceDescriptors.descriptorSetLayout,
+                                              descrMan.novelSynthDescriptors.descriptorSetLayout,
+                                              descrMan.rayDataDescriptors.storageDescriptorSetLayout,
+                                              descrMan.novelSynthDescriptors.debugDescriptorSetLayout}),
+                         novelSynthFile,
+                         builder),
       renderPipeline(device,
                      renderPassMan.renderPass,
                      PipelineLayoutSetup{{descrMan.renderDescriptors.descriptorSetLayout,
@@ -498,7 +517,7 @@ PipelineManager::PipelineManager(VkDevice device, const AttachementsFormats& ima
                       builder),
       pointPipeline(device,
                     renderPassMan.renderPass,
-                    PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}},
+                    PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout, descrMan.pointCloudDescriptors.imageDescriptorSetLayout}},
                     setupPointPipeline(),
                     builder) {
     ;
@@ -611,7 +630,7 @@ GraphicSetup PipelineManager::setupPointPipeline() {
 
     return GraphicSetup {
         .shaderFiles = pointRendFiles,
-        .vertexInput = VertexInputFlags::POS_COL,
+        .vertexInput = VertexInputFlags::POS_COL_CAMID,
         .topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
         .depthFlags = depthFlags,
         .rastFlags = rastFlags,

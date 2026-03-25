@@ -1,0 +1,94 @@
+#version 450
+
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+
+layout(binding = 0) uniform sampler2DArray readLevel0Image;
+layout(binding = 1, rg32f) uniform image2DArray level1Image;
+layout(binding = 2, rg32f) uniform image2DArray level2Image;
+layout(binding = 3, rg32f) uniform writeonly image2DArray writeLevel3Image;
+
+shared float minData[32][32];
+shared float maxData[32][32];
+
+// requires subgroup support which doesn't have to work
+// // compute min across warp
+// float warpMin = subgroupMin(val);
+
+// // lane 0 of the warp has the min
+// if(subgroupElect())
+//     imageStore(resultImage, ivec2(tileOrigin), vec4(warpMin));
+
+void tileReduction(uvec2 origin, uvec2 blockID, uvec2 blockDim, uvec2 pixelCoords, uint currentLvl) {
+    uint tid = gl_LocalInvocationID.x;
+    uint gid = gl_LocalInvocationID.y;
+
+    vec2 depthVals;             // load data to the shared emm
+    if (currentLvl == 0) {
+        depthVals.x = texelFetch(readLevel0Image, ivec3(origin + blockID * blockDim + pixelCoords, gl_WorkGroupID.x), 0).r;
+        minData[gid][tid] = depthVals.x;
+        maxData[gid][tid] = depthVals.x;
+    }
+    else if (currentLvl == 1) {
+        depthVals = imageLoad(level1Image, ivec3(origin + blockID * blockDim + pixelCoords, gl_WorkGroupID.x)).rg;
+        minData[gid][tid] = depthVals.x;
+        maxData[gid][tid] = depthVals.y;
+    }
+    else {
+        depthVals = imageLoad(level2Image, ivec3(origin + blockID * blockDim + pixelCoords, gl_WorkGroupID.x)).rg;
+        minData[gid][tid] = depthVals.x;
+        maxData[gid][tid] = depthVals.y;
+    }
+
+    barrier(); // synchronize threads, would be enough for a warp
+
+    for (uint stride = gl_WorkGroupSize.x >> 1; stride > 0; stride = stride >> 1) {
+        if(tid < stride) {
+            minData[gid][tid] = min(minData[gid][tid], minData[gid][tid + stride]);
+            maxData[gid][tid] = max(maxData[gid][tid], maxData[gid][tid + stride]);
+        }
+
+        barrier(); // synchronize threads
+    }
+
+    if (tid == 0) {
+        depthVals = vec2(minData[gid][0], maxData[gid][0]);
+        ivec3 writeCoord = ivec3(origin / blockDim + blockID, gl_WorkGroupID.x);
+        if (currentLvl == 0) {
+            imageStore(level1Image, writeCoord, vec4(depthVals, 0.0f, 0.0f));
+        }
+        else if (currentLvl == 1) {
+            imageStore(level2Image, writeCoord, vec4(depthVals, 0.0f, 0.0f));
+        }
+        else {
+            imageStore(writeLevel3Image, writeCoord, vec4(depthVals, 0.0f, 0.0f));
+        }
+    }
+}
+
+void main() {
+    uvec2 lvlDim = uvec2(8, 4);
+    uvec2 tileSize = uvec2(1024, 1024) / lvlDim;       // tile = 256x128 
+
+    uvec2 blockCoords = uvec2(gl_LocalInvocationID.y % lvlDim.x, gl_LocalInvocationID.y / lvlDim.x);    // range [0-3, 0-7]
+    uvec2 tileOrigin = blockCoords * tileSize;              // if theres 4x8 work groups, tile = 256x128
+
+    for (uint mipLvl = 0; mipLvl < 3; mipLvl++) {
+        lvlDim = lvlDim.yx;       // swap dimensions, [8, 4], [4, 8]
+        tileSize = tileSize / lvlDim;       // 32x32, 8x4, 1x1
+        // range [0-7, 0-3], [0-3, 0-7]
+        uvec2 pixelCoords = uvec2(gl_LocalInvocationID.x % lvlDim.x, gl_LocalInvocationID.x / lvlDim.x);
+        
+        // if (mipLvl != 0) {
+        //     memoryBarrierImage();       // make sure the data is visible from the previous iteration
+        //     barrier();
+        // }
+
+        for(uint yOffset = 0; yOffset < tileSize.y; yOffset++) {            // 32, 8
+            for(uint xOffset = 0; xOffset < tileSize.x; xOffset++) {        // 32, 4
+                //parallel reduce tile
+                tileReduction(tileOrigin, uvec2(xOffset, yOffset), lvlDim, pixelCoords, mipLvl);
+            }
+        }
+        tileOrigin = tileOrigin / lvlDim;      // change origin, 32x32, 8x4
+    }
+}

@@ -43,6 +43,7 @@ public:
     bool debugPointCloud = false;
 
     bool novelRender = false;
+    bool newNovelRender = false;
     DebugCompute novelDebug;
     NovelHeuristic novelHeuristic;
     bool startSynthesis = false;

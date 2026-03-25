@@ -3,6 +3,7 @@
 #include <camManager.hpp>
 #include <vertex.hpp>
 #include <inputManager.hpp>
+#include <util.hpp>
 
 BaseUniforms::BaseUniforms(MemoryManager& memManager)
         : memManagerRef(memManager) {
@@ -438,10 +439,228 @@ uint32_t PointCloudUniforms::getPointCount(uint32_t currentImage) {
     return pointCount;
 }
 
-UniformManager::UniformManager(MemoryManager& memManager, const VkExtent2D& extentSize, const uint32_t camCount)
+
+
+RayDataUniforms::RayDataUniforms(MemoryManager& memManager, VkExtent2D screenRes)
+    : BaseUniforms(memManager) {
+    maxScreenRes.resize(MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        maxScreenRes[i] = screenRes;
+    }
+    createUniformBuffers(sizeof(RayDataObject));
+    createRayDataBuffers();
+}
+
+RayDataUniforms::~RayDataUniforms() {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        destroyDataBuffers(i);
+        memManagerRef.destroyBuffer(rayCountSSBOIn[i], rayCountSSBOMemory[i]);
+    }
+}
+
+bool RayDataUniforms::updateUniformBuffers(uint32_t currentFrame, Camera& novelCam, VkExtent2D screenRes) {
+    RayDataObject rdo {
+        .invViewMat = glm::inverse(novelCam.getViewMatrix()),
+        .invProjMat = glm::inverse(novelCam.getProjectionMatrix()),
+        .res = glm::uvec2(screenRes.width, screenRes.height)
+    };
+    
+    memcpy(uniformBuffersMapped[currentFrame], &rdo, sizeof(RayDataObject));
+
+    if (screenRes.width * screenRes.height > maxScreenRes[currentFrame].width * maxScreenRes[currentFrame].height) {
+        maxScreenRes[currentFrame] = screenRes;
+        recreateRayDataBuffers(currentFrame);
+
+        return true;
+    }
+
+    return false;
+}
+
+void RayDataUniforms::createRayDataBuffers() {
+    rayDataSSBOIn.resize(MAX_FRAMES_IN_FLIGHT);
+    rayDataSSBOMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    VkDeviceSize bufferSize = maxScreenRes[0].width * maxScreenRes[0].height * sizeof(RayData);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VmaAllocationInfo allocInfo{};
+        allocInfo = memManagerRef.createBuffer(bufferSize,
+                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                               VK_SHARING_MODE_EXCLUSIVE,
+                                               rayDataSSBOIn[i],
+                                               VMA_MEMORY_USAGE_GPU_ONLY,
+                                               rayDataSSBOMemory[i]);
+    }
+
+    rayCountSSBOIn.resize(MAX_FRAMES_IN_FLIGHT);
+    rayCountSSBOMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VmaAllocationInfo allocInfo{};
+        allocInfo = memManagerRef.createBuffer(sizeof(uint32_t),
+                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                               VK_SHARING_MODE_EXCLUSIVE,
+                                               rayCountSSBOIn[i],
+                                               VMA_MEMORY_USAGE_GPU_ONLY,
+                                               rayCountSSBOMemory[i]);
+    }
+}
+
+void RayDataUniforms::destroyDataBuffers(uint32_t currentFrame) {
+    memManagerRef.destroyBuffer(rayDataSSBOIn[currentFrame], rayDataSSBOMemory[currentFrame]);
+}
+
+void RayDataUniforms::recreateRayDataBuffers(uint32_t currentFrame) {
+    destroyDataBuffers(currentFrame);
+
+    VkDeviceSize bufferSize = maxScreenRes[currentFrame].width * maxScreenRes[currentFrame].height * sizeof(RayData);
+    
+    VmaAllocationInfo allocInfo{};
+    allocInfo = memManagerRef.createBuffer(bufferSize,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                            VK_SHARING_MODE_EXCLUSIVE,
+                                            rayDataSSBOIn[currentFrame],
+                                            VMA_MEMORY_USAGE_GPU_ONLY,
+                                            rayDataSSBOMemory[currentFrame]);
+}
+
+
+
+NovelSynthUniforms::NovelSynthUniforms(MemoryManager& memManager, VkDevice device, const uint32_t camCount, VkExtent2D screenRes)
+    : BaseUniforms(memManager), deviceHandle(device), layerCount(camCount) {
+    currScreenRes.resize(MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        currScreenRes[i] = screenRes;
+    }
+    createDebugImages();
+    createDataImages();
+}
+
+NovelSynthUniforms::~NovelSynthUniforms() {
+    destroyDebugImages();
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
+        destroyDataImages(i);
+    }
+}
+
+void NovelSynthUniforms::setCamCount(const uint32_t camCount) {
+    if (camCount > layerCount) {
+        layerCount = camCount;
+        recreateAllImages();
+    }
+}
+
+bool NovelSynthUniforms::setResolution(VkExtent2D screenRes, uint32_t currentFrame) {
+    if (currScreenRes[currentFrame].width != screenRes.width || currScreenRes[currentFrame].height != screenRes.height) {
+        currScreenRes[currentFrame] = screenRes;
+        recreateDataImages(currentFrame);
+
+        return true;
+    }
+    return false;
+}
+
+void NovelSynthUniforms::createDebugImages() {
+    debugImage.resize(MAX_FRAMES_IN_FLIGHT);
+    debugImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    debugImageView.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        memManagerRef.createImage(1024,
+                                  1024,
+                                  VK_FORMAT_R32_SFLOAT,
+                                  VK_IMAGE_TILING_OPTIMAL,
+                                  VK_IMAGE_USAGE_STORAGE_BIT,
+                                  debugImage[i],
+                                  VMA_MEMORY_USAGE_GPU_ONLY,
+                                  debugImageMemory[i],
+                                  layerCount);
+        debugImageView[i] = createImageView(debugImage[i], VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, layerCount);
+        memManagerRef.transitionImageLayout(debugImage[i], VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, layerCount);
+    }
+}
+
+void NovelSynthUniforms::destroyDebugImages() {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        memManagerRef.destroyImage(debugImage[i], debugImageMemory[i]);
+        vkDestroyImageView(deviceHandle, debugImageView[i], nullptr);
+    }
+}
+
+void NovelSynthUniforms::recreateDebugImages() {
+    destroyDebugImages();
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        memManagerRef.createImage(1024,
+                                  1024,
+                                  VK_FORMAT_R32_SFLOAT,
+                                  VK_IMAGE_TILING_OPTIMAL,
+                                  VK_IMAGE_USAGE_STORAGE_BIT,
+                                  debugImage[i],
+                                  VMA_MEMORY_USAGE_GPU_ONLY,
+                                  debugImageMemory[i],
+                                  layerCount);
+        debugImageView[i] = createImageView(debugImage[i], VK_FORMAT_R32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, layerCount);
+        memManagerRef.transitionImageLayout(debugImage[i], VK_FORMAT_R32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, layerCount);
+    }
+}
+
+void NovelSynthUniforms::createDataImages() {
+    resultImage.resize(MAX_FRAMES_IN_FLIGHT);
+    resultImageMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    resultImageView.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        memManagerRef.createImage(currScreenRes[i].width,
+                                  currScreenRes[i].height,
+                                  VK_FORMAT_R32G32_SFLOAT,
+                                  VK_IMAGE_TILING_OPTIMAL,
+                                  VK_IMAGE_USAGE_STORAGE_BIT,
+                                  resultImage[i],
+                                  VMA_MEMORY_USAGE_GPU_ONLY,
+                                  resultImageMemory[i],
+                                  layerCount);
+        resultImageView[i] = createImageView(resultImage[i], VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, layerCount);
+        memManagerRef.transitionImageLayout(resultImage[i], VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, layerCount);
+    }
+}
+
+void NovelSynthUniforms::destroyDataImages(uint32_t currentFrame) {
+    memManagerRef.destroyImage(resultImage[currentFrame], resultImageMemory[currentFrame]);
+    vkDestroyImageView(deviceHandle, resultImageView[currentFrame], nullptr);
+}
+
+void NovelSynthUniforms::recreateDataImages(uint32_t currentFrame) {
+    destroyDataImages(currentFrame);
+
+    memManagerRef.createImage(currScreenRes[currentFrame].width,
+                              currScreenRes[currentFrame].height,
+                              VK_FORMAT_R32G32_SFLOAT,
+                              VK_IMAGE_TILING_OPTIMAL,
+                              VK_IMAGE_USAGE_STORAGE_BIT,
+                              resultImage[currentFrame],
+                              VMA_MEMORY_USAGE_GPU_ONLY,
+                              resultImageMemory[currentFrame],
+                              layerCount);
+    resultImageView[currentFrame] = createImageView(resultImage[currentFrame], VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, layerCount);
+    memManagerRef.transitionImageLayout(resultImage[currentFrame], VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, layerCount);
+}
+
+void NovelSynthUniforms::recreateAllImages() {
+    recreateDebugImages();
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        recreateDataImages(i);
+    }
+}
+
+
+
+UniformManager::UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount)
         : renderUniforms(memManager),
           offlineUniforms(memManager),
           novelUnifroms(memManager, camCount, extentSize),
-          pointCloudUniforms(memManager) {
+          pointCloudUniforms(memManager),
+          rayDataUniforms(memManager, extentSize),
+          novelSynthUniforms(memManager, device, camCount, extentSize) {
     ;
 }

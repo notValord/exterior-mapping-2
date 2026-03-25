@@ -15,11 +15,8 @@ static const std::string CUBE_TEXTURE_PATH = "camera.jpg";
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
-// DO UI -  scene studff, scale, light position, remove observer position, do separate cone stuff
 // make image for novel view for mip map depth, check how mip map is done
 
-// Idea: binary array for cameras in mip maps
-//       in distance select 5 best
 void App::run() {
     mainLoop();
 }
@@ -35,8 +32,14 @@ App::App()
        syncManager(vulkanContext.device),
        textureManager(CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        mesh(PORSCHE_FILE, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
-       camManager(vulkanContext.device, memManager, swapchain.swapChainExtent, swapchain.getAttachementsFormats(), pipelineManager.renderPassMan.renderPass, vulkanContext.getDeviceProperties()),
-       uniformManager(memManager, swapchain.swapChainExtent, camManager.getCamCount()),
+       camManager(vulkanContext.device,
+                  memManager,
+                  swapchain.swapChainExtent,
+                  swapchain.getAttachementsFormats(),
+                  pipelineManager.renderPassMan.renderPass,
+                  vulkanContext.getDeviceProperties(),
+                  swapchain.swapChainImageViews),
+       uniformManager(memManager, vulkanContext.device, swapchain.swapChainExtent, camManager.getCamCount()),
        inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
             vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager, mesh),
        debugUtil(memManager, camManager.getCamCount()),
@@ -55,7 +58,8 @@ App::~App() {
 
 void App::handleResize() {
     swapchain.recreateSwapChain(vulkanContext.getDeviceSurfaceHandle(), vulkanContext.familyIndices, pipelineManager.renderPassMan.renderPass);
-    camManager.updateResize(swapchain.swapChainExtent);
+    camManager.updateResize(swapchain.swapChainExtent, swapchain.swapChainImageViews);
+    descripManager.pointCloudDescriptors.updateImageDescriptorSets(camManager.getNovelStorageViews());      // not sure where to update
     inputManager.imguiResize(swapchain.swapChainImageViews, swapchain.swapChainExtent);
 }
 
@@ -98,7 +102,7 @@ void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) 
 }
 
 void App::computeNovel(VkCommandBuffer commandBuffer) {
-    if (!camManager.imagesRendered()) {
+    if (!camManager.imagesRendered() && !inputManager.debugIntersection) {
         throw std::runtime_error("Working with images that are not rendered!");
     }
 
@@ -132,6 +136,66 @@ void App::computeNovel(VkCommandBuffer commandBuffer) {
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.computeDescriptors.descriptorSets[currentFrame],
                                                     descripManager.computeDescriptors.sharedDescriptorSet };
     commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+}
+
+void App::computeNewNovel(VkCommandBuffer commandBuffer) {
+    if (inputManager.startSynthesis) {
+        camManager.createMipMapImages(commandBuffer);
+        descripManager.reduceDescriptors.updateDescriptorSets(camManager.getSampler(ImageViewType::DEPTH), camManager.getReduceDepthViews());
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            if (uniformManager.novelUnifroms.setCamArrayData(i, camManager)) {   // resolve differently
+                // if the ssbo was recreated, update the descriptors
+                descripManager.computeDescriptors.updateDescriptorSets(i, uniformManager.novelUnifroms.camArraySSBOIn, uniformManager.novelUnifroms.intersectionsSSBOOut);
+            }
+        }
+
+        uniformManager.novelSynthUniforms.setCamCount(camManager.getCamCount());        // should be updated per camera count change
+        descripManager.novelSynthDescriptors.updatePerCamDescriptorSets(uniformManager.novelUnifroms.camArraySSBOIn, uniformManager.novelSynthUniforms);
+
+        inputManager.startSynthesis = false;
+    }
+
+    if (uniformManager.rayDataUniforms.updateUniformBuffers(currentFrame, *camManager.activeCam, swapchain.swapChainExtent)) {
+        // storage buffer was recreated, update descritpors
+        descripManager.rayDataDescriptors.updateStorageDescriptorSets(uniformManager.rayDataUniforms, currentFrame);
+    }
+
+    if (uniformManager.novelSynthUniforms.setResolution(swapchain.swapChainExtent, currentFrame)) {
+        descripManager.novelSynthDescriptors.updatePerResizeDescriptorSets(uniformManager.novelSynthUniforms.resultImageView);
+    }
+
+    uint32_t groupCountX = (swapchain.swapChainExtent.width  + 15) / 16;
+    uint32_t groupCountY = (swapchain.swapChainExtent.height + 15) / 16;
+
+    commandRecorder.setPipeline(pipelineManager.rayDataPipeline);
+    std::vector<VkDescriptorSet> descriptorSets = { descripManager.rayDataDescriptors.descriptorSets[currentFrame],
+                                                    descripManager.rayDataDescriptors.storageDescriptorSets[currentFrame] };
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+
+    groupCountX = camManager.getCamCount();
+    groupCountY = 1;
+    commandRecorder.setPipeline(pipelineManager.reduceDepthPipeline);
+    descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0] };
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));     // todo once
+
+    // image barrier
+    // rayData barrier
+    commandRecorder.barrierStorageBuffer(commandBuffer, 
+                                         uniformManager.rayDataUniforms.rayDataSSBOIn[currentFrame],
+                                         VK_ACCESS_SHADER_WRITE_BIT,
+                                         VK_ACCESS_SHADER_READ_BIT,
+                                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    commandRecorder.barrierStorageImage(commandBuffer, camManager.getReduceStorageImages(), camManager.getCamCount());      // todo once
+
+    commandRecorder.setPipeline(pipelineManager.novelSynthPipeline);
+    descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0],
+                       descripManager.novelSynthDescriptors.descriptorSets[currentFrame],
+                       descripManager.rayDataDescriptors.storageDescriptorSets[currentFrame],
+                       descripManager.novelSynthDescriptors.debugDescriptorSets[currentFrame]};
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+
 }
 
 void App::computePointCloud(VkCommandBuffer commandBuffer) {
@@ -186,12 +250,14 @@ void App::drawIntersectionDebug(VkCommandBuffer commandBuffer, VkFramebuffer fra
 }
 
 void App::drawPointCloudDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
+    commandRecorder.clearStorageImage(commandBuffer, camManager.getNovelStorageImage(currentFrame));                 // clear the image beforehand
+
     commandRecorder.setPipeline(pipelineManager.pointPipeline, pipelineManager.renderPassMan.renderPass, swapchain.swapChainExtent);
     commandRecorder.setRenderBuffers(uniformManager.pointCloudUniforms.pointCloudSSBOOut[currentFrame],
                                      uniformManager.pointCloudUniforms.getPointCount(currentFrame),
                                      VK_NULL_HANDLE);
 
-    std::vector<VkDescriptorSet> descriptorSets = { descripManager.frustumDescriptors.descriptorSets[currentFrame] };
+    std::vector<VkDescriptorSet> descriptorSets = { descripManager.frustumDescriptors.descriptorSets[currentFrame], descripManager.pointCloudDescriptors.imageDescriptorSets[currentFrame] };
     commandRecorder.recordRenderScene(commandBuffer, descriptorSets, framebuffer);
 }
 
@@ -234,6 +300,10 @@ void App::drawFrame() {
 
     beginCommandBuffer(commandManager.commandBuffers[currentFrame]);
 
+    if (inputManager.newNovelRender) {
+        computeNewNovel(commandManager.commandBuffers[currentFrame]);
+    }
+    
     if (inputManager.presentOfflineFlag) {
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
@@ -243,7 +313,6 @@ void App::drawFrame() {
     }
     else if (inputManager.debugPointCloud) {        // debug without scene rendering
         computePointCloud(commandManager.commandBuffers[currentFrame]);
-        //camManager.updateNovel();
         drawPointCloudDebug(commandManager.commandBuffers[currentFrame], camManager.getNovelFramebuffer(imageIndex));
     }
     else {      // debug and setup

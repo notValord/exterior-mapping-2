@@ -5,7 +5,7 @@
 #include <uniforms.hpp>
 
 static const uint32_t MAX_MATERIALS_COUNT = 60;
-static const uint32_t SETS_COUNT = MAX_MATERIALS_COUNT + 7;   // 2xMAX_MATERIAL_COUNT, render, compute, shared, frustum+line, cam cube, offline, pointCloud
+static const uint32_t SETS_COUNT = MAX_MATERIALS_COUNT + 11;   // 2xMAX_MATERIAL_COUNT, render, compute, shared, frustum+line, cam cube, offline, pointCloud, pointCLoudDraw, reduceCompute, 2 novelSynth
 
 struct DescriptorWriter {
     static VkDescriptorBufferInfo makeBufferInfo(VkBuffer buffer, VkDeviceSize size, uint32_t offset = 0) {
@@ -46,7 +46,10 @@ DescriptorManager::DescriptorManager(const VkDevice device)
       frustumDescriptors(builder, device), 
       camCubeDestriptors(builder, device),
       offlineDescriptors(builder, device),
-      pointCloudDescriptors(builder, device) {
+      pointCloudDescriptors(builder, device),
+      rayDataDescriptors(builder, device),
+      reduceDescriptors(builder, device),
+      novelSynthDescriptors(builder, device) {
 
 }
 
@@ -61,6 +64,7 @@ void DescriptorManager::createDescriptorPoolSet(const UniformManager& uniformMan
     createDescriptorPool();
     builder.setDescriptorPool(descriptorPool);
 
+    rayDataDescriptors.createDescriptorSets(builder, uniformManager.rayDataUniforms);
     renderDescriptors.createDescriptorSets(builder, uniformManager.renderUniforms, meshData);
     computeDescriptors.createDescriptorSets(builder, uniformManager.novelUnifroms, camManager);
 
@@ -68,7 +72,10 @@ void DescriptorManager::createDescriptorPoolSet(const UniformManager& uniformMan
     frustumDescriptors.createDescriptorSets(builder, uniformManager.renderUniforms.uniformBuffers);
     camCubeDestriptors.createDescriptorSets(builder, cubeSamplerView);
     offlineDescriptors.createDescriptorSets(builder, uniformManager.offlineUniforms.uniformBuffers, camManager);
-    pointCloudDescriptors.createDescriptorSets(builder, uniformManager.pointCloudUniforms);
+    pointCloudDescriptors.createDescriptorSets(builder, uniformManager.pointCloudUniforms, camManager.getNovelStorageViews());
+
+    reduceDescriptors.createDescriptorSets(builder, camManager.getSampler(ImageViewType::DEPTH), camManager.getReduceDepthViews());
+    novelSynthDescriptors.createDescriptorSets(builder, uniformManager.novelUnifroms.camArraySSBOIn, uniformManager.novelSynthUniforms);
 }
 
 void DescriptorManager::createDescriptorPool() {
@@ -78,16 +85,16 @@ void DescriptorManager::createDescriptorPool() {
         .descriptorCount = 6*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
     poolSizes[1] = {
-        .type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, // max model texture, cam cube, offline image, 2 x shared
-        .descriptorCount = 2*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) + 2 + MAX_MATERIALS_COUNT
+        .type  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, // max model texture, cam cube, offline image, 2 x shared, 1 reduce
+        .descriptorCount = 2*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) + 3 + MAX_MATERIALS_COUNT
     };
     poolSizes[2] = {
-        .type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, // 3x compute ssbo, 3x pointCloud ssbo, render materials
-        .descriptorCount = 7*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+        .type  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, // 3x compute ssbo, 3x pointCloud ssbo, render materials, 2x rayData, novelSyth
+        .descriptorCount = 10*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
     };
     poolSizes[3] = {
-        .type  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, // novel view
-        .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+        .type  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, // novel view, metadata, depth reduce 3x, novel synth 2x
+        .descriptorCount = 4*static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) + 3
     };
 
     VkDescriptorPoolCreateInfo descriptorPoolCI{
@@ -501,6 +508,10 @@ PointCloudDescriptors::PointCloudDescriptors(const DescriptorBuilder& builder, c
     createDescriptorSetLayout(builder);
 }
 
+PointCloudDescriptors::~PointCloudDescriptors() {
+    vkDestroyDescriptorSetLayout(deviceHandle, imageDescriptorSetLayout, nullptr);
+}
+
 void PointCloudDescriptors::createDescriptorSetLayout(const DescriptorBuilder& builder) {
     std::vector<VkDescriptorSetLayoutBinding> descriptorSLBs;
     descriptorSLBs.reserve(4);
@@ -517,9 +528,13 @@ void PointCloudDescriptors::createDescriptorSetLayout(const DescriptorBuilder& b
         builder.addDescriptorSetLayoutBinding(descriptorSLBs, i, descriptorType, VK_SHADER_STAGE_COMPUTE_BIT);
     }
     descriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
+
+    descriptorSLBs.clear();
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_FRAGMENT_BIT);
+    imageDescriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
 }
 
-void PointCloudDescriptors::createDescriptorSets(const DescriptorBuilder& builder, const PointCloudUniforms& pointCloudUniforms) {
+void PointCloudDescriptors::createDescriptorSets(const DescriptorBuilder& builder, const PointCloudUniforms& pointCloudUniforms, const std::vector<VkImageView>& metadataImageViews) {
     descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
     builder.buildDescriptorSets(descriptorSets, descriptorSetLayout);
 
@@ -538,6 +553,8 @@ void PointCloudDescriptors::createDescriptorSets(const DescriptorBuilder& builde
 
         vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
+
+    createImageDescriptorSets(builder, metadataImageViews);
 }
 
 void PointCloudDescriptors::updateDescriptorSets(const PointCloudUniforms& pointCloudUniforms) {
@@ -551,4 +568,206 @@ void PointCloudDescriptors::updateDescriptorSets(const PointCloudUniforms& point
 
         vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
     }
+}
+
+void PointCloudDescriptors::createImageDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkImageView>& metadataImageViews) {
+    imageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    builder.buildDescriptorSets(imageDescriptorSets, imageDescriptorSetLayout);
+
+    updateImageDescriptorSets(metadataImageViews);
+}
+
+void PointCloudDescriptors::updateImageDescriptorSets(const std::vector<VkImageView>& metadataImageViews) {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorImageInfo descriptorImageStorageI = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, metadataImageViews[i], VK_IMAGE_LAYOUT_GENERAL);
+
+        VkWriteDescriptorSet descriptorWrite = DescriptorWriter::makeWrite(imageDescriptorSets[i], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &descriptorImageStorageI);
+
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrite, 0, nullptr);
+    }
+}
+
+
+
+
+ReduceDescriptors::ReduceDescriptors(const DescriptorBuilder& builder, const VkDevice device)
+    : BaseDescriptors(device) {
+    createDescriptorSetLayout(builder);
+}
+
+void ReduceDescriptors::createDescriptorSetLayout(const DescriptorBuilder& builder) {
+    std::vector<VkDescriptorSetLayoutBinding> descriptorSLBs;
+    descriptorSLBs.reserve(4);
+
+    VkDescriptorType descriptorType;
+    for (uint32_t i = 0; i < descriptorSLBs.capacity(); i++) {      // use capacity instead of size
+        if (i == 0) {
+            descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        }
+        else {
+            descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        }
+
+        builder.addDescriptorSetLayoutBinding(descriptorSLBs, i, descriptorType, VK_SHADER_STAGE_COMPUTE_BIT);
+    }
+    descriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
+}
+
+void ReduceDescriptors::createDescriptorSets(const DescriptorBuilder& builder, VkSampler sampler, const std::array<VkImageView, 4>& depthImages) {
+    descriptorSets.resize(1);
+    builder.buildDescriptorSets(descriptorSets, descriptorSetLayout, 1);
+
+    updateDescriptorSets(sampler, depthImages);
+}
+
+void ReduceDescriptors::updateDescriptorSets(VkSampler sampler, const std::array<VkImageView, 4>& depthImages) {
+    VkDescriptorImageInfo descriptorsImageInfo0 = DescriptorWriter::makeImageInfo(sampler, depthImages[0]);
+    VkDescriptorImageInfo descriptorsImageInfo1 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, depthImages[1], VK_IMAGE_LAYOUT_GENERAL);
+    VkDescriptorImageInfo descriptorsImageInfo2 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, depthImages[2], VK_IMAGE_LAYOUT_GENERAL);
+    VkDescriptorImageInfo descriptorsImageInfo3 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, depthImages[3], VK_IMAGE_LAYOUT_GENERAL);
+
+    std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+    descriptorWrites[0] = DescriptorWriter::makeWrite(descriptorSets[0], 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &descriptorsImageInfo0);
+    descriptorWrites[1] = DescriptorWriter::makeWrite(descriptorSets[0], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &descriptorsImageInfo1);
+    descriptorWrites[2] = DescriptorWriter::makeWrite(descriptorSets[0], 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &descriptorsImageInfo2);
+    descriptorWrites[3] = DescriptorWriter::makeWrite(descriptorSets[0], 3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr, &descriptorsImageInfo3);
+
+    vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+}
+
+
+
+NovelSynthDescriptors::NovelSynthDescriptors(const DescriptorBuilder& builder, const VkDevice device)
+    : BaseDescriptors(device) {
+    createDescriptorSetLayout(builder);
+}
+
+NovelSynthDescriptors::~NovelSynthDescriptors() {
+    vkDestroyDescriptorSetLayout(deviceHandle, debugDescriptorSetLayout, nullptr);
+}
+
+void NovelSynthDescriptors::createDescriptorSetLayout(const DescriptorBuilder& builder) {
+    std::vector<VkDescriptorSetLayoutBinding> descriptorSLBs;
+
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    descriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
+
+    descriptorSLBs.clear();
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT);
+    debugDescriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
+}
+
+void NovelSynthDescriptors::createDescriptorSets(const DescriptorBuilder& builder,
+                                                 const std::vector<VkBuffer>& camArraySSBOIn,
+                                                 const NovelSynthUniforms& novelSynthUniforms) {
+    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    builder.buildDescriptorSets(descriptorSets, descriptorSetLayout);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo descriptorStorageBufferI1 = DescriptorWriter::makeBufferInfo(camArraySSBOIn[i], VK_WHOLE_SIZE);
+        VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(descriptorSets[i], 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descriptorStorageBufferI1);
+
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+    }
+
+    debugDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    builder.buildDescriptorSets(debugDescriptorSets, debugDescriptorSetLayout);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorImageInfo descriptorsImageInfo1 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, novelSynthUniforms.debugImageView[i], VK_IMAGE_LAYOUT_GENERAL);
+        VkDescriptorImageInfo descriptorsImageInfo2 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, novelSynthUniforms.resultImageView[i], VK_IMAGE_LAYOUT_GENERAL);
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites;
+        descriptorWrites[0] = DescriptorWriter::makeWrite(debugDescriptorSets[i], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo1);
+        descriptorWrites[1] = DescriptorWriter::makeWrite(debugDescriptorSets[i], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo2);
+
+        vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+    }
+}
+
+void NovelSynthDescriptors::updatePerCamDescriptorSets(const std::vector<VkBuffer>& camArraySSBOIn,
+                                                       const NovelSynthUniforms& novelSynthUniforms) {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo descriptorStorageBufferI1 = DescriptorWriter::makeBufferInfo(camArraySSBOIn[i], VK_WHOLE_SIZE);
+
+        std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+        descriptorWrites[0] = DescriptorWriter::makeWrite(descriptorSets[i], 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descriptorStorageBufferI1);
+
+        vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+    }
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorImageInfo descriptorsImageInfo1 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, novelSynthUniforms.debugImageView[i], VK_IMAGE_LAYOUT_GENERAL);
+        VkDescriptorImageInfo descriptorsImageInfo2 = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, novelSynthUniforms.resultImageView[i], VK_IMAGE_LAYOUT_GENERAL);
+
+        std::array<VkWriteDescriptorSet, 2> descriptorWrites;
+        descriptorWrites[0] = DescriptorWriter::makeWrite(debugDescriptorSets[i], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo1);
+        descriptorWrites[1] = DescriptorWriter::makeWrite(debugDescriptorSets[i], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo2);
+
+        vkUpdateDescriptorSets(deviceHandle, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
+    }
+}
+
+void NovelSynthDescriptors::updatePerResizeDescriptorSets(const std::vector<VkImageView>& resultImageViews) {
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorImageInfo descriptorsImageInfo = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, resultImageViews[i], VK_IMAGE_LAYOUT_GENERAL);
+
+        VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(debugDescriptorSets[i], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo);
+
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+    }
+}
+
+
+
+RayDataDescriptors::RayDataDescriptors(const DescriptorBuilder& builder, const VkDevice device)
+    : BaseDescriptors(device) {
+    createDescriptorSetLayout(builder);
+}
+
+RayDataDescriptors::~RayDataDescriptors() {
+    vkDestroyDescriptorSetLayout(deviceHandle, storageDescriptorSetLayout, nullptr);
+}
+
+void RayDataDescriptors::createDescriptorSets(const DescriptorBuilder& builder, const RayDataUniforms& rayDataUniforms) {
+    descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    builder.buildDescriptorSets(descriptorSets, descriptorSetLayout);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo descriptorBufferI = DescriptorWriter::makeBufferInfo(rayDataUniforms.uniformBuffers[i], sizeof(RayDataObject));
+
+        VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(descriptorSets[i], 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &descriptorBufferI);
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+    }
+
+    storageDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    builder.buildDescriptorSets(storageDescriptorSets, storageDescriptorSetLayout);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        updateStorageDescriptorSets(rayDataUniforms, i);
+        VkDescriptorBufferInfo descriptorBufferI = DescriptorWriter::makeBufferInfo(rayDataUniforms.rayCountSSBOIn[i], sizeof(uint32_t));
+
+        VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(storageDescriptorSets[i], 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descriptorBufferI);
+        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+    }
+}
+
+void RayDataDescriptors::updateStorageDescriptorSets(const RayDataUniforms& rayDataUniforms, uint32_t currentFrame) {
+    VkDescriptorBufferInfo descriptorBufferI = DescriptorWriter::makeBufferInfo(rayDataUniforms.rayDataSSBOIn[currentFrame], VK_WHOLE_SIZE);
+
+    VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(storageDescriptorSets[currentFrame], 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &descriptorBufferI);
+    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+}
+
+void RayDataDescriptors::createDescriptorSetLayout(const DescriptorBuilder& builder) {
+    std::vector<VkDescriptorSetLayoutBinding> descriptorSLBs;
+
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    descriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
+    
+    // storage DSL
+    descriptorSLBs.clear();
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    builder.addDescriptorSetLayoutBinding(descriptorSLBs, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+    storageDescriptorSetLayout = builder.buildDescriptorSetLayout(descriptorSLBs);
 }

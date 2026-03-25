@@ -10,6 +10,7 @@ layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform RenderFragmentObject {
     vec3 lightPos;
+    float _padd;
     vec3 camPos;
     uint depth;
 } rfo;

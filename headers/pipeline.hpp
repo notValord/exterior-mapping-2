@@ -11,6 +11,7 @@ class DescriptorManager;
 
 enum class VertexInputFlags : uint32_t {
     POS_COL_UV_NORM,
+    POS_COL_CAMID,
     POS_COL,
     POS,
     NONE
@@ -148,6 +149,10 @@ private:
     static inline const ComputeShader intersectFile   =  ComputeShader{"../shaders/compute.spv"};
     static inline const ComputeShader pointCloudFile  =  ComputeShader{"../shaders/pointCloud.spv"};
 
+    static inline const ComputeShader rayDataFile     =  ComputeShader{"../shaders/rayData.spv"};
+    static inline const ComputeShader reduceDepthFile =  ComputeShader{"../shaders/reduce.spv"};
+    static inline const ComputeShader novelSynthFile  =  ComputeShader{"../shaders/novelSynth.spv"};
+
     GraphicSetup setupRenderPipeline();
     GraphicSetup setupFrustumPipeline();
     GraphicSetup setupLinePipeline();
@@ -160,6 +165,10 @@ public:
 
     ComputePipeline intersectPipeline;
     ComputePipeline pointCloudPipeline;
+
+    ComputePipeline rayDataPipeline;
+    ComputePipeline reduceDepthPipeline;
+    ComputePipeline novelSynthPipeline;
 
     GraphicPipeline renderPipeline;
     GraphicPipeline frustumPipeline;

@@ -56,6 +56,7 @@ private:
     void drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
     void drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, const Camera& renderView);
     void computeNovel(VkCommandBuffer commandBuffer);
+    void computeNewNovel(VkCommandBuffer commandBuffer);
     void computePointCloud(VkCommandBuffer commandBuffer);
     void drawDebug(VkFramebuffer framebuffer);
 

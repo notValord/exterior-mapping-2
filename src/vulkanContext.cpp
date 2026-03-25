@@ -2,6 +2,8 @@
 #include <swapchain.hpp>
 #include <util.hpp>
 
+#include <bitset>
+
 static const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface) {
     QueueFamilyIndices indices;
 
@@ -230,7 +232,7 @@ void VulkanContext::createInstance(){
             .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
             .pEngineName = "No Engine",
             .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_API_VERSION_1_0
+            .apiVersion = VK_API_VERSION_1_1
         };
 
         std::vector<const char*> extensions = getRequiredExtensions();
@@ -314,6 +316,33 @@ unsigned int VulkanContext::rateDeviceSuitability(const VkPhysicalDevice device,
     return score;
 }
 
+void printGPUData(const VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;    // I dont like this
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+    VkPhysicalDeviceLimits limits = deviceProperties.limits;
+    std::cout << "  Maximum workgroups per dispatch: " << limits.maxComputeWorkGroupCount[0] << ", " << limits.maxComputeWorkGroupCount[1] << ", " << limits.maxComputeWorkGroupCount[2] << ", " << "\n";
+    std::cout << "  Maximum threads per workgroup: " << limits.maxComputeWorkGroupInvocations << "\n";
+    std::cout << "  Maximum threads per dimension: " << limits.maxComputeWorkGroupSize[0] << ", " << limits.maxComputeWorkGroupSize[1] << ", " << limits.maxComputeWorkGroupSize[2] << ", " << "\n";
+    std::cout << "  Maximum shared memory per workgroup: " << limits.maxComputeSharedMemorySize << "\n";
+}
+
+void printSubgroupProperties(const VkPhysicalDevice device) {
+    VkPhysicalDeviceSubgroupProperties subgroupProperties;
+    subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+    subgroupProperties.pNext = NULL;
+
+    VkPhysicalDeviceProperties2 physicalDeviceProperties;
+    physicalDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    physicalDeviceProperties.pNext = &subgroupProperties;
+
+    vkGetPhysicalDeviceProperties2(device, &physicalDeviceProperties);
+
+    std::cout << "Subgroup size: " << subgroupProperties.subgroupSize << std::endl;
+    std::cout << "Supported stages: " << std::bitset<8>(subgroupProperties.supportedStages) << std::endl;;
+    std::cout << "Supported operations: " << std::bitset<12>(subgroupProperties.supportedOperations) << std::endl;
+}
+
 void VulkanContext::pickPhysicalDevice() {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -327,10 +356,6 @@ void VulkanContext::pickPhysicalDevice() {
     std::multimap<unsigned int, VkPhysicalDevice> candidates;
 
     for (const auto& device: devices){
-        VkPhysicalDeviceProperties deviceProperties;    // I dont like this
-        vkGetPhysicalDeviceProperties(device, &deviceProperties);
-        // std::cout << "Device: " << deviceProperties.deviceName ;
-
         QueueFamilyIndices indices = findQueueFamilies(device, surface);
         if (isDeviceSuitable(device, indices)) {
             unsigned int score = rateDeviceSuitability(device, indices);
@@ -348,6 +373,9 @@ void VulkanContext::pickPhysicalDevice() {
         VkPhysicalDeviceProperties deviceProperties;    // I dont like this
         vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
         std::cout << "Picked device: " << deviceProperties.deviceName << std::endl;
+
+        printGPUData(physicalDevice);
+        printSubgroupProperties(physicalDevice);
     }
 }
 
@@ -369,6 +397,7 @@ void VulkanContext::createLogicalDevice() {
 
     VkPhysicalDeviceFeatures deviceFeatures{
         .samplerAnisotropy = VK_TRUE,
+        .fragmentStoresAndAtomics = VK_TRUE         // create metadata in fragment shader
     };
     VkDeviceCreateInfo deviceCI{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
