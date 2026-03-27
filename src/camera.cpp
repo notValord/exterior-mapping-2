@@ -260,7 +260,7 @@ CamArrayData OfflineCamera::getCamData() {
     // Top
     camData.frustumPlanes[3] = viewProjMat[3] - viewProjMat[1];
     // Near
-    camData.frustumPlanes[4] = viewProjMat[3] + viewProjMat[2];
+    camData.frustumPlanes[4] = viewProjMat[2];
     // Far
     camData.frustumPlanes[5] = viewProjMat[3] - viewProjMat[2];
 

@@ -171,6 +171,7 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     commandRecorder.setPipeline(pipelineManager.rayDataPipeline);
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.rayDataDescriptors.descriptorSets[currentFrame],
                                                     descripManager.rayDataDescriptors.storageDescriptorSets[currentFrame] };
+    commandRecorder.setComputeBuffer(uniformManager.rayDataUniforms.rayDataSSBOIn[currentFrame], uniformManager.rayDataUniforms.rayCountSSBOIn[currentFrame]);
     commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
 
     groupCountX = camManager.getCamCount();

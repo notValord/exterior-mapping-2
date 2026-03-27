@@ -78,10 +78,10 @@ void main() {
         // range [0-7, 0-3], [0-3, 0-7]
         uvec2 pixelCoords = uvec2(gl_LocalInvocationID.x % lvlDim.x, gl_LocalInvocationID.x / lvlDim.x);
         
-        // if (mipLvl != 0) {
-        //     memoryBarrierImage();       // make sure the data is visible from the previous iteration
-        //     barrier();
-        // }
+        if (mipLvl != 0) {
+            memoryBarrierImage();       // make sure the data is visible from the previous iteration
+            barrier();
+        }
 
         for(uint yOffset = 0; yOffset < tileSize.y; yOffset++) {            // 32, 8
             for(uint xOffset = 0; xOffset < tileSize.x; xOffset++) {        // 32, 4
