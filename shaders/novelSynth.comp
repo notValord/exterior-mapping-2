@@ -9,7 +9,7 @@
 #define MIN_FLOAT (-1.0f/0.0f)
 #define MAX_FLOAT (1.0f/0.0f)
 
-layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 32, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform sampler2DArray readLevel0Image;
 layout(set = 0, binding = 1, rg32f) uniform readonly image2DArray level1Image;
@@ -83,14 +83,14 @@ bool depthCheckCollision(vec2 tSegment, vec2 invDepth, vec2 clipZ, uint currLvl,
         depth = depth.yx;
     }
 
-    imageStore(outputImageDebug, ivec3(10, 0, gl_WorkGroupID.x), vec4(invDepth.x, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(11, 0, gl_WorkGroupID.x), vec4(invDepth.y, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(12, 0, gl_WorkGroupID.x), vec4(clipZ.x, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(13, 0, gl_WorkGroupID.x), vec4(clipZ.y, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(14, 0, gl_WorkGroupID.x), vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(15, 0, gl_WorkGroupID.x), vec4(tSegment.y, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(16, 0, gl_WorkGroupID.x), vec4(depth.x, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(17, 0, gl_WorkGroupID.x), vec4(depth.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(10, 0, gl_WorkGroupID.x), vec4(invDepth.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(11, 0, gl_WorkGroupID.x), vec4(invDepth.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(12, 0, gl_WorkGroupID.x), vec4(clipZ.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(13, 0, gl_WorkGroupID.x), vec4(clipZ.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(14, 0, gl_WorkGroupID.x), vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(15, 0, gl_WorkGroupID.x), vec4(tSegment.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(16, 0, gl_WorkGroupID.x), vec4(depth.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(17, 0, gl_WorkGroupID.x), vec4(depth.y, 0.0f, 0.0f, 0.0f));
 
     vec2 tileDepth = vec2(0.0f);
     if (currLvl == 3) {     // the pixel coords are wrong, but also some different issue
@@ -123,7 +123,7 @@ bool depthCheckCollision(vec2 tSegment, vec2 invDepth, vec2 clipZ, uint currLvl,
     }
     tileDepth += vec2(-divergence.z, divergence.z);
 
-    return true;
+    // return true;
     return !(depth.y < tileDepth.x || depth.x > tileDepth.y);
 }
 
@@ -212,10 +212,10 @@ bool projectRayToPlane(RayData ray, inout RayLine line, out vec2 invDepth, out v
     vec4 p0 = projView * vec4(ray.origin + tIntersect.x * ray.dir, 1.0);                  // view space
     vec4 p1 = projView * vec4(ray.origin + tIntersect.y * ray.dir, 1.0);
 
-    imageStore(outputImageDebug, ivec3(0, 1, gl_WorkGroupID.x), vec4(p0.w, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(0, 2, gl_WorkGroupID.x), vec4(p1.w, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(1, 1, gl_WorkGroupID.x), vec4(p0.z, 0.0f, 0.0f, 0.0f));
-    imageStore(outputImageDebug, ivec3(1, 2, gl_WorkGroupID.x), vec4(p1.z, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(0, 1, gl_WorkGroupID.x), vec4(p0.w, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(0, 2, gl_WorkGroupID.x), vec4(p1.w, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(1, 1, gl_WorkGroupID.x), vec4(p0.z, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(1, 2, gl_WorkGroupID.x), vec4(p1.z, 0.0f, 0.0f, 0.0f));
 
     invDepth.x = 1 / p0.w;          // store inverse depth to late compare with the depth map
     invDepth.y = 1 / p1.w;
@@ -239,14 +239,21 @@ float packUintToFloat(uint a, uint b) {
 }
 
 void main() {
+    if (gl_WorkGroupID.y * gl_WorkGroupSize.y + gl_LocalInvocationID.y >= rayCount) {
+        return;         // threads without any rays to work on;
+    }
+
     uint currLvl = MAX_LVL;
     RayData ray = rayDataIn[gl_WorkGroupID.y * gl_WorkGroupSize.y + gl_LocalInvocationID.y];
 
-    RayLine line = RayLine(vec2(0.0f), vec2(0.0f), vec3(2.5f, 2.5f, 0.01f));
+    RayLine line = RayLine(vec2(0.0f), vec2(0.0f), vec3(0.0f, 0.0f, 0.01f));
     vec2 invDepth = vec2(0.0f);                 // interpolate inverse depth to get depth across 2D line
     vec2 clipZ = vec2(0.0f); 
 
     if (!projectRayToPlane(ray, line, invDepth, clipZ)) {
+        ivec3 writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.x);
+        imageStore(outputImage, writeCoord, vec4(-1.0f, 0.0f, 0.0f, 0.0f));
+
         return;         // the ray doesnt intersect the cam view frustum
     }
 
@@ -330,10 +337,10 @@ void main() {
     // thread 0 has the best value
     if (gl_LocalInvocationID.x == 0) {
         ivec3 writeCoord = ivec3(0, 0, gl_WorkGroupID.x);
-        imageStore(outputImageDebug, writeCoord, vec4(bestSample.dist, 0.0f, 0.0f, 0.0f));
-        imageStore(outputImageDebug, writeCoord + ivec3(1, 0, 0), vec4(bestSample.tValue, 0.0f, 0.0f, 0.0f));
-        imageStore(outputImageDebug, writeCoord + ivec3(2, 0, 0), vec4(bestSample.coords.x, 0.0f, 0.0f, 0.0f));
-        imageStore(outputImageDebug, writeCoord + ivec3(3, 0, 0), vec4(bestSample.coords.y, 0.0f, 0.0f, 0.0f));
+        // imageStore(outputImageDebug, writeCoord, vec4(bestSample.dist, 0.0f, 0.0f, 0.0f));
+        // imageStore(outputImageDebug, writeCoord + ivec3(1, 0, 0), vec4(bestSample.tValue, 0.0f, 0.0f, 0.0f));
+        // imageStore(outputImageDebug, writeCoord + ivec3(2, 0, 0), vec4(bestSample.coords.x, 0.0f, 0.0f, 0.0f));
+        // imageStore(outputImageDebug, writeCoord + ivec3(3, 0, 0), vec4(bestSample.coords.y, 0.0f, 0.0f, 0.0f));
 
         writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.x);
         imageStore(outputImage, writeCoord, vec4(bestSample.dist, packUintToFloat(bestSample.coords.x, bestSample.coords.y), 0.0f, 0.0f));

@@ -18,6 +18,7 @@ class NovelUniforms;
 class PointCloudUniforms;
 class RayDataUniforms;
 class NovelSynthUniforms;
+class NovelReconUniforms;
 
 class DescriptorBuilder{
 public:
@@ -181,6 +182,21 @@ private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
 };
 
+class NovelReconDescriptors : public BaseDescriptors {
+public:
+    VkDescriptorSetLayout resultDescriptorSetLayout;
+    std::vector<VkDescriptorSet> resultDescriptorSets;
+
+    NovelReconDescriptors(const DescriptorBuilder& builder, const VkDevice device);
+    ~NovelReconDescriptors();
+
+    void createDescriptorSets(const DescriptorBuilder& builder, const NovelReconUniforms& reconUniforms, CamerasManager& camManager);
+    void updateRefImageDescritporSets(CamerasManager& camManager);
+    void updateResultDescriptorSets(const std::vector<VkImageView>& resultImageViews, uint32_t currentFrame);
+private:
+    void createDescriptorSetLayout(const DescriptorBuilder& builder) override;
+};
+
 
 
 class DescriptorManager{
@@ -197,6 +213,7 @@ public:
     RayDataDescriptors rayDataDescriptors;
     ReduceDescriptors reduceDescriptors;
     NovelSynthDescriptors novelSynthDescriptors;
+    NovelReconDescriptors novelReconDescriptors;
 
     DescriptorManager(const VkDevice device);
     ~DescriptorManager();

@@ -110,6 +110,11 @@ struct RayDataObject {
     glm::uvec2 res;
 };
 
+struct ReconDataObject {
+    glm::uvec2 novelRes;
+    uint32_t layerCount;
+};
+
 
 // Storage Buffer Data
 struct CamArrayData {

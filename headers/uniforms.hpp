@@ -164,6 +164,8 @@ public:
 
     void setCamCount(const uint32_t camCount);
     bool setResolution(VkExtent2D screenRes, uint32_t currentFrame);
+
+    std::vector<VkImage> getResultImages();
 private:
     std::vector<VkImage> debugImage;
     std::vector<VmaAllocation> debugImageMemory;
@@ -188,6 +190,30 @@ private:
     void destroyDataImages(uint32_t currentFrame);
 };
 
+class NovelReconUniforms : public BaseUniforms {
+public:
+    std::vector<VkImageView> resultImageView;
+
+    NovelReconUniforms(MemoryManager& memManager, VkDevice device, VkExtent2D screenRes);
+    ~NovelReconUniforms();
+
+    bool setResolution(VkExtent2D screenRes, uint32_t currentFrame);
+    void updateUniformBuffers(uint32_t currentFrame, uint32_t layerCount, VkExtent2D novelRes);
+private:
+    std::vector<VkImage> resultImage;
+    std::vector<VmaAllocation> resultImageMemory;
+
+    std::vector<VkExtent2D> currScreenRes;
+
+    VkDevice deviceHandle;
+
+    void createImages();
+    void recreateImages(uint32_t currentFrame);
+
+
+    void destroyImages(uint32_t currentFrame);
+};
+
 
 
 class UniformManager {
@@ -198,6 +224,7 @@ public:
     PointCloudUniforms pointCloudUniforms;
     RayDataUniforms rayDataUniforms;
     NovelSynthUniforms novelSynthUniforms;
+    NovelReconUniforms novelReconUnifroms;
 
     UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount);
 };

@@ -152,6 +152,7 @@ private:
     static inline const ComputeShader rayDataFile     =  ComputeShader{"../shaders/rayData.spv"};
     static inline const ComputeShader reduceDepthFile =  ComputeShader{"../shaders/reduce.spv"};
     static inline const ComputeShader novelSynthFile  =  ComputeShader{"../shaders/novelSynth.spv"};
+    static inline const ComputeShader novelReconFile  =  ComputeShader{"../shaders/novelReconstruct.spv"};
 
     GraphicSetup setupRenderPipeline();
     GraphicSetup setupFrustumPipeline();
@@ -169,6 +170,7 @@ public:
     ComputePipeline rayDataPipeline;
     ComputePipeline reduceDepthPipeline;
     ComputePipeline novelSynthPipeline;
+    ComputePipeline novelReconPipeline;
 
     GraphicPipeline renderPipeline;
     GraphicPipeline frustumPipeline;

@@ -1,0 +1,47 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) uniform ReconDataObject {
+    uvec2 novelRes;
+    uint layerCount;
+} ubo;
+
+layout(set = 0, binding = 1) uniform sampler2DArray RefImagesSampler;           // color sampler
+
+layout(set = 1, binding = 0, r32f) uniform image2DArray outputImageDebug;       // ignore, just to reuse the descritpor set
+layout(set = 1, binding = 1, rg32f) uniform image2DArray inputImage;
+
+layout(set = 2, binding = 0, rgba32f) uniform image2D resultImage;
+
+
+const uvec2 REF_RES = uvec2(1024, 1024);
+
+uvec2 unpackFloatToUint(float f)  {
+    uint packed = floatBitsToUint(f);  // reinterpret float as uint
+    return uvec2(packed >> 16,  packed & 0xFFFFu);
+}
+
+void main() {
+    uvec2 pixel = gl_GlobalInvocationID.xy;
+    if (pixel.x >= ubo.novelRes.x || pixel.y >= ubo.novelRes.y) {
+        return;
+    }
+
+    vec2 bestSample = vec2(1.0f);
+    uint resultLayer = 0;
+
+    for (uint i = 0; i < ubo.layerCount; i++) {     // for every image
+        vec2 checkSample = imageLoad(inputImage, ivec3(pixel, int(i))).rg;
+        
+        if (checkSample.x < bestSample.x) {
+            bestSample = checkSample;
+            resultLayer = i;
+        }
+    }
+
+    uvec2 sampleCoords = unpackFloatToUint(bestSample.y);
+    vec2 uv = (vec2(sampleCoords) + 0.5) / vec2(REF_RES);
+    vec4 bestColor = texture(RefImagesSampler, vec3(uv, resultLayer));
+    imageStore(resultImage, ivec2(pixel), bestColor);
+}

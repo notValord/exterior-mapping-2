@@ -18,6 +18,7 @@
 /usr/bin/glslc getRayData.comp -o rayData.spv
 /usr/bin/glslc mipMapReduce.comp -o reduce.spv
 /usr/bin/glslc novelSynth.comp --target-env=vulkan1.1 -o novelSynth.spv
+/usr/bin/glslc novelReconstruct.comp -o novelReconstruct.spv
 
 /usr/bin/glslc pointCloud.comp -o pointCloud.spv
 /usr/bin/glslc pointCloud.vert -o pointVert.spv

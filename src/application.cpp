@@ -153,6 +153,9 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
         uniformManager.novelSynthUniforms.setCamCount(camManager.getCamCount());        // should be updated per camera count change
         descripManager.novelSynthDescriptors.updatePerCamDescriptorSets(uniformManager.novelUnifroms.camArraySSBOIn, uniformManager.novelSynthUniforms);
 
+        descripManager.novelReconDescriptors.updateRefImageDescritporSets(camManager);
+        camManager.transferLayeredLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
+
         inputManager.startSynthesis = false;
     }
 
@@ -163,6 +166,11 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
 
     if (uniformManager.novelSynthUniforms.setResolution(swapchain.swapChainExtent, currentFrame)) {
         descripManager.novelSynthDescriptors.updatePerResizeDescriptorSets(uniformManager.novelSynthUniforms.resultImageView);
+    }
+
+    uniformManager.novelReconUnifroms.updateUniformBuffers(currentFrame, camManager.getCamCount(), swapchain.swapChainExtent);
+    if (uniformManager.novelReconUnifroms.setResolution(swapchain.swapChainExtent, currentFrame)) {
+        descripManager.novelReconDescriptors.updateResultDescriptorSets(uniformManager.novelReconUnifroms.resultImageView, currentFrame);
     }
 
     uint32_t groupCountX = (swapchain.swapChainExtent.width  + 15) / 16;
@@ -190,11 +198,24 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
                                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     commandRecorder.barrierStorageImage(commandBuffer, camManager.getReduceStorageImages(), camManager.getCamCount());      // todo once
 
+    groupCountY = (swapchain.swapChainExtent.width * swapchain.swapChainExtent.height + 7) / 8;      // every eitght thread
     commandRecorder.setPipeline(pipelineManager.novelSynthPipeline);
     descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0],
                        descripManager.novelSynthDescriptors.descriptorSets[currentFrame],
                        descripManager.rayDataDescriptors.storageDescriptorSets[currentFrame],
                        descripManager.novelSynthDescriptors.debugDescriptorSets[currentFrame]};
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+
+    //image barrier
+    commandRecorder.barrierStorageImage(commandBuffer, {uniformManager.novelSynthUniforms.getResultImages()[currentFrame]}, camManager.getCamCount());
+
+    groupCountX = (swapchain.swapChainExtent.width  + 15) / 16;
+    groupCountY = (swapchain.swapChainExtent.height + 15) / 16;
+
+    commandRecorder.setPipeline(pipelineManager.novelReconPipeline);
+    descriptorSets = { descripManager.novelReconDescriptors.descriptorSets[currentFrame],
+                       descripManager.novelSynthDescriptors.debugDescriptorSets[currentFrame],
+                       descripManager.novelReconDescriptors.resultDescriptorSets[currentFrame]};
     commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
 
 }
