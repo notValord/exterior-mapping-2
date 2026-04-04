@@ -53,6 +53,8 @@ private:
     void changeScene();
 
     // Command buffer recordings
+    void computeReducedDepthPyramid(VkCommandBuffer commandBuffer);
+
     void drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
     void drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, const Camera& renderView);
     void computeNovel(VkCommandBuffer commandBuffer);

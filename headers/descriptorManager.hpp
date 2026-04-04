@@ -83,6 +83,8 @@ public:
 
     void createDescriptorSets(const DescriptorBuilder& builder, const std::vector<VkBuffer>& offlineUniformBuffers, CamerasManager& camManager);
     void updateDescriptorSets(CamerasManager& camManager);
+    void updateDescriptorSets(uint32_t currentFrame, CamerasManager& camManager);
+    void updateDescriptorSets(uint32_t currentFrame, NovelReconUniforms& reconUniform);
 
 private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;

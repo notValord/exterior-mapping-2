@@ -16,7 +16,7 @@
 /usr/bin/glslc rayIntersect.comp -o compute.spv
 
 /usr/bin/glslc getRayData.comp -o rayData.spv
-/usr/bin/glslc mipMapReduce.comp -o reduce.spv
+/usr/bin/glslc mipMapReduce.comp --target-env=vulkan1.1 -o reduce.spv
 /usr/bin/glslc novelSynth.comp --target-env=vulkan1.1 -o novelSynth.spv
 /usr/bin/glslc novelReconstruct.comp -o novelReconstruct.spv
 

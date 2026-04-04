@@ -1,5 +1,8 @@
 #version 450
 
+#define MIN_FLOAT (-1.0f/0.0f)
+#define MAX_FLOAT (1.0f/0.0f)
+
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform ReconDataObject {
@@ -16,6 +19,7 @@ layout(set = 2, binding = 0, rgba32f) uniform image2D resultImage;
 
 
 const uvec2 REF_RES = uvec2(1024, 1024);
+const vec4 RAY_NO_HIT_COLOR = vec4(1.0f, 0.078f, 0.851f, 1.0f);
 
 uvec2 unpackFloatToUint(float f)  {
     uint packed = floatBitsToUint(f);  // reinterpret float as uint
@@ -28,7 +32,7 @@ void main() {
         return;
     }
 
-    vec2 bestSample = vec2(1.0f);
+    vec2 bestSample = vec2(MAX_FLOAT, 0.0f);
     uint resultLayer = 0;
 
     for (uint i = 0; i < ubo.layerCount; i++) {     // for every image
@@ -39,6 +43,11 @@ void main() {
             resultLayer = i;
         }
     }
+
+    // if (bestSample.x > 1.0f) {
+    //     imageStore(resultImage, ivec2(pixel), RAY_NO_HIT_COLOR);
+    //     return;
+    // }
 
     uvec2 sampleCoords = unpackFloatToUint(bestSample.y);
     vec2 uv = (vec2(sampleCoords) + 0.5) / vec2(REF_RES);

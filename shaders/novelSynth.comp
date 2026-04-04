@@ -9,6 +9,9 @@
 #define MIN_FLOAT (-1.0f/0.0f)
 #define MAX_FLOAT (1.0f/0.0f)
 
+#define MIN_FLOAT (-1.0f/0.0f)
+#define MAX_FLOAT (1.0f/0.0f)
+
 layout(local_size_x = 32, local_size_y = 8, local_size_z = 1) in;
 
 layout(set = 0, binding = 0) uniform sampler2DArray readLevel0Image;
@@ -60,57 +63,57 @@ struct SampleData {
 };
 
 const uint MAX_LVL = 3;
+const uvec2 WARP_DIM = uvec2(8, 4);
 const uvec2 SCREEN_RES = uvec2(1024, 1024);
 const float EPSILON = 1e-6;
+const float NO_HIT_VALUE = 2.0f;
 
-SampleData bestSample = SampleData(1.0f, 1.0f, uvec2(0));
+SampleData bestSample = SampleData(NO_HIT_VALUE, MAX_FLOAT, uvec2(0));
 
 bool checkDepthSample(float dist0, float tValue0, float dist1, float tValue1) {     // check if sample1 is better than sample0
+    return (tValue1 < tValue0); 
     return (dist1 < dist0);
     return (tValue0 - tValue1 > 0.1) || (dist1 < dist0); // either its a closer clusetr of it has a better depthDistance
 }
 
-bool depthCheckCollision(vec2 tSegment, vec2 invDepth, vec2 clipZ, uint currLvl, uvec2 pixelCoords, inout vec3 divergence) {       // change divergence but wouldn't be changed uniformly across a warp
-    vec2 invZ = vec2(0.0f);
+bool depthCheckCollision(vec2 tSegment, vec2 clipZ, uint currLvl, uvec2 pixelCoords, inout vec3 divergence) {       // change divergence but wouldn't be changed uniformly across a warp
     vec2 interZ = vec2(0.0f);
-    invZ.x = mix(invDepth.x, invDepth.y, tSegment.x);
-    invZ.y = mix(invDepth.x, invDepth.y, tSegment.y);
-    interZ.x = mix(clipZ.x * invDepth.x, clipZ.y * invDepth.y, tSegment.x);
-    interZ.y = mix(clipZ.x * invDepth.x, clipZ.y * invDepth.y, tSegment.y);
+    interZ.x = mix(clipZ.x, clipZ.y, tSegment.x);
+    interZ.y = mix(clipZ.x, clipZ.y, tSegment.y);
 
     vec2 depth = interZ;
     if (depth.x > depth.y) {        // sort to min-max
         depth = depth.yx;
     }
 
-    // imageStore(outputImageDebug, ivec3(10, 0, gl_WorkGroupID.x), vec4(invDepth.x, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(11, 0, gl_WorkGroupID.x), vec4(invDepth.y, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(12, 0, gl_WorkGroupID.x), vec4(clipZ.x, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(13, 0, gl_WorkGroupID.x), vec4(clipZ.y, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(14, 0, gl_WorkGroupID.x), vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(15, 0, gl_WorkGroupID.x), vec4(tSegment.y, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(16, 0, gl_WorkGroupID.x), vec4(depth.x, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(17, 0, gl_WorkGroupID.x), vec4(depth.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(10, 0, gl_WorkGroupID.y), vec4(invDepth.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(11, 0, gl_WorkGroupID.y), vec4(invDepth.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(12, 0, gl_WorkGroupID.y), vec4(clipZ.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(13, 0, gl_WorkGroupID.y), vec4(clipZ.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(14, 0, gl_WorkGroupID.y), vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(15, 0, gl_WorkGroupID.y), vec4(tSegment.y, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(16, 0, gl_WorkGroupID.y), vec4(depth.x, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(17, 0, gl_WorkGroupID.y), vec4(depth.y, 0.0f, 0.0f, 0.0f));
 
     vec2 tileDepth = vec2(0.0f);
     if (currLvl == 3) {     // the pixel coords are wrong, but also some different issue
-        tileDepth = imageLoad(level3Image, ivec3(pixelCoords, gl_WorkGroupID.x)).rg;
+        tileDepth = imageLoad(level3Image, ivec3(pixelCoords, gl_WorkGroupID.y)).rg;
     }
     else if (currLvl == 2) {
-        tileDepth = imageLoad(level2Image, ivec3(pixelCoords, gl_WorkGroupID.x)).rg;
+        tileDepth = imageLoad(level2Image, ivec3(pixelCoords, gl_WorkGroupID.y)).rg;
     }
     else if (currLvl == 1) {
-        tileDepth = imageLoad(level1Image, ivec3(pixelCoords, gl_WorkGroupID.x)).rg;
+        tileDepth = imageLoad(level1Image, ivec3(pixelCoords, gl_WorkGroupID.y)).rg;
     }
     else if (currLvl == 0) {
-        tileDepth.x = texelFetch(readLevel0Image, ivec3(pixelCoords, gl_WorkGroupID.x), 0).r;
+        tileDepth.x = texelFetch(readLevel0Image, ivec3(pixelCoords, gl_WorkGroupID.y), 0).r;
 
-        float dist = abs(tileDepth.x - (depth.x + depth.y)/2);
+        float dist = abs(tileDepth.x - (depth.x + depth.y)/2);          // check avarage depth
 
-        ivec3 writeCoord = ivec3(pixelCoords, gl_WorkGroupID.x);
-        imageStore(outputImageDebug, writeCoord, vec4((depth.x + depth.y)/2, 0.0f, 0.0f, 0.0f));
+        ivec3 writeCoord = ivec3(pixelCoords, gl_WorkGroupID.y);
+        imageStore(outputImageDebug, writeCoord, vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
 
-        if (checkDepthSample(bestSample.dist, bestSample.tValue, dist, tSegment.x)) {
+        if (dist <= divergence.z && checkDepthSample(bestSample.dist, bestSample.tValue, dist, tSegment.x)) {
             bestSample.dist = dist;
             bestSample.tValue = tSegment.x;
             bestSample.coords = pixelCoords;
@@ -124,7 +127,7 @@ bool depthCheckCollision(vec2 tSegment, vec2 invDepth, vec2 clipZ, uint currLvl,
     tileDepth += vec2(-divergence.z, divergence.z);
 
     // return true;
-    return !(depth.y < tileDepth.x || depth.x > tileDepth.y);
+    return !(depth.y < tileDepth.x || depth.x > tileDepth.y);       // check depth ranges intersect
 }
 
 bool linePixelCollision(uvec2 pixelCoords, uvec2 tileSize, RayLine line, out vec2 tSegment) {
@@ -149,19 +152,19 @@ bool linePixelCollision(uvec2 pixelCoords, uvec2 tileSize, RayLine line, out vec
     return tSegment.x <= tSegment.y;     // Valid if there's overlap
 }
 
-bool rayTileCollision(uvec2 tileOrigin, uvec2 pixelCoords, uvec2 tileSize, inout RayLine line, vec2 invDepth, vec2 clipZ, uint currLvl, uvec2 depthIndex) {
+bool rayTileCollision(uvec2 tileOrigin, uvec2 pixelCoords, uvec2 tileSize, inout RayLine line, vec2 clipZ, uint currLvl, uvec2 depthIndex) {
     vec2 tSegment = vec2(0.0f, 1.0f);
 
-    // check if pixelCorrds is intersected by a ray
+    // check if pixel is intersected by a ray
     if (linePixelCollision(tileOrigin + pixelCoords * tileSize, tileSize, line, tSegment)) {
-        return depthCheckCollision(tSegment, invDepth, clipZ, currLvl, depthIndex+pixelCoords, line.divergence);               // if so check the depth
+        return depthCheckCollision(tSegment, clipZ, currLvl, depthIndex+pixelCoords, line.divergence);               // if so check the depth
     }
     return false;
 }
 
 bool findFrustumIntersect(in CamArrayData camData, in vec3 rayOrigin, in vec3 rayDir, out vec2 intersection) {
     float entryPoint = MIN_FLOAT;
-    float exitPoint = MAX_FLOAT;  // infinite
+    float exitPoint = MAX_FLOAT;
 
     for (uint i = 0; i < 6; ++i) {
         vec4 frustumPlane = camData.frustumPlanes[i];
@@ -170,21 +173,21 @@ bool findFrustumIntersect(in CamArrayData camData, in vec3 rayOrigin, in vec3 ra
 
         float denom = dot(fNormal, rayDir);
         float originPlane = -(dot(fNormal, rayOrigin) + fDistance);
-        if (abs(denom) < EPSILON) {  // the ray is parallel
+        if (abs(denom) < EPSILON) {         // the ray is parallel
             if (originPlane > 0.f) {
-                return false;   // no intersection possible  
+                return false;               // no intersection possible  
             }
             continue;
         }
 
         float t = originPlane/denom;
-        if (t < 0) {            // clamp the point to the ray origin, no intersection behind
+        if (t < 0) {                        // clamp the point to the ray origin, no intersection behind
             t = 0;
         }
-        if (denom > 0) {    // possible entry point
+        if (denom > 0) {                    // possible entry point
             entryPoint = max(entryPoint, t);
         }
-        else {              // possible exit point
+        else {                              // possible exit point
             exitPoint = min(exitPoint, t);
         }
 
@@ -193,40 +196,38 @@ bool findFrustumIntersect(in CamArrayData camData, in vec3 rayOrigin, in vec3 ra
         }
     }
 
-    if (exitPoint > 0.0f) { // found valid intersection
+    if (exitPoint > 0.0f) {                 // found valid intersection
         intersection = vec2(entryPoint, exitPoint);
         return true;
     }
     return false;
 }
 
-bool projectRayToPlane(RayData ray, inout RayLine line, out vec2 invDepth, out vec2 clipZ) {
-    CamArrayData currCam = camArrayIn[gl_WorkGroupID.x];
+bool projectRayToPlane(RayData ray, inout RayLine line, out vec2 clipZ, out float tBaseValue) {
+    CamArrayData currCam = camArrayIn[gl_WorkGroupID.y];
     vec2 tIntersect = vec2(0.0f);
     if (!findFrustumIntersect(currCam, ray.origin, ray.dir, tIntersect)) {
         return false;
     }
 
     mat4 projView = currCam.projMat * currCam.viewMat;
-
+    //TODO save intersect.x to add to the bilan value t to get the correct global value
     vec4 p0 = projView * vec4(ray.origin + tIntersect.x * ray.dir, 1.0);                  // view space
     vec4 p1 = projView * vec4(ray.origin + tIntersect.y * ray.dir, 1.0);
 
-    // imageStore(outputImageDebug, ivec3(0, 1, gl_WorkGroupID.x), vec4(p0.w, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(0, 2, gl_WorkGroupID.x), vec4(p1.w, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(1, 1, gl_WorkGroupID.x), vec4(p0.z, 0.0f, 0.0f, 0.0f));
-    // imageStore(outputImageDebug, ivec3(1, 2, gl_WorkGroupID.x), vec4(p1.z, 0.0f, 0.0f, 0.0f));
-
-    invDepth.x = 1 / p0.w;          // store inverse depth to late compare with the depth map
-    invDepth.y = 1 / p1.w;
-
-    clipZ.x = p0.z;
-    clipZ.y = p1.z;
+    // imageStore(outputImageDebug, ivec3(0, 1, gl_WorkGroupID.y), vec4(p0.w, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(0, 2, gl_WorkGroupID.y), vec4(p1.w, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(1, 1, gl_WorkGroupID.y), vec4(p0.z, 0.0f, 0.0f, 0.0f));
+    // imageStore(outputImageDebug, ivec3(1, 2, gl_WorkGroupID.y), vec4(p1.z, 0.0f, 0.0f, 0.0f));
 
     p0 = p0 / p0.w;
     p1 = p1 / p1.w;
 
-    line.origin = (p0.xy + 1.0) * 0.5 * SCREEN_RES;           // to pixel
+    clipZ.x = p0.z;
+    clipZ.y = p1.z;
+    tBaseValue = tIntersect.x;
+
+    line.origin = (p0.xy + 1.0) * 0.5 * SCREEN_RES;           // to pixel space
     vec2 screen1 = (p1.xy + 1.0) * 0.5 * SCREEN_RES;
 
     line.dir = screen1 - line.origin;
@@ -239,69 +240,67 @@ float packUintToFloat(uint a, uint b) {
 }
 
 void main() {
-    if (gl_WorkGroupID.y * gl_WorkGroupSize.y + gl_LocalInvocationID.y >= rayCount) {
-        return;         // threads without any rays to work on;
+    uint threadID = gl_WorkGroupID.x * gl_WorkGroupSize.y + gl_LocalInvocationID.y;
+    if (threadID >= rayCount) {
+        return;                                         // extra threads without any rays to work on
     }
 
     uint currLvl = MAX_LVL;
-    RayData ray = rayDataIn[gl_WorkGroupID.y * gl_WorkGroupSize.y + gl_LocalInvocationID.y];
+    RayData ray = rayDataIn[threadID];
 
-    RayLine line = RayLine(vec2(0.0f), vec2(0.0f), vec3(0.0f, 0.0f, 0.01f));
-    vec2 invDepth = vec2(0.0f);                 // interpolate inverse depth to get depth across 2D line
-    vec2 clipZ = vec2(0.0f); 
+    RayLine line = RayLine(vec2(0.0f), vec2(0.0f), vec3(0.0f, 0.0f, 0.001f));
+    vec2 clipZ = vec2(0.0f);                            // interpolate inverse depth to get depth across 2D line
+    float tBaseValue = 0.0f;
 
-    if (!projectRayToPlane(ray, line, invDepth, clipZ)) {
-        ivec3 writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.x);
-        imageStore(outputImage, writeCoord, vec4(-1.0f, 0.0f, 0.0f, 0.0f));
+    if (!projectRayToPlane(ray, line, clipZ, tBaseValue)) {         // the ray doesnt intersect the cam view frustum
+        ivec3 writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.y);
+        imageStore(outputImage, writeCoord, vec4(MAX_FLOAT, 0.0f, 0.0f, 0.0f));
 
-        return;         // the ray doesnt intersect the cam view frustum
+        return;
     }
 
-    uvec2 lvlDim = uvec2(8, 4);
-    uvec2 tileSize = SCREEN_RES / lvlDim;        // 128 x 256
+    uvec2 lvlDim = WARP_DIM;
+    uvec2 tileSize = SCREEN_RES / lvlDim;               // 128 x 256
     uvec2 pixelCoords = uvec2(gl_LocalInvocationID.x % lvlDim.x, gl_LocalInvocationID.x / lvlDim.x);
 
-    uvec4 collisionResult[MAX_LVL+1];
-    uvec2 tileOrigin[MAX_LVL+1];
-    uvec2 depthMapIndex[MAX_LVL+1];
+    uvec4 collisionResult[MAX_LVL+1];                   // warp bit mask
+    uvec2 tileOrigin[MAX_LVL+1];                        // origin for pixel test
+    uvec2 depthMapIndex[MAX_LVL+1];                     // origin for depth test
     tileOrigin[currLvl] = uvec2(0, 0);
     depthMapIndex[currLvl] = uvec2(0, 0);
 
-    bool tileHit = rayTileCollision(tileOrigin[currLvl], pixelCoords, tileSize, line, invDepth, clipZ, currLvl, depthMapIndex[currLvl]);
-    collisionResult[currLvl] = subgroupBallot(tileHit);                  // get a bin vector of which pixels to check
+    bool tileHit = rayTileCollision(tileOrigin[currLvl], pixelCoords, tileSize, line, clipZ, currLvl, depthMapIndex[currLvl]);
+    collisionResult[currLvl] = subgroupBallot(tileHit); // get a bin vector of which pixels to check
 
     while (true) {
         if (currLvl > MAX_LVL) {
-            // checked all tiles, return
-            break;
+            break;                                      // checked all tiles, break
         }
 
-        if (collisionResult[currLvl].x == 0) {             // no hit tiles anymore   
-            // got up level
+        if (collisionResult[currLvl].x == 0) {          // no tile hits, got up level  
             tileSize *= lvlDim;
             lvlDim = lvlDim.yx;
             currLvl += 1;
             continue;
         }
 
-        uint hitLane = subgroupBallotFindLSB(collisionResult[currLvl]);         // get tile
-        collisionResult[currLvl].x ^= (1u << hitLane);                 // clear the bit
-        //compute the new hit pixel to check in the next lvl
+        uint hitLane = subgroupBallotFindLSB(collisionResult[currLvl]);                 // get hit tile
+        collisionResult[currLvl].x ^= (1u << hitLane);                                  // clear the mask bit
         
-        uvec2 hitCoords = uvec2(hitLane % lvlDim.x, hitLane / lvlDim.x);
+        uvec2 hitCoords = uvec2(hitLane % lvlDim.x, hitLane / lvlDim.x);                // compute new origin for next lvl
         tileOrigin[currLvl-1] = tileOrigin[currLvl] + tileSize * hitCoords;
         depthMapIndex[currLvl-1] = (depthMapIndex[currLvl] + hitCoords) * lvlDim.yx;
 
         currLvl -= 1;
         lvlDim = lvlDim.yx;
         tileSize /= lvlDim;
-        pixelCoords = uvec2(gl_LocalInvocationID.x % lvlDim.x, gl_LocalInvocationID.x / lvlDim.x);
 
-        tileHit = rayTileCollision(tileOrigin[currLvl], pixelCoords, tileSize, line, invDepth, clipZ, currLvl, depthMapIndex[currLvl]);
+        pixelCoords = uvec2(gl_LocalInvocationID.x % lvlDim.x, gl_LocalInvocationID.x / lvlDim.x);
+        tileHit = rayTileCollision(tileOrigin[currLvl], pixelCoords, tileSize, line, clipZ, currLvl, depthMapIndex[currLvl]);
         if (currLvl == 0) {
             // find best value
             // process the pixel
-            ivec3 writeCoord = ivec3(tileOrigin[currLvl] + pixelCoords, gl_WorkGroupID.x);
+            ivec3 writeCoord = ivec3(tileOrigin[currLvl] + pixelCoords, gl_WorkGroupID.y);
             if (tileHit) {
                 // imageStore(outputImageDebug, writeCoord, vec4(1.0f, 0.0f, 0.0f, 0.0f));
                 ;
@@ -311,17 +310,17 @@ void main() {
             }
             
 
+            // go up the lvl
             tileSize *= lvlDim;
             lvlDim = lvlDim.yx;
             currLvl += 1;
         }
         else {
-            collisionResult[currLvl] = subgroupBallot(tileHit);
+            collisionResult[currLvl] = subgroupBallot(tileHit);                         // save the new mask
         }
     }
 
     // find the best sample across the warp
-
     for (uint offset = gl_WorkGroupSize.x/2; offset > 0; offset /= 2) {
         float nextDist = subgroupShuffleDown(bestSample.dist, offset);
         float nextTValue = subgroupShuffleDown(bestSample.tValue, offset);
@@ -336,13 +335,13 @@ void main() {
 
     // thread 0 has the best value
     if (gl_LocalInvocationID.x == 0) {
-        ivec3 writeCoord = ivec3(0, 0, gl_WorkGroupID.x);
+        ivec3 writeCoord = ivec3(0, 0, gl_WorkGroupID.y);
         // imageStore(outputImageDebug, writeCoord, vec4(bestSample.dist, 0.0f, 0.0f, 0.0f));
         // imageStore(outputImageDebug, writeCoord + ivec3(1, 0, 0), vec4(bestSample.tValue, 0.0f, 0.0f, 0.0f));
         // imageStore(outputImageDebug, writeCoord + ivec3(2, 0, 0), vec4(bestSample.coords.x, 0.0f, 0.0f, 0.0f));
         // imageStore(outputImageDebug, writeCoord + ivec3(3, 0, 0), vec4(bestSample.coords.y, 0.0f, 0.0f, 0.0f));
 
-        writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.x);
-        imageStore(outputImage, writeCoord, vec4(bestSample.dist, packUintToFloat(bestSample.coords.x, bestSample.coords.y), 0.0f, 0.0f));
+        writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.y);   //tBaseValue + bestSample.tValue
+        imageStore(outputImage, writeCoord, vec4(tBaseValue + bestSample.tValue, packUintToFloat(bestSample.coords.x, bestSample.coords.y), 0.0f, 0.0f));
     }
 }

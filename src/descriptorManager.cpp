@@ -299,6 +299,32 @@ void OfflineDescriptors::updateDescriptorSets(CamerasManager& camManager) {
     }
 }
 
+void OfflineDescriptors::updateDescriptorSets(uint32_t currentFrame, CamerasManager& camManager) {
+    VkDescriptorImageInfo descriptorImageI = DescriptorWriter::makeImageInfo(camManager.getSampler(ImageViewType::COLOR),      // the same sampler as for the samplerArray
+                                                                            camManager.novelView.getImageView(currentFrame));
+
+    VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(descriptorSets[currentFrame],
+                                                                        1,
+                                                                        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                                        nullptr,
+                                                                        &descriptorImageI);
+
+    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+}
+
+void OfflineDescriptors::updateDescriptorSets(uint32_t currentFrame, NovelReconUniforms& reconUniform) {
+    VkDescriptorImageInfo descriptorImageI = DescriptorWriter::makeImageInfo(reconUniform.colorSampler.getSampler(),      // the same sampler as for the samplerArray
+                                                                                reconUniform.resultImageView[currentFrame]);
+
+    VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(descriptorSets[currentFrame],
+                                                                        1,
+                                                                        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                                                                        nullptr,
+                                                                        &descriptorImageI);
+
+    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
+}
+
 
 
 

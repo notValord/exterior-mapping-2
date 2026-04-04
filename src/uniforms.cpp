@@ -517,7 +517,7 @@ void RayDataUniforms::recreateRayDataBuffers(uint32_t currentFrame) {
     
     VmaAllocationInfo allocInfo{};
     allocInfo = memManagerRef.createBuffer(bufferSize,
-                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                             VK_SHARING_MODE_EXCLUSIVE,
                                             rayDataSSBOIn[currentFrame],
                                             VMA_MEMORY_USAGE_GPU_ONLY,
@@ -659,11 +659,13 @@ void NovelSynthUniforms::recreateAllImages() {
 
 
 
-NovelReconUniforms::NovelReconUniforms(MemoryManager& memManager, VkDevice device, VkExtent2D screenRes)
-    :BaseUniforms(memManager), deviceHandle(device) {
+NovelReconUniforms::NovelReconUniforms(MemoryManager& memManager, VkDevice device, VkExtent2D screenRes, const VkPhysicalDeviceProperties& prop)
+    :BaseUniforms(memManager), deviceHandle(device), colorSampler(device, prop) {
     currScreenRes.resize(MAX_FRAMES_IN_FLIGHT);
+    resultLayout.resize(MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         currScreenRes[i] = screenRes;
+        resultLayout[i] = VK_IMAGE_LAYOUT_GENERAL;
     }
 
     createUniformBuffers(sizeof(ReconDataObject));
@@ -701,7 +703,7 @@ void NovelReconUniforms::createImages() {
                                   currScreenRes[i].height,
                                   VK_FORMAT_R32G32B32A32_SFLOAT,
                                   VK_IMAGE_TILING_OPTIMAL,
-                                  VK_IMAGE_USAGE_STORAGE_BIT,
+                                  VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                   resultImage[i],
                                   VMA_MEMORY_USAGE_GPU_ONLY,
                                   resultImageMemory[i]);
@@ -726,7 +728,7 @@ void NovelReconUniforms::recreateImages(uint32_t currentFrame) {
                               currScreenRes[currentFrame].height,
                               VK_FORMAT_R32G32B32A32_SFLOAT,
                               VK_IMAGE_TILING_OPTIMAL,
-                              VK_IMAGE_USAGE_STORAGE_BIT,
+                              VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                               resultImage[currentFrame],
                               VMA_MEMORY_USAGE_GPU_ONLY,
                               resultImageMemory[currentFrame]);
@@ -734,15 +736,28 @@ void NovelReconUniforms::recreateImages(uint32_t currentFrame) {
     memManagerRef.transitionImageLayout(resultImage[currentFrame], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 }
 
+void NovelReconUniforms::transferResultLayout(uint32_t currentFrame, VkImageLayout newLayout, VkCommandBuffer commandBuffer) {
+    if (newLayout == resultLayout[currentFrame]) {
+        return;
+    }
+
+    if (newLayout != VK_IMAGE_LAYOUT_GENERAL && newLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+        throw std::runtime_error("Wrong image layout!");
+    }
+
+    memManagerRef.transitionImageLayout(resultImage[currentFrame], VK_FORMAT_R32G32B32A32_SFLOAT, resultLayout[currentFrame], newLayout, 1 ,commandBuffer);
+    resultLayout[currentFrame] = newLayout;
+}
 
 
-UniformManager::UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount)
+
+UniformManager::UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount, const VkPhysicalDeviceProperties& prop)
         : renderUniforms(memManager),
           offlineUniforms(memManager),
           novelUnifroms(memManager, camCount, extentSize),
           pointCloudUniforms(memManager),
           rayDataUniforms(memManager, extentSize),
           novelSynthUniforms(memManager, device, camCount, extentSize),
-          novelReconUnifroms(memManager, device, extentSize) {
+          novelReconUnifroms(memManager, device, extentSize, prop) {
     ;
 }

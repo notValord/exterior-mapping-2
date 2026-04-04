@@ -16,6 +16,7 @@
 #include <chrono>
 
 #include <structs.hpp>
+#include <textures.hpp>
 
 extern const size_t MAX_FRAMES_IN_FLIGHT;
 
@@ -23,6 +24,7 @@ class MemoryManager;
 class Camera;
 class CamerasManager;
 class InputManager;
+class Sampler;
 
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
@@ -193,17 +195,21 @@ private:
 class NovelReconUniforms : public BaseUniforms {
 public:
     std::vector<VkImageView> resultImageView;
+    Sampler colorSampler;
 
-    NovelReconUniforms(MemoryManager& memManager, VkDevice device, VkExtent2D screenRes);
+    NovelReconUniforms(MemoryManager& memManager, VkDevice device, VkExtent2D screenRes, const VkPhysicalDeviceProperties& prop);
     ~NovelReconUniforms();
 
     bool setResolution(VkExtent2D screenRes, uint32_t currentFrame);
     void updateUniformBuffers(uint32_t currentFrame, uint32_t layerCount, VkExtent2D novelRes);
+
+    void transferResultLayout(uint32_t currentFrame, VkImageLayout newLayout, VkCommandBuffer commandBuffer);
 private:
     std::vector<VkImage> resultImage;
     std::vector<VmaAllocation> resultImageMemory;
 
     std::vector<VkExtent2D> currScreenRes;
+    std::vector<VkImageLayout> resultLayout;
 
     VkDevice deviceHandle;
 
@@ -226,5 +232,5 @@ public:
     NovelSynthUniforms novelSynthUniforms;
     NovelReconUniforms novelReconUnifroms;
 
-    UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount);
+    UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount, const VkPhysicalDeviceProperties& prop);
 };

@@ -39,7 +39,7 @@ App::App()
                   pipelineManager.renderPassMan.renderPass,
                   vulkanContext.getDeviceProperties(),
                   swapchain.swapChainImageViews),
-       uniformManager(memManager, vulkanContext.device, swapchain.swapChainExtent, camManager.getCamCount()),
+       uniformManager(memManager, vulkanContext.device, swapchain.swapChainExtent, camManager.getCamCount(), vulkanContext.getDeviceProperties()),
        inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
             vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager, mesh),
        debugUtil(memManager, camManager.getCamCount()),
@@ -84,14 +84,20 @@ void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) 
 
     camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
     camManager.transferLayeredLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);      // update the layered image
+    uniformManager.novelReconUnifroms.transferResultLayout(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
 
     PresentationMode mode = PresentationMode::OFFLINE_RENDER;
-    if (inputManager.novelRender) {
+    if (inputManager.novelRender | inputManager.newNovelRender) {
         mode = PresentationMode::NOVEL_RENDER;
     }
 
     uniformManager.offlineUniforms.updateUniformBuffers(currentFrame, camManager, mode, inputManager.presentType);    // always update the uniform buffer
-
+    if (inputManager.novelRender) { // update set between two novel views
+        descripManager.offlineDescriptors.updateDescriptorSets(currentFrame, camManager);
+    }
+    else if (inputManager.newNovelRender) {
+        descripManager.offlineDescriptors.updateDescriptorSets(currentFrame, uniformManager.novelReconUnifroms);
+    }
 
     commandRecorder.setPipeline(pipelineManager.offlinePipeline, pipelineManager.renderPassMan.renderPass, swapchain.swapChainExtent);
     commandRecorder.setRenderBuffers(VK_NULL_HANDLE, 6, VK_NULL_HANDLE);           // draw a quad
@@ -138,10 +144,20 @@ void App::computeNovel(VkCommandBuffer commandBuffer) {
     commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
 }
 
+void App::computeReducedDepthPyramid(VkCommandBuffer commandBuffer) {
+    camManager.createMipMapImages(commandBuffer);
+    descripManager.reduceDescriptors.updateDescriptorSets(camManager.getSampler(ImageViewType::DEPTH), camManager.getReduceDepthViews());
+
+    commandRecorder.setPipeline(pipelineManager.reduceDepthPipeline);
+    std::vector<VkDescriptorSet> descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0] };        // static single desriptor set
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(camManager.getCamCount(), 32/8));     // 8 tiles worked per workgroup, 32 in the image
+
+    commandRecorder.barrierStorageImage(commandBuffer, camManager.getReduceStorageImages(), camManager.getCamCount());
+}
+
 void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     if (inputManager.startSynthesis) {
-        camManager.createMipMapImages(commandBuffer);
-        descripManager.reduceDescriptors.updateDescriptorSets(camManager.getSampler(ImageViewType::DEPTH), camManager.getReduceDepthViews());
+        computeReducedDepthPyramid(commandBuffer);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             if (uniformManager.novelUnifroms.setCamArrayData(i, camManager)) {   // resolve differently
@@ -169,6 +185,7 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     }
 
     uniformManager.novelReconUnifroms.updateUniformBuffers(currentFrame, camManager.getCamCount(), swapchain.swapChainExtent);
+    uniformManager.novelReconUnifroms.transferResultLayout(currentFrame, VK_IMAGE_LAYOUT_GENERAL, commandBuffer);
     if (uniformManager.novelReconUnifroms.setResolution(swapchain.swapChainExtent, currentFrame)) {
         descripManager.novelReconDescriptors.updateResultDescriptorSets(uniformManager.novelReconUnifroms.resultImageView, currentFrame);
     }
@@ -182,12 +199,6 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     commandRecorder.setComputeBuffer(uniformManager.rayDataUniforms.rayDataSSBOIn[currentFrame], uniformManager.rayDataUniforms.rayCountSSBOIn[currentFrame]);
     commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
 
-    groupCountX = camManager.getCamCount();
-    groupCountY = 1;
-    commandRecorder.setPipeline(pipelineManager.reduceDepthPipeline);
-    descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0] };
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));     // todo once
-
     // image barrier
     // rayData barrier
     commandRecorder.barrierStorageBuffer(commandBuffer, 
@@ -196,9 +207,9 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
                                          VK_ACCESS_SHADER_READ_BIT,
                                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    commandRecorder.barrierStorageImage(commandBuffer, camManager.getReduceStorageImages(), camManager.getCamCount());      // todo once
 
-    groupCountY = (swapchain.swapChainExtent.width * swapchain.swapChainExtent.height + 7) / 8;      // every eitght thread
+    groupCountX = (swapchain.swapChainExtent.width * swapchain.swapChainExtent.height + 7) / 8;      // every eitght thread
+    groupCountY = camManager.getCamCount();
     commandRecorder.setPipeline(pipelineManager.novelSynthPipeline);
     descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0],
                        descripManager.novelSynthDescriptors.descriptorSets[currentFrame],
@@ -217,7 +228,6 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
                        descripManager.novelSynthDescriptors.debugDescriptorSets[currentFrame],
                        descripManager.novelReconDescriptors.resultDescriptorSets[currentFrame]};
     commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
-
 }
 
 void App::computePointCloud(VkCommandBuffer commandBuffer) {
@@ -321,16 +331,16 @@ void App::drawFrame() {
     vkResetFences(vulkanContext.device, 1, &syncManager.inFlightFences[currentFrame]);   // needs to be reset manually
 
     beginCommandBuffer(commandManager.commandBuffers[currentFrame]);
-
-    if (inputManager.newNovelRender) {
-        computeNewNovel(commandManager.commandBuffers[currentFrame]);
-    }
     
     if (inputManager.presentOfflineFlag) {
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
     else if (inputManager.novelRender) {
         computeNovel(commandManager.commandBuffers[currentFrame]);
+        drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
+    }
+    else if (inputManager.newNovelRender) {
+        computeNewNovel(commandManager.commandBuffers[currentFrame]);
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
     else if (inputManager.debugPointCloud) {        // debug without scene rendering
