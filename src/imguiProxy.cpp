@@ -110,10 +110,10 @@ void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
         float& yaw = camManager.activeCam->getYawRef();
 
         ImGui::Text("Current cam: "); ImGui::SameLine(0, 7);
-        if (camManager.novelViewToggeled()){
+        if (camManager.novelViewToggled()){
             ImGui::TextColored(ImVec4(1, 0.85f, 0.0f, 1.0f), "Novel View");
         }
-        else if (camManager.observerToggeled()) {
+        else if (camManager.observerToggled()) {
             ImGui::TextColored(ImVec4(0.0f, 0.85f, 1.0f, 1.0f), "Observer");
         }
         else {
@@ -141,9 +141,9 @@ void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
 
 void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManager) {
     if (ImGui::CollapsingHeader("Novel camera")) {
-        bool novelToggle = camManager.novelViewToggeled();
+        bool novelToggle = camManager.novelViewToggled();
 
-        if (ImGui::Checkbox("Novel View toggeled", &novelToggle)) {
+        if (ImGui::Checkbox("Novel view toggeled", &novelToggle)) {
             camManager.toggleNovel();
         }
 
@@ -157,7 +157,7 @@ void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManag
         ImGui::EndDisabled();
 
         ImGui::SeparatorText("Observer cam");
-        bool observerToggle = camManager.observerToggeled();
+        bool observerToggle = camManager.observerToggled();
 
         if (ImGui::Checkbox("Observer toggeled", &observerToggle)) {
             camManager.toggleObserver();
@@ -200,7 +200,7 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
         ImGui::EndDisabled();
 
         // Switch to a different cam in the array input
-        ImGui::BeginDisabled(camManager.novelViewToggeled());
+        ImGui::BeginDisabled(camManager.novelViewToggled());
         if (ImGui::InputScalar("current index", ImGuiDataType_S32, &tmpIndex, &index_small_step, &index_big_step)) {
             if (tmpIndex < 0) {
                 activeIndex = camManager.getCamCount() - 1;
@@ -273,7 +273,7 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         }
 
         // todo novel view special case
-        if (ImGui::Checkbox("Present shapshots", &inputManager->presentOfflineFlag) && inputManager->presentOfflineFlag) {
+        if (ImGui::Checkbox("Present snapshots", &inputManager->presentOfflineFlag) && inputManager->presentOfflineFlag) {
             inputManager->setupOfflineImage = true;   // update the descriptor set
         }
         
@@ -299,7 +299,7 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
             inputManager->startSynthesis = true;
         }
 
-        if (ImGui::Checkbox("New novel render novel", &inputManager->newNovelRender) && inputManager->newNovelRender) {
+        if (ImGui::Checkbox("Novel analytical synthesis", &inputManager->newNovelRender) && inputManager->newNovelRender) {
             inputManager->startSynthesis = true;
         }
         ImGui::EndDisabled();
@@ -547,7 +547,7 @@ void ImguiProxy::createFramebuffers(const std::vector<VkImageView>& swapChainIma
         };
 
         if (vkCreateFramebuffer(deviceHandle, &framebufferCI, nullptr, &framebuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create frambutters!");
+            throw std::runtime_error("Failed to create framebuffers!");
         }
     }
 }

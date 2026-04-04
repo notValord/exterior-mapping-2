@@ -1,6 +1,6 @@
 #include <window.hpp>
 
-void Window::frambufferResizeCallback(GLFWwindow* window, int width, int height) {
+void Window::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     Window* currentWindow = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
     currentWindow->framebufferResized = true;
 }
@@ -14,13 +14,13 @@ Window::Window(unsigned int width, unsigned int height)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);       // Do not create an OpenGL context
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);       // Disable resize for now
 
-    window = glfwCreateWindow(screenWidth, screenHeight, "Exterior mapping 2", nullptr, nullptr);
+    window = glfwCreateWindow(screenWidth, screenHeight, appName.c_str(), nullptr, nullptr);
     if (window == nullptr){
         throw std::runtime_error("GLFW windows wasn't created!");
     }
     
     glfwSetWindowUserPointer(window, this);
-    glfwSetFramebufferSizeCallback(window, frambufferResizeCallback);
+    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
 Window::~Window() {

@@ -5,9 +5,9 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-static const std::string dummyTexture = "dummyTexture.png";
+static const std::string dummyTexture = "dummyTexture.png";         // needs to bind to descritpors
 static const std::string RESOURCE_DIR = "../resources/models/";
-static const uint32_t MAX_MATERIALS_COUNT = 60;
+static const uint32_t MAX_MATERIALS_COUNT = 60;                     // arbitrary limit for textures descritpors
 
 Mesh::Mesh(const std::string& modelFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
     : deviceHandle(device), memManager(memManager), sampler(device, prop, VK_SAMPLER_ADDRESS_MODE_REPEAT) {
@@ -52,7 +52,6 @@ uint32_t Mesh::getIndicesSize() {
 }
 
 uint32_t Mesh::getMaterialSize() {
-    std::cout << "We have " << lightProps.size() << " materials" <<std::endl;
     return static_cast<uint32_t>(lightProps.size());
 }
 
@@ -233,7 +232,7 @@ std::vector<Material> Mesh::loadMaterials(const std::vector<tinyobj::material_t>
 
     std::cout << "Material count: " << materialsTiny.size() << std::endl;
     if (materialsTiny.size() > MAX_MATERIALS_COUNT) {
-        throw std::runtime_error("Too meny materials to load!");
+        throw std::runtime_error("Too many materials to load!");
     }
 
     for (uint32_t i = 0; i < materialsTiny.size(); i++) {

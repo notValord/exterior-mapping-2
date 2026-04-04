@@ -98,6 +98,15 @@ struct CommandRecordSetter{
 };
 
 void CommandRecorder::setPipeline(const GraphicPipeline& pipeline, VkRenderPass render, VkExtent2D extent) {
+    if (pipeline.pipeline == VK_NULL_HANDLE) {
+        throw std::runtime_error("Invalid graphics pipeline handle!");
+    }
+    if (render == VK_NULL_HANDLE) {
+        throw std::runtime_error("Invalid render pass handle!");
+    }
+    if (extent.width == 0 || extent.height == 0) {
+        throw std::runtime_error("Invalid swapchain extent!");
+    }
     graphicPipeline = pipeline.pipeline;
     graphicPipelineLayout = pipeline.pipelineLayout;
     renderPass = render;
@@ -105,6 +114,9 @@ void CommandRecorder::setPipeline(const GraphicPipeline& pipeline, VkRenderPass 
 }
 
 void CommandRecorder::setPipeline(const ComputePipeline& pipeline) {
+    if (pipeline.pipeline == VK_NULL_HANDLE) {
+        throw std::runtime_error("Invalid compute pipeline handle!");
+    }
     computePipeline = pipeline.pipeline;
     computePipelineLayout = pipeline.pipelineLayout;
 }

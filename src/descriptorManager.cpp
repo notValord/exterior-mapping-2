@@ -44,7 +44,7 @@ DescriptorManager::DescriptorManager(const VkDevice device)
       renderDescriptors(builder, device),
       computeDescriptors(builder, device),
       frustumDescriptors(builder, device), 
-      camCubeDestriptors(builder, device),
+      camCubeDescriptors(builder, device),
       offlineDescriptors(builder, device),
       pointCloudDescriptors(builder, device),
       rayDataDescriptors(builder, device),
@@ -67,17 +67,17 @@ void DescriptorManager::createDescriptorPoolSet(const UniformManager& uniformMan
 
     rayDataDescriptors.createDescriptorSets(builder, uniformManager.rayDataUniforms);
     renderDescriptors.createDescriptorSets(builder, uniformManager.renderUniforms, meshData);
-    computeDescriptors.createDescriptorSets(builder, uniformManager.novelUnifroms, camManager);
+    computeDescriptors.createDescriptorSets(builder, uniformManager.novelUniforms, camManager);
 
     // Debug utils
     frustumDescriptors.createDescriptorSets(builder, uniformManager.renderUniforms.uniformBuffers);
-    camCubeDestriptors.createDescriptorSets(builder, cubeSamplerView);
+    camCubeDescriptors.createDescriptorSets(builder, cubeSamplerView);
     offlineDescriptors.createDescriptorSets(builder, uniformManager.offlineUniforms.uniformBuffers, camManager);
     pointCloudDescriptors.createDescriptorSets(builder, uniformManager.pointCloudUniforms, camManager.getNovelStorageViews());
 
     reduceDescriptors.createDescriptorSets(builder, camManager.getSampler(ImageViewType::DEPTH), camManager.getReduceDepthViews());
-    novelSynthDescriptors.createDescriptorSets(builder, uniformManager.novelUnifroms.camArraySSBOIn, uniformManager.novelSynthUniforms);
-    novelReconDescriptors.createDescriptorSets(builder, uniformManager.novelReconUnifroms, camManager);
+    novelSynthDescriptors.createDescriptorSets(builder, uniformManager.novelUniforms.camArraySSBOIn, uniformManager.novelSynthUniforms);
+    novelReconDescriptors.createDescriptorSets(builder, uniformManager.novelReconUniforms, camManager);
 }
 
 void DescriptorManager::createDescriptorPool() {

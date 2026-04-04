@@ -62,11 +62,11 @@ uint32_t CamerasManager::getActiveIndex() const {
     return activeIndex;
 }
 
-bool CamerasManager::novelViewToggeled(){
+bool CamerasManager::novelViewToggled(){
     return novelViewActive;
 }
 
-bool CamerasManager::observerToggeled() {
+bool CamerasManager::observerToggled() {
     return observerActive;
 }
 

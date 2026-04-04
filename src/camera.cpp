@@ -5,7 +5,7 @@
 #include <swapchain.hpp>
 #include <uniforms.hpp>
 
-float wrapYaw(float yaw) {
+static float wrapYaw(float yaw) {
     yaw = fmod(yaw + 180.0f, 360.0f);
     if (yaw < 0) yaw += 360.0f;
     return yaw - 180.0f;
@@ -193,11 +193,6 @@ OfflineCamera::~OfflineCamera() {
 }
 
 void OfflineCamera::createOfflineResources(VkImage colorImage, VkImage depthImage, uint32_t camID, const VkRenderPass renderPass, const VkFormat colorFormat, const VkFormat depthFormat, VkExtent2D& swapChainExtent) {
-    // memManager.createImage(swapChainExtent.width, swapChainExtent.height, colorFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-    //      colorImage, VMA_MEMORY_USAGE_GPU_ONLY, colorImageMemory);
-    // memManager.createImage(swapChainExtent.width, swapChainExtent.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-    //      depthImage, VMA_MEMORY_USAGE_GPU_ONLY, depthImageMemory);
-
     colorImageView = createImageView(colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle, 1, camID);
     depthImageView = createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, deviceHandle, 1, camID);
 
@@ -230,9 +225,6 @@ void OfflineCamera::cleanupOfflineResources() {
     if (colorImageView != VK_NULL_HANDLE && depthImageView != VK_NULL_HANDLE) {
         vkDestroyImageView(deviceHandle, colorImageView, nullptr);
         vkDestroyImageView(deviceHandle, depthImageView, nullptr);
-
-        // memManager.destroyImage(colorImage, colorImageMemory);
-        // memManager.destroyImage(depthImage, depthImageMemory);
 
         colorImageView = VK_NULL_HANDLE;
         depthImageView = VK_NULL_HANDLE;

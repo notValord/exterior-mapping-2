@@ -24,6 +24,12 @@ namespace tinyobj {
 
 class MemoryManager;
 
+/**
+ * @struct Material
+ * @brief Stores material properties parsed from OBJ materials.
+ *
+ * Includes the diffuse color, lighting properties, and optional diffuse texture file.
+ */
 struct Material {
     std::string name;
     glm::vec4 diffuseColor;
@@ -44,6 +50,10 @@ struct Material {
     }
 };
 
+/**
+ * @struct SubMesh
+ * @brief Defines a range of indices for a material subset of the mesh.
+ */
 struct SubMesh {
     uint32_t indexCount;
     uint32_t indexOffset;
@@ -60,6 +70,12 @@ struct SubMesh {
     }
 };
 
+/**
+ * @class Mesh
+ * @brief Loads OBJ geometry and creates GPU-side buffers for rendering.
+ *
+ * Handles vertex/index buffer creation, material loading, and optional texture binding.
+ */
 class Mesh{
 public:
     VkBuffer vertexBuffer = VK_NULL_HANDLE;
@@ -68,9 +84,20 @@ public:
 
     float scale = 1.0f;
 
+    /**
+     * @brief Constructs a mesh by loading an OBJ file and creating Vulkan resources.
+     * @param modelPath Path to the OBJ model file.
+     * @param device Logical Vulkan device.
+     * @param memManager Memory manager used for buffer and image allocation.
+     * @param prop Physical device properties used for sampler creation.
+     */
     Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
     ~Mesh();
 
+    /**
+     * @brief Reloads a different model into this Mesh instance.
+     * @param modelPath Path to the new OBJ model file.
+     */
     void changeModel(const std::string& modelPath);
 
     uint32_t getIndicesSize();
@@ -93,7 +120,7 @@ private:
     std::vector<uint32_t> indices;
 
     std::vector<SubMesh> meshes;
-    std::vector<RenderMaterialObject> lightProps;       // the same index as the meshes;
+    std::vector<RenderMaterialObject> lightProps;       // the same index as the meshes, memory storage for the materials;
     std::vector<Texture> textures;
     Sampler sampler;
 

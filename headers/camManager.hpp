@@ -11,6 +11,12 @@ extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 enum class SaveImageFormat;
 
+/**
+ * @class OfflineResources
+ * @brief Manages offline rendering resources for camera arrays.
+ * 
+ * Handles layered images, depth mipmaps, and samplers for offline snapshot rendering.
+ */
 class OfflineResources {
 public:
     Sampler imageSampler;
@@ -27,19 +33,56 @@ public:
     bool offlineImagesRendered = false;
     bool imagesInvalid = false;
 
+    /**
+     * @brief Initialize offline resources.
+     * @param device Vulkan device.
+     * @param prop Physical device properties.
+     * @param memMan Memory manager.
+     * @param colorFormat Color image format.
+     * @param depthFormat Depth image format.
+     * @param swapChainExtent Swapchain extent.
+     */
     OfflineResources(VkDevice device, const VkPhysicalDeviceProperties& prop, MemoryManager& memMan, VkFormat colorFormat, VkFormat depthFormat, VkExtent2D swapChainExtent);
     ~OfflineResources();
 
+    /**
+     * @brief Update layered images for new extent.
+     * @param swapChainExtent New swapchain extent.
+     */
     void updateLayered(VkExtent2D swapChainExtent);
+
+    /**
+     * @brief Save layered images to file.
+     * @param filename Output filename.
+     * @param depthSaveFormat Depth save format.
+     * @param colorFormat Color format.
+     * @param depthFormat Depth format.
+     * @param nearFar Near/far plane values.
+     */
     void saveLayeredImages(std::string& filename, SaveImageFormat depthSaveFormat, VkFormat colorFormat, VkFormat depthFormat, glm::vec2 nearFar);
 
     void createLayeredImage(VkFormat colorFormat, VkFormat depthFormat, bool dummy = false);
     void createMipMapImages(VkFormat depthFormat, bool dummy = false, VkCommandBuffer commandBuffer = VK_NULL_HANDLE);
 
+    /**
+     * @brief Get image view for type and mipmap.
+     * @param type Image view type.
+     * @param mipMapID Mipmap level (-1 for base).
+     * @return Image view handle.
+     */
     VkImageView getImageView(ImageViewType type, int mipMapID = -1);
     void setLayerCount(u_int32_t count);
     void setRendered();
+
+    /**
+     * @brief Transfer layered images to new layout.
+     * @param newLayout New image layout.
+     * @param colorFormat Color format.
+     * @param depthFormat Depth format.
+     * @param commandBuffer Command buffer.
+     */
     void transferLayered(VkImageLayout newLayout, VkFormat colorFormat, VkFormat depthFormat, VkCommandBuffer commandBuffer);
+
 private:
     VmaAllocation layeredImageMemory;
     VkImageView layeredImageView;
@@ -75,6 +118,10 @@ private:
     void destroyMipMapImages();
 };
 
+/**
+ * @class NovelResources
+ * @brief Manages resources for novel view rendering.
+ */
 class NovelResources {
 public:
     std::vector<VkImage> metadataImage;
@@ -84,12 +131,30 @@ public:
 
     std::vector<VkFramebuffer> novelFramebuffers;
 
+    /**
+     * @brief Initialize novel resources.
+     * @param device Vulkan device.
+     * @param memMan Memory manager.
+     * @param renderPass Render pass.
+     * @param extent Image extent.
+     * @param formats Attachment formats.
+     * @param swapChainImageViews Swapchain image views.
+     */
     NovelResources(VkDevice device, MemoryManager& memMan, VkRenderPass renderPass, VkExtent2D extent, const AttachementsFormats& formats, const std::vector<VkImageView>& swapChainImageViews);
     ~NovelResources();
 
+    /**
+     * @brief Update extent and recreate resources.
+     * @param newExtent New image extent.
+     */
     void updateExtent(VkExtent2D newExtent);
 
+    /**
+     * @brief Recreate framebuffers.
+     * @param swapChainImageViews Swapchain views.
+     */
     void recreateFrameBuffers(const std::vector<VkImageView>& swapChainImageViews);
+
 private:
     std::vector<VmaAllocation> depthImageMemory;
     std::vector<VmaAllocation> metadataImageMemory;
@@ -112,20 +177,39 @@ private:
     void destroyFrameBuffers();
 };
 
+/**
+ * @class CamerasManager
+ * @brief Manages multiple cameras for rendering and novel view synthesis.
+ */
 class CamerasManager {
 public:
-    Camera* activeCam;
+    Camera* activeCam;    ///< Pointer to the currently active camera.
 
-    std::vector<OfflineCamera> camArray;
-    NovelCamera novelView;
-    Camera observer;
+    std::vector<OfflineCamera> camArray;    ///< Array of offline cameras.
+    NovelCamera novelView;                  ///< Novel view camera.
+    Camera observer;                        ///< Observer camera.
 
     uint32_t sampleCount = 16;
     uint32_t sampleDebug = 16;
 
+    /**
+     * @brief Initialize camera manager.
+     * @param device Vulkan device.
+     * @param memMan Memory manager.
+     * @param swapChainExtent Swapchain extent.
+     * @param formats Attachment formats.
+     * @param renderpass Render pass.
+     * @param prop Physical device properties.
+     * @param swapChainImageViews Swapchain views.
+     */
     CamerasManager(VkDevice device, MemoryManager& memMan, VkExtent2D swapChainExtent, const AttachementsFormats& formats, VkRenderPass renderpass, const VkPhysicalDeviceProperties& prop, const std::vector<VkImageView>& swapChainImageViews);
     ~CamerasManager();
 
+    /**
+     * @brief Update for swapchain resize.
+     * @param swapChainExtent New extent.
+     * @param swapChainImageViews New views.
+     */
     void updateResize(VkExtent2D swapChainExtent, const std::vector<VkImageView>& swapChainImageViews);
     void toggleNovel();
     void toggleObserver();
@@ -137,10 +221,20 @@ public:
 
     uint32_t getCamCount() const;
     uint32_t getActiveIndex() const;
-    bool novelViewToggeled();
-    bool observerToggeled();
+    bool novelViewToggled();
+    bool observerToggled();
 
+    /**
+     * @brief Get image view for type.
+     * @param type Image view type.
+     * @return Image view handle.
+     */
     VkImageView getImageView(ImageViewType type);
+
+    /**
+     * @brief Get reduce depth views.
+     * @return Array of depth views.
+     */
     std::array<VkImageView, 4> getReduceDepthViews();
     std::vector<VkImage> getReduceStorageImages();
     void createLayeredImages();
@@ -151,12 +245,24 @@ public:
     void setImagesRendered();
     VkSampler getSampler(ImageViewType type);
 
+    /**
+     * @brief Save images to file.
+     * @param filename Output filename.
+     * @param depthSaveFormat Depth format.
+     */
     void saveImages(std::string& filename, SaveImageFormat depthSaveFormat);
+
+    /**
+     * @brief Transfer layered layout.
+     * @param layout New layout.
+     * @param commandBuffer Command buffer.
+     */
     void transferLayeredLayout(VkImageLayout layout, VkCommandBuffer commandBuffer);
 
     VkFramebuffer getNovelFramebuffer(uint32_t imageIndex);
     std::vector<VkImageView> getNovelStorageViews();
     VkImage getNovelStorageImage(uint32_t currentFrame);
+
 private:
     OfflineResources offlineRes;
     NovelResources novelRes;

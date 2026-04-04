@@ -22,7 +22,7 @@ MemoryManager::MemoryManager(const PhysicalDeviceInstance& phyDevInst, const VkC
         .physicalDevice = phyDevInst.physicalDevice,
         .device = phyDevInst.device,
         .instance = phyDevInst.instance,
-        .vulkanApiVersion = VK_API_VERSION_1_0
+        .vulkanApiVersion = VK_API_VERSION_1_1
     };
 
     vmaCreateAllocator(&allocatorInfo, &allocator);
@@ -30,14 +30,6 @@ MemoryManager::MemoryManager(const PhysicalDeviceInstance& phyDevInst, const VkC
 
 MemoryManager::~MemoryManager(){
     vmaDestroyAllocator(allocator);
-}
-
-VkCommandBuffer MemoryManager::beginSingleCommand() {
-    return beginSingleTimeCommands(deviceHandle, transferPoolHandle);
-}
-
-void MemoryManager::submitSingleCommand(VkCommandBuffer& commandBuffer) {
-    endSingleTimeCommands(commandBuffer, transferQueueHandle, deviceHandle, transferPoolHandle);
 }
 
 void MemoryManager::createImage(int width, int height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImage& image,
@@ -145,7 +137,7 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
             break;
         
         default:
-            throw std::runtime_error("Unsuported layout transition!");
+            throw std::runtime_error("Unsupported layout transition!");
     };
 
     switch (newLayout) {
@@ -184,7 +176,7 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
             break;
         
         default:
-            throw std::runtime_error("Unsuported layout transition!");
+            throw std::runtime_error("Unsupported layout transition!");
     };
 
     // if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
@@ -281,7 +273,7 @@ void MemoryManager::transitionImageLayout(VkImage& image, VkFormat format, VkIma
     //     destinationStage = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     // }
     // else {
-    //     throw std::runtime_error("Unsuported layout transition!");
+    //     throw std::runtime_error("Unsupported layout transition!");
     // }
 
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1 , &imageMemoryBarrier);

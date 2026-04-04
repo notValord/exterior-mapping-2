@@ -112,7 +112,7 @@ void OfflineUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager
         .presentType = viewType
     };
 
-    if (camManager.novelViewToggeled() || camManager.observerToggeled()){
+    if (camManager.novelViewToggled() || camManager.observerToggled()){
         ubo.layerID = -1;
     }
     else {
@@ -121,6 +121,7 @@ void OfflineUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager
 
     memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(OfflineBufferObject));
 }
+
 
 
 NovelUniforms::NovelUniforms(MemoryManager& memManager, const uint32_t camCount, const VkExtent2D& extentSize)
@@ -405,7 +406,7 @@ void PointCloudUniforms::updateStorageBuffers(CamerasManager& camManager) {
     std::vector<CamArrayInvMatrices> matricesData(camCount);
 
 
-    for (uint i = 0; i < camCount; i++) {
+    for (uint32_t i = 0; i < camCount; i++) {
         CamArrayInvMatrices matrices {
             .invViewMat = glm::inverse(camManager.camArray[i].getViewMatrix()),
             .invProjMat = glm::inverse(camManager.camArray[i].getProjectionMatrix()),
@@ -754,10 +755,10 @@ void NovelReconUniforms::transferResultLayout(uint32_t currentFrame, VkImageLayo
 UniformManager::UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount, const VkPhysicalDeviceProperties& prop)
         : renderUniforms(memManager),
           offlineUniforms(memManager),
-          novelUnifroms(memManager, camCount, extentSize),
+          novelUniforms(memManager, camCount, extentSize),
           pointCloudUniforms(memManager),
           rayDataUniforms(memManager, extentSize),
           novelSynthUniforms(memManager, device, camCount, extentSize),
-          novelReconUnifroms(memManager, device, extentSize, prop) {
+          novelReconUniforms(memManager, device, extentSize, prop) {
     ;
 }

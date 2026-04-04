@@ -61,7 +61,7 @@ DebugUtil::DebugUtil(MemoryManager& memMan, const uint32_t camCount)
         frustumCounts[frame] = camCount;
     }
 
-    createFrustrumBuffers();
+    createFrustumBuffers();
 }
 
 DebugUtil::~DebugUtil() {
@@ -71,11 +71,11 @@ DebugUtil::~DebugUtil() {
     }
 }
 
-uint32_t DebugUtil::getFrustumIndexCount(uint32_t curretnFrame) {
-    return frustumCounts[curretnFrame] * frustumIndices.size();
+uint32_t DebugUtil::getFrustumIndexCount(uint32_t currentFrame) {
+    return frustumCounts[currentFrame] * frustumIndices.size();
 }
 
-void DebugUtil::createFrustrumBuffers() {
+void DebugUtil::createFrustumBuffers() {
     VkDeviceSize vertexSize = sizeof(Vertex) * frustumVertexCount * frustumCounts[0];
     VkDeviceSize indexSize = sizeof(uint32_t) * frustumIndices.size() * frustumCounts[0];
 

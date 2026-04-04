@@ -2,47 +2,79 @@
 
 #include <glm/glm.hpp>
 
+/**
+ * @enum ImageViewType
+ * @brief Selects the type of image view used for rendering.
+ */
 enum class ImageViewType : uint32_t {
     COLOR,
     DEPTH
 };
 
+/**
+ * @enum DebugCompute
+ * @brief Controls which debug compute visualization is enabled.
+ */
 enum class DebugCompute : uint32_t {
-    NO_DEBUG,
-    INTERSECTION,
-    CAM_COUNT,
-    CAM_ID,
-    SAMPLE_DEPTH
+    NO_DEBUG,      ///< No debug output.
+    INTERSECTION,  ///< Visualize ray intersection positions.
+    CAM_COUNT,     ///< Visualize camera count information.
+    CAM_ID,        ///< Visualize camera ID values.
+    SAMPLE_DEPTH   ///< Visualize sample depth information.
 };
 
+/**
+ * @enum NovelHeuristic
+ * @brief Chooses the heuristic used by novel view synthesis.
+ */
 enum class NovelHeuristic : uint32_t {
     COLOR_HEURISTIC,
     DEPTH_HEURISTIC,
     ANGLE_HEURISTIC
 };
 
+/**
+ * @enum PresentationMode
+ * @brief Selects the current presentation or rendering mode.
+ */
 enum class PresentationMode : uint32_t {
     OFFLINE_RENDER,
     NOVEL_RENDER
 };
 
+/**
+ * @enum DistanceType
+ * @brief Chooses the distance metric used by compute shaders.
+ */
 enum class DistanceType : uint32_t {
     POINT,
     POINT_RAY
 };
 
+/**
+ * @enum ConeMarching
+ * @brief Controls cone marching behavior for ray-based reconstruction.
+ */
 enum class ConeMarching  : uint32_t {
     NO_CONE,
     ONLY_CONE,
     PARTIAL_CONE
 };
 
+/**
+ * @struct MeshUniforms
+ * @brief Descriptor data for mesh material sampling.
+ */
 struct MeshUniforms{
     const VkSampler sampler;
     const std::vector<VkImageView> textures;
     VkBuffer materials;
 };
 
+/**
+ * @struct RayData
+ * @brief Per-ray payload used for ray generation and tracing.
+ */
 struct RayData{
     glm::vec3 origin;
     uint32_t coordX;
@@ -50,14 +82,22 @@ struct RayData{
     uint32_t coordY;
 };
 
-
 // Uniform Buffer Objects
+
+/**
+ * @struct MVPBufferObject
+ * @brief Standard model-view-projection uniform buffer.
+ */
 struct MVPBufferObject {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 proj;
 };
 
+/**
+ * @struct RenderFragmentObject
+ * @brief Fragment shader data for simple shading.
+ */
 struct RenderFragmentObject {
     glm::vec3 lightPos;
     float _padd;
@@ -65,6 +105,10 @@ struct RenderFragmentObject {
     uint32_t depth;
 };
 
+/**
+ * @struct RenderMaterialObject
+ * @brief Material lighting parameters for the renderer.
+ */
 struct RenderMaterialObject {
     glm::vec3 ambient;
     float _padd;
@@ -72,6 +116,10 @@ struct RenderMaterialObject {
     float shininess;
 };
 
+/**
+ * @struct OfflineBufferObject
+ * @brief Uniforms for offline rendering and presentation control.
+ */
 struct OfflineBufferObject{
     glm::ivec2 grid;
     int layerID;
@@ -80,6 +128,10 @@ struct OfflineBufferObject{
     ImageViewType presentType;
 };
 
+/**
+ * @struct NovelBufferObject
+ * @brief Uniforms used by novel view synthesis compute shaders.
+ */
 struct NovelBufferObject {
     glm::mat4 viewMat;
     glm::mat4 invViewMat;
@@ -104,12 +156,20 @@ struct PointCloudObject {
     uint32_t camCnt;
 };
 
+/**
+ * @struct RayDataObject
+ * @brief Uniforms for ray generation in ray tracing.
+ */
 struct RayDataObject {
     glm::mat4 invViewMat;
     glm::mat4 invProjMat;
     glm::uvec2 res;
 };
 
+/**
+ * @struct ReconDataObject
+ * @brief Uniforms for novel reconstruction passes.
+ */
 struct ReconDataObject {
     glm::uvec2 novelRes;
     uint32_t layerCount;
@@ -117,6 +177,11 @@ struct ReconDataObject {
 
 
 // Storage Buffer Data
+
+/**
+ * @struct CamArrayData
+ * @brief Per-camera data stored in a compute shader SSBO.
+ */
 struct CamArrayData {
     glm::vec4 frustumPlanes[6];
     glm::mat4 viewMat;
@@ -125,6 +190,10 @@ struct CamArrayData {
     glm::mat4 invProjMat;
 };
 
+/**
+ * @struct CamArrayInvMatrices
+ * @brief Stores only inverse camera matrices for ray reconstruction.
+ */
 struct CamArrayInvMatrices {
     glm::mat4 invViewMat;
     glm::mat4 invProjMat;

@@ -28,7 +28,7 @@ void SyncManager::createSemaphore(VkSemaphore& semaphore) {
     };
 
     if (vkCreateSemaphore(deviceHandle, &semaphoreCI, nullptr, &semaphore) != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create semaphores!");
+        throw std::runtime_error("Failed to create a semaphore!");
     }
 }
 

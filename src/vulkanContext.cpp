@@ -4,6 +4,12 @@
 
 #include <bitset>
 
+/**
+ * @brief Finds queue families that support graphics, present, transfer, and compute operations.
+ * @param physicalDevice The physical device to query.
+ * @param surface The surface used for presentation support checks.
+ * @return Queue family indices for the requested queue types.
+ */
 static const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice physicalDevice, const VkSurfaceKHR surface) {
     QueueFamilyIndices indices;
 
@@ -15,7 +21,7 @@ static const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice physica
 
     int i = 0;
     for (const auto& queueFamily: queueFamilyProperties) {
-        // std::cout << std::bitset<8>(queueFamily.queueFlags) << std::endl;    // debug falimies available on device
+        // std::cout << std::bitset<8>(queueFamily.queueFlags) << std::endl;    // debug families available on device
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             indices.graphicsFamily = i;
         }
@@ -44,6 +50,43 @@ static const QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice physica
 
     return indices;
 }
+
+/**
+ * @brief Prints compute-related limits for the selected Vulkan physical device.
+ * @param device The physical device to query.
+ */
+static void printGPUData(const VkPhysicalDevice device) {
+    VkPhysicalDeviceProperties deviceProperties;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+    VkPhysicalDeviceLimits limits = deviceProperties.limits;
+    std::cout << "  Maximum workgroups per dispatch: " << limits.maxComputeWorkGroupCount[0] << ", " << limits.maxComputeWorkGroupCount[1] << ", " << limits.maxComputeWorkGroupCount[2] << ", " << "\n";
+    std::cout << "  Maximum threads per workgroup: " << limits.maxComputeWorkGroupInvocations << "\n";
+    std::cout << "  Maximum threads per dimension: " << limits.maxComputeWorkGroupSize[0] << ", " << limits.maxComputeWorkGroupSize[1] << ", " << limits.maxComputeWorkGroupSize[2] << ", " << "\n";
+    std::cout << "  Maximum shared memory per workgroup: " << limits.maxComputeSharedMemorySize << "\n";
+}
+
+/**
+ * @brief Prints subgroup properties for the selected Vulkan physical device.
+ * @param device The physical device to query.
+ */
+static void printSubgroupProperties(const VkPhysicalDevice device) {
+    VkPhysicalDeviceSubgroupProperties subgroupProperties;
+    subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+    subgroupProperties.pNext = NULL;
+
+    VkPhysicalDeviceProperties2 physicalDeviceProperties;
+    physicalDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    physicalDeviceProperties.pNext = &subgroupProperties;
+
+    vkGetPhysicalDeviceProperties2(device, &physicalDeviceProperties);
+
+    std::cout << "Subgroup size: " << subgroupProperties.subgroupSize << std::endl;
+    std::cout << "Supported stages: " << std::bitset<8>(subgroupProperties.supportedStages) << std::endl;;
+    std::cout << "Supported operations: " << std::bitset<12>(subgroupProperties.supportedOperations) << std::endl;
+}
+
+
 
 VulkanContext::VulkanContext(GLFWwindow* window) {
     createInstance();
@@ -83,6 +126,8 @@ VkPhysicalDeviceProperties VulkanContext::getDeviceProperties() {
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
     return properties;
 }
+
+
 
 VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
@@ -157,6 +202,8 @@ void VulkanContext::setupDebugMessenger() {
 
 }
 
+
+
 bool VulkanContext::checkValidationSupport() {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -224,6 +271,8 @@ std::vector<const char*> VulkanContext::getRequiredExtensions() {
     checkExtensionSupport(extensions);      // not needed, we could check essential extentions
     return extensions;
 }
+
+
 
 void VulkanContext::createInstance(){
     VkApplicationInfo appInfo{
@@ -316,33 +365,6 @@ unsigned int VulkanContext::rateDeviceSuitability(const VkPhysicalDevice device,
     return score;
 }
 
-void printGPUData(const VkPhysicalDevice device) {
-    VkPhysicalDeviceProperties deviceProperties;    // I dont like this
-    vkGetPhysicalDeviceProperties(device, &deviceProperties);
-
-    VkPhysicalDeviceLimits limits = deviceProperties.limits;
-    std::cout << "  Maximum workgroups per dispatch: " << limits.maxComputeWorkGroupCount[0] << ", " << limits.maxComputeWorkGroupCount[1] << ", " << limits.maxComputeWorkGroupCount[2] << ", " << "\n";
-    std::cout << "  Maximum threads per workgroup: " << limits.maxComputeWorkGroupInvocations << "\n";
-    std::cout << "  Maximum threads per dimension: " << limits.maxComputeWorkGroupSize[0] << ", " << limits.maxComputeWorkGroupSize[1] << ", " << limits.maxComputeWorkGroupSize[2] << ", " << "\n";
-    std::cout << "  Maximum shared memory per workgroup: " << limits.maxComputeSharedMemorySize << "\n";
-}
-
-void printSubgroupProperties(const VkPhysicalDevice device) {
-    VkPhysicalDeviceSubgroupProperties subgroupProperties;
-    subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
-    subgroupProperties.pNext = NULL;
-
-    VkPhysicalDeviceProperties2 physicalDeviceProperties;
-    physicalDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-    physicalDeviceProperties.pNext = &subgroupProperties;
-
-    vkGetPhysicalDeviceProperties2(device, &physicalDeviceProperties);
-
-    std::cout << "Subgroup size: " << subgroupProperties.subgroupSize << std::endl;
-    std::cout << "Supported stages: " << std::bitset<8>(subgroupProperties.supportedStages) << std::endl;;
-    std::cout << "Supported operations: " << std::bitset<12>(subgroupProperties.supportedOperations) << std::endl;
-}
-
 void VulkanContext::pickPhysicalDevice() {
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -381,7 +403,7 @@ void VulkanContext::pickPhysicalDevice() {
 
 void VulkanContext::createLogicalDevice() {
     std::vector<VkDeviceQueueCreateInfo> deviceQueueCIs;
-    // todo, we dont know how many families we have ig? fix when using multiple queues
+    // using a single queue for all families, use multiple queues in the future
     std::set<uint32_t> uniqueQueueFamilies = {familyIndices.graphicsFamily.value(), familyIndices.presentFamily.value()};
     float queuePriority = 1.0f;
 

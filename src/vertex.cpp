@@ -14,7 +14,7 @@ VkVertexInputBindingDescription Vertex::getBindingDescription() {
     return bindingDescription;
 }
 
-std::vector<VkVertexInputAttributeDescription> Vertex::getAttribureDescriptions() {
+std::vector<VkVertexInputAttributeDescription> Vertex::getAttributeDescriptions() {
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     attributeDescriptions.reserve(4);
     attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
@@ -60,7 +60,7 @@ VkVertexInputBindingDescription Point::getBindingDescription() {
     return bindingDescription;
 }
 
-std::vector<VkVertexInputAttributeDescription> Point::getAttribureDescriptions() {
+std::vector<VkVertexInputAttributeDescription> Point::getAttributeDescriptions() {
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     attributeDescriptions.reserve(2);
     attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{
@@ -90,7 +90,7 @@ VkVertexInputBindingDescription CloudPoint::getBindingDescription() {
     return bindingDescription;
 }
 
-std::vector<VkVertexInputAttributeDescription> CloudPoint::getAttribureDescriptions() {
+std::vector<VkVertexInputAttributeDescription> CloudPoint::getAttributeDescriptions() {
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
     attributeDescriptions.reserve(3);
     attributeDescriptions.emplace_back(VkVertexInputAttributeDescription{

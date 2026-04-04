@@ -26,12 +26,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (io.WantCaptureKeyboard)
         return;  // Let ImGui handle it, ignore game hotkeys
     
-    if (action == GLFW_PRESS) {
-        std::cout << "Key pressed: " << key << std::endl;
-    }
-    else if (action == GLFW_RELEASE) {
-        std::cout << "Key released: " << key << std::endl;
-    }
+    // if (action == GLFW_PRESS) {
+    //     std::cout << "Key pressed: " << key << std::endl;
+    // }
+    // else if (action == GLFW_RELEASE) {
+    //     std::cout << "Key released: " << key << std::endl;
+    // }
 
     if (action == GLFW_PRESS && key == GLFW_KEY_U) {
         showUIFlag = showUIFlag ? false:true;

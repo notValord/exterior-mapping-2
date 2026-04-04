@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>
 
 // system include
-#include <iostream>
 #include <chrono>
 
 // user include
@@ -12,75 +11,99 @@
 #include <structs.hpp>
 
 class CamerasManager;
-// enum class ImageViewType : uint32_t;
-// enum class DebugCompute : uint32_t;
-// enum class NovelHeuristic : uint32_t;
-// enum class DistanceType : uint32_t;
-// enum class ConeMarching  : uint32_t;
 
-class FPSCounter{
+/// Simple frame rate counter for UI display and timing feedback.
+class FPSCounter {
 public:
+    /// Current frames per second value.
     double fps = 0.0;
-    
+
+    /// Update the FPS counter once per rendered frame.
     void frame();
+
 private:
     std::chrono::high_resolution_clock::time_point lastTime = std::chrono::high_resolution_clock::now();
     uint32_t frameCount = 0;
 };
 
+/// Handles keyboard, mouse, and ImGui input plus UI command recording.
 class InputManager {
 public:
-    // UI public flags and variables
+    /// Whether an offline render should be presented instead of the live swapchain.
     bool presentOfflineFlag = false;
+
+    /// Whether the offline image is being prepared.
     bool setupOfflineImage = false;
+
+    /// Which image view should be displayed in the UI / renderer.
     ImageViewType presentType;
+
+    /// Whether the offline render pass should run.
     bool renderOfflineFlag = false;
 
+    /// Visualization toggles handled by the UI.
     bool debugGrayscale = false;
     bool debugFrustum = false;
     bool debugCamCube = false;
     bool debugIntersection = false;
     bool debugPointCloud = false;
 
+    /// Novel view rendering options.
     bool novelRender = false;
     bool newNovelRender = false;
     DebugCompute novelDebug;
     NovelHeuristic novelHeuristic;
     bool startSynthesis = false;
 
+    /// Ray marching / intersection options.
     DistanceType distance;
     uint32_t neighbourCount = 1;
     ConeMarching coneMarching;
     float inConePercentage = 0.0f;
 
+    /// Scene selection state.
     int sceneSelected = 0;
     bool sceneChanged = false;
 
-    InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
-     const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent,
-     MemoryManager& memMan, Mesh& mesh);
+    InputManager(GLFWwindow* window,
+                 CamerasManager& camManager,
+                 const AttachementsFormats& imageFormats,
+                 const std::vector<VkImageView>& swapChainImageViews,
+                 const PhysicalDeviceInstance& physicalDeviceInstance,
+                 const VkQueue graphicsQueue,
+                 const QueueFamilyIndices& familyIndices,
+                 VkExtent2D& swapChainExtent,
+                 MemoryManager& memMan,
+                 Mesh& mesh);
     ~InputManager();
 
+    /// Install GLFW input callbacks for this manager.
     void setCallbacks();
 
+    /// Poll input state, update camera movement, and rebuild UI when needed.
     void frame();
+
+    /// Record the ImGui command buffer for the current swapchain image.
     VkCommandBuffer recordUI(uint32_t currentFrame, uint32_t imageIndex);
 
-    void imguiResize(const std::vector<VkImageView>& swapChainImageViews, const VkExtent2D& swapChainExtent);
+    /// Recreate ImGui framebuffers after swapchain recreation.
+    void imguiResize(const std::vector<VkImageView>& swapChainImageViews,
+                     const VkExtent2D& swapChainExtent);
 
 private:
     FPSCounter fpsCnt;
     ImguiProxy imguiProxy;
 
-    // vulkan handless
+    // Vulkan handless
     GLFWwindow* windowHandle;
     CamerasManager& camManagerHandle;
     Mesh& meshRef;
 
     float lastFrameTime = 0.0f;
-    double lastX = 0.0, lastY = 0.0;
-
+    double lastX = 0.0;
+    double lastY = 0.0;
     bool firstMouse = false;
 
+    /// Process raw GLFW input state every frame.
     void processInput();
 };

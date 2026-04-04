@@ -9,6 +9,10 @@
 struct AttachementsFormats;
 class DescriptorManager;
 
+/**
+ * @enum VertexInputFlags
+ * @brief Configures vertex input formats used by different graphics pipelines.
+ */
 enum class VertexInputFlags : uint32_t {
     POS_COL_UV_NORM,
     POS_COL_CAMID,
@@ -17,26 +21,46 @@ enum class VertexInputFlags : uint32_t {
     NONE
 };
 
+/**
+ * @struct DepthStencilFlags
+ * @brief Depth and stencil state configuration for graphics pipelines.
+ */
 struct DepthStencilFlags{
     VkBool32 testEnable;
     VkBool32 writeEnable;
 };
 
+/**
+ * @struct RasterizationFlags
+ * @brief Controls rasterization behavior for graphics pipelines.
+ */
 struct RasterizationFlags{
     VkCullModeFlags cullMode;
     VkFrontFace frontFace;
 };
 
+/**
+ * @struct GraphicShaders
+ * @brief File paths for vertex and fragment shaders used by a graphics pipeline.
+ */
 struct GraphicShaders {
     std::string vert;
     std::string frag;
 };
 
+/**
+ * @struct ComputeShader
+ * @brief File path for a compute shader used by a compute pipeline.
+ */
 struct ComputeShader {
     std::string comp;
 };
 
 
+/**
+ * @struct GraphicSetup
+ * @brief Configuration for creating a graphics pipeline.
+ */
 struct GraphicSetup {
     GraphicShaders shaderFiles;
     VertexInputFlags vertexInput;
@@ -45,6 +69,10 @@ struct GraphicSetup {
     RasterizationFlags rastFlags;
 };
 
+/**
+ * @struct PipelineLayoutSetup
+ * @brief Descriptor set layouts and push constant configuration.
+ */
 struct PipelineLayoutSetup {
     std::vector<VkDescriptorSetLayout> descriptorVec;
     uint32_t pushConstants = 0;
@@ -53,6 +81,10 @@ struct PipelineLayoutSetup {
         : descriptorVec(layouts), pushConstants(push) {}
 };
 
+/**
+ * @struct AttachementDescription
+ * @brief Describes a render pass attachment and its layout transitions.
+ */
 struct AttachementDescription {
     VkFormat imageFormat;
     VkAttachmentLoadOp loadOp;
@@ -61,7 +93,10 @@ struct AttachementDescription {
     VkImageLayout finalLayout;
 };
 
-
+/**
+ * @class PipelineBuilder
+ * @brief Helper for creating Vulkan pipeline layouts, render passes, and pipelines.
+ */
 class PipelineBuilder {
 public:
     PipelineBuilder(const VkDevice device);
@@ -78,19 +113,27 @@ private:
 
 
 
+/**
+ * @class RenderPassManager
+ * @brief Creates and owns the render passes used by the renderer.
+ */
 class RenderPassManager {
 public:
-    VkRenderPass renderPass;
-    VkRenderPass onTopRenderPass;
+    VkRenderPass renderPass;        ///< Main render pass.
+    VkRenderPass onTopRenderPass;   ///< Secondary render pass for overlay rendering.
 
     RenderPassManager(VkDevice device, AttachementsFormats attachFormats, const PipelineBuilder& builder);
     ~RenderPassManager();
 private:
-    VkDevice deviceHandle;
+    VkDevice deviceHandle; ///< Vulkan logical device used to destroy render passes.
 };
 
 
 
+/**
+ * @class GraphicPipeline
+ * @brief Encapsulates a Vulkan graphics pipeline and its layout.
+ */
 class GraphicPipeline {
 public:
     VkPipeline pipeline;
@@ -101,7 +144,7 @@ public:
     ~GraphicPipeline();
 
 private:
-    const GraphicShaders vertFragShaders;
+    const GraphicShaders vertFragShaders;               // Shader file paths for this pipeline.
     VkRenderPass renderPass = VK_NULL_HANDLE;
 
     // required Vulkan handle
@@ -110,6 +153,10 @@ private:
 
 
 
+/**
+ * @class ComputePipeline
+ * @brief Encapsulates a Vulkan compute pipeline and its layout.
+ */
 class ComputePipeline {
 public:
     VkPipeline pipeline;
@@ -118,17 +165,8 @@ public:
     ComputePipeline(VkDevice device, const PipelineLayoutSetup& layoutSetup, const ComputeShader& shaderFile, const PipelineBuilder& builder);
     ~ComputePipeline();
 
-    // // Not allowing copy constructors
-    // ComputePipeline(const ComputePipeline&) = delete;
-    // ComputePipeline& operator=(const ComputePipeline&) = delete;
-
-    // // Not allowing move constructors
-    // ComputePipeline(ComputePipeline&&) noexcept = delete;
-    // ComputePipeline& operator=(ComputePipeline&&) noexcept = delete;
-
-
 private:
-    const ComputeShader computeShader;
+    const ComputeShader computeShader;          // Compute shader file path
 
     // required Vulkan handle
     VkDevice deviceHandle;
@@ -136,6 +174,10 @@ private:
 
 
 
+/**
+ * @class PipelineManager
+ * @brief Builds and owns the application's graphics and compute pipelines.
+ */
 class PipelineManager {
 private:
     PipelineBuilder builder;        // needs to be initialized first
@@ -166,7 +208,6 @@ public:
 
     ComputePipeline intersectPipeline;
     ComputePipeline pointCloudPipeline;
-
     ComputePipeline rayDataPipeline;
     ComputePipeline reduceDepthPipeline;
     ComputePipeline novelSynthPipeline;

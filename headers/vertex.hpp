@@ -7,19 +7,25 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+/**
+ * @struct Vertex
+ * @brief Vertex data with position, normal, color, and texture coordinates.
+ * Used for standard mesh rendering with full lighting and texture support.
+ */
 struct Vertex {
     glm::vec3 pos;
     glm::vec3 normal;
     glm::vec4 color;
     glm::vec2 texCoords;
 
+    /// Equality comparison operator for vertex deduplication.
     bool operator==(const Vertex& other) const;
 
     static VkVertexInputBindingDescription getBindingDescription();
-    static std::vector<VkVertexInputAttributeDescription> getAttribureDescriptions();
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
 };
 
-// a template specialization from cppreference.com, experimental
+// Template specialization for Vertex hashing (from cppreference.com, experimental)
 namespace std {
     template<> struct hash<Vertex> {
         size_t operator()(Vertex const& vertex) const {
@@ -32,21 +38,30 @@ namespace std {
 
 
 
+/**
+ * @struct Point
+ * @brief Simple vertex with position and color.
+ */
 struct Point {
     glm::vec4 pos;
     glm::vec4 col;
 
     static VkVertexInputBindingDescription getBindingDescription();
-    static std::vector<VkVertexInputAttributeDescription> getAttribureDescriptions();
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
 };
 
 
 
+/**
+ * @struct CloudPoint
+ * @brief Vertex with position, color, and camera identification.
+ * Used for point cloud rendering with per-point camera source information.
+ */
 struct CloudPoint {
     glm::vec4 pos;
     glm::vec3 col;
     uint32_t camID;
 
     static VkVertexInputBindingDescription getBindingDescription();
-    static std::vector<VkVertexInputAttributeDescription> getAttribureDescriptions();
+    static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
 };

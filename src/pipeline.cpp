@@ -4,11 +4,19 @@
 #include <descriptorManager.hpp>
 #include <structs.hpp>
 
+/**
+ * @brief Reads a binary file into a char buffer.
+ *
+ * Loads a SPIR-V shader or other binary data from disk into memory.
+ * @param filename Path to the file to read.
+ * @return Buffer containing the file contents.
+ * @throws std::runtime_error if the file cannot be opened.
+ */
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary); // start reading at the end
 
     if (!file.is_open()){
-        throw std::runtime_error("Failed to open file!");
+        throw std::runtime_error("Failed to open file: " + filename);
     }
 
     size_t fileSize = (size_t) file.tellg();
@@ -22,6 +30,13 @@ static std::vector<char> readFile(const std::string& filename) {
 }
 
 
+/**
+ * @struct GraphicsPipelineWriter
+ * @brief Helper for constructing Vulkan graphics pipeline state infos.
+ *
+ * Provides a set of static helper functions for building common pipeline state
+ * create-info structures used during graphics pipeline creation.
+ */
 struct GraphicsPipelineWriter {
     static VkPipelineShaderStageCreateInfo shaderStageCI(const VkShaderModule shaderModule, VkShaderStageFlagBits shaderFlag) {
         return VkPipelineShaderStageCreateInfo {
@@ -71,7 +86,7 @@ struct GraphicsPipelineWriter {
         };
     }
 
-    static VkPipelineMultisampleStateCreateInfo multisapleStatiCI() {
+    static VkPipelineMultisampleStateCreateInfo multisampleStatiCI() {
         return VkPipelineMultisampleStateCreateInfo {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
             .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
@@ -334,15 +349,15 @@ VkPipeline PipelineBuilder::createGraphicsPipeline(VkPipelineLayout pipelineLayo
     }
     else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL) {
         bindingDescription = Point::getBindingDescription();
-        attributeDescription = Point::getAttribureDescriptions();
+        attributeDescription = Point::getAttributeDescriptions();
     }
     else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL_CAMID) {
         bindingDescription = CloudPoint::getBindingDescription();
-        attributeDescription = CloudPoint::getAttribureDescriptions();
+        attributeDescription = CloudPoint::getAttributeDescriptions();
     }
     else if (pipelineSetup.vertexInput == VertexInputFlags::POS_COL_UV_NORM) {
         bindingDescription = Vertex::getBindingDescription();
-        attributeDescription = Vertex::getAttribureDescriptions();
+        attributeDescription = Vertex::getAttributeDescriptions();
     }
     else if (pipelineSetup.vertexInput == VertexInputFlags::NONE) {
         ;
@@ -391,7 +406,7 @@ VkPipeline PipelineBuilder::createGraphicsPipeline(VkPipelineLayout pipelineLayo
 
     VkPipelineDepthStencilStateCreateInfo depthStencilStateCI = GraphicsPipelineWriter::depthStencilCI(pipelineSetup.depthFlags);
     VkPipelineRasterizationStateCreateInfo rasterizationStateCI = GraphicsPipelineWriter::rasterizetionCI(pipelineSetup.rastFlags);
-    VkPipelineMultisampleStateCreateInfo multisamplingStateCI = GraphicsPipelineWriter::multisapleStatiCI();
+    VkPipelineMultisampleStateCreateInfo multisamplingStateCI = GraphicsPipelineWriter::multisampleStatiCI();
 
     // depth and stencil testing also required here
     VkPipelineColorBlendAttachmentState colorBlendAttachment = GraphicsPipelineWriter::blendingAttachment();
@@ -512,7 +527,7 @@ PipelineManager::PipelineManager(VkDevice device, const AttachementsFormats& ima
                    builder),
       camCubePipeline(device,
                       renderPassMan.onTopRenderPass,
-                      PipelineLayoutSetup{{descrMan.camCubeDestriptors.descriptorSetLayout}, 1},
+                      PipelineLayoutSetup{{descrMan.camCubeDescriptors.descriptorSetLayout}, 1},
                       setupCamCubePipeline(),
                       builder),
       offlinePipeline(device,

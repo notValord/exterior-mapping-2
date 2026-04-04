@@ -5,7 +5,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-static const std::string TEXTURE_DIR = "../resources/textures/";;
+static const std::string TEXTURE_DIR = "../resources/textures/";
 
 TexturesManager::TexturesManager(const std::string& cubeTextureFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
     : properties(prop),
@@ -42,7 +42,7 @@ void Texture::createTextureImage(const std::string& texturePath) {
     VkDeviceSize imageSize = texWidth * texHeight * 4;      // the texChannels contains the number of channels of the original format, doesn't have to be 4
 
     if (!pixels) {
-        throw std::runtime_error("Failed to sload texture image: " + (TEXTURE_DIR + texturePath));
+        throw std::runtime_error("Failed to load texture image: " + (TEXTURE_DIR + texturePath));
     }
 
     VkBuffer stagingBuffer;

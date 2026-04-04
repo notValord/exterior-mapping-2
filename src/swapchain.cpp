@@ -3,6 +3,18 @@
 #include <util.hpp>
 #include <memManager.hpp>
 
+/**
+ * @brief Finds a supported Vulkan format from a prioritized candidate list.
+ *
+ * Checks candidate formats against the physical device's format properties for
+ * the requested tiling and usage features.
+ * @param physicalDevice Physical device used for format queries.
+ * @param candidates Ordered list of candidate formats to test.
+ * @param tiling Desired image tiling mode.
+ * @param features Required format features.
+ * @return First supported VkFormat matching the requirements.
+ * @throws std::runtime_error if no candidate format is supported.
+ */
 static VkFormat findSupportedFormat(const VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
     for (VkFormat format : candidates) {
         VkFormatProperties props;
@@ -19,6 +31,13 @@ static VkFormat findSupportedFormat(const VkPhysicalDevice physicalDevice, const
     throw std::runtime_error("Failed to find a supported format!");
 }
 
+/**
+ * @brief Selects a depth format supported by the physical device.
+ *
+ * Uses a small set of common depth/stencil formats and prefers a 32-bit depth-only format.
+ * @param physicalDevice Physical device used for format queries.
+ * @return Supported VkFormat for depth attachment use.
+ */
 static VkFormat findDepthFormat(const VkPhysicalDevice physicalDevice) {
     std::vector<VkFormat> depthCandidateFormats = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
     return findSupportedFormat(physicalDevice, depthCandidateFormats, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
@@ -166,7 +185,7 @@ void SwapChain::createFramebuffers(const VkRenderPass renderPass) {
         };
 
         if (vkCreateFramebuffer(deviceHandle, &framebufferCI, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS) {
-            throw std::runtime_error("Failed to create frambutters!");
+            throw std::runtime_error("Failed to create frambuffers!");
         }
     }
 }
