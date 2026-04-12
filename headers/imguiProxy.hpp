@@ -11,8 +11,10 @@
 
 #include <string>
 #include <vector>
+#include <filesystem>
 
 extern const size_t MAX_FRAMES_IN_FLIGHT;
+extern const std::string JSON_DIR;
 
 struct AttachementsFormats;
 struct PhysicalDeviceInstance;
@@ -59,8 +61,10 @@ public:
      * @param camManager Reference to the camera manager for UI controls.
      * @param inputManager Pointer to input manager for UI state.
      * @param mesh Reference to mesh for scene controls.
+     * @param scrWidth Current screen width.
+     * @param scrHeight Current screen height.
      */
-    void rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh);
+    void rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight);
 
     /**
      * @brief Recreate framebuffers after swapchain resize or recreation.
@@ -86,7 +90,8 @@ private:
     std::vector<VkCommandBuffer> commandBuffers;
 
     // UI variables
-    std::string snapshotsFiles = "Image";
+    std::string offlineSnapshotsFiles = "Image";
+    std::vector<std::string> setupNames;
 
     // Vulkan handles
     VkDevice deviceHandle;
@@ -98,11 +103,12 @@ private:
     void createFramebuffers(const std::vector<VkImageView>& swapChainImageViews);
     void createCommandBuffers(const QueueFamilyIndices& familyIndices);
 
-    void drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh);
+    void drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight);
 
-    void uiActiveCam(CamerasManager& camManager);
+    void uiCamera(CamerasManager& camManager, InputManager* inputManager);
     void uiNovelCam(CamerasManager& camManager, InputManager* inputManager);
-    void uiScene(InputManager* inputManager, Mesh& mesh);
+    void uiSetup(InputManager* inputManager);
+    void uiGeneral(InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight);
     void uiCamArray(CamerasManager& camManager, InputManager* inputManager);
     void uiOfflineRender(CamerasManager& camManager, InputManager* inputManager);
     void uiNovelRender(CamerasManager& camManager, InputManager* inputManager);

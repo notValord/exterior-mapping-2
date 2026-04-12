@@ -28,6 +28,9 @@ public:
     Window(unsigned int width, unsigned int height);
     ~Window();
 
+    uint32_t getWidth() const;
+    uint32_t getHeight() const;
+
 private:
     uint32_t screenWidth;
     uint32_t screenHeight;

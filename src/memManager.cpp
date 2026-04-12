@@ -11,6 +11,11 @@
 #define TINYEXR_IMPLEMENTATION
 #include <tinyexr.h>
 
+// timestamp for saved images
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 static bool hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -495,7 +500,19 @@ void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, S
                 p[2] = tmp;          // Replace with Blue for RGB
             }
             
-            stbi_write_png((filename + std::to_string(i) + ".png").c_str(), width, height, 4, mappedPtr, width * 4);
+            if (layerCount > 1) {   // index the cameras
+                filename += std::to_string(i) + ".png";
+            }
+            else {      // add a timestamp
+                auto now = std::chrono::system_clock::now();
+                std::time_t t = std::chrono::system_clock::to_time_t(now);
+                std::tm tm = *std::localtime(&t);
+
+                std::ostringstream oss;
+                oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
+                filename += "_" + oss.str() + ".png";
+            }
+            stbi_write_png(filename.c_str(), width, height, 4, mappedPtr, width * 4);
         }
         else if (imageFormat == VK_FORMAT_D32_SFLOAT) {     // if depth image
             float* depthData = reinterpret_cast<float*>(mappedPtr);

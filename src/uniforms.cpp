@@ -189,7 +189,7 @@ void NovelUniforms::createStorageBuffers(const uint32_t camCount) {
     }   
 }
 
-void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, const InputManager& input) {
+void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, const InputManager& input, const DebugCompute debug) {
     NovelBufferObject nbo {
         .viewMat = camManager.novelView.getViewMatrix(),
         .invViewMat = glm::inverse(camManager.novelView.getViewMatrix()),
@@ -200,7 +200,7 @@ void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& 
         .sampleCount = camManager.sampleCount,
         .sampleDebug = camManager.sampleDebug,
         .heuristic = input.novelHeuristic,
-        .debugFlag = input.novelDebug,
+        .debugFlag = debug,
         .distanceFlag = input.distance,
         .coneFlag = input.coneMarching,
         .pixelRadius = static_cast<float>(2 * tan(camManager.activeCam->getFOV()/2.0) / (extent.height / input.neighbourCount)),
@@ -370,7 +370,6 @@ void PointCloudUniforms::updateUniformBuffers(CamerasManager& camManager) {
     }
 
     recreateStorageBuffers(camCount);
-    updateStorageBuffers(camManager);
 }
 
 void PointCloudUniforms::recreateStorageBuffers(const uint32_t camCount) {
@@ -735,6 +734,8 @@ void NovelReconUniforms::recreateImages(uint32_t currentFrame) {
                               resultImageMemory[currentFrame]);
     resultImageView[currentFrame] = createImageView(resultImage[currentFrame], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, deviceHandle);
     memManagerRef.transitionImageLayout(resultImage[currentFrame], VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+    resultLayout[currentFrame] = VK_IMAGE_LAYOUT_GENERAL;
 }
 
 void NovelReconUniforms::transferResultLayout(uint32_t currentFrame, VkImageLayout newLayout, VkCommandBuffer commandBuffer) {

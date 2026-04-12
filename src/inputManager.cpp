@@ -1,11 +1,13 @@
 #include <inputManager.hpp>
 
 #include <camManager.hpp>
+#include <window.hpp>
 
 static bool showUIFlag = true;
 static bool nextCamTrigger = false;
 static bool novelViewTrigger = false;
 static bool observerTrigger = false;
+static bool takeSnapshotTrigger = false;
 
 void FPSCounter::frame() {
     frameCount++;
@@ -48,16 +50,23 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if (action == GLFW_PRESS && key == GLFW_KEY_B) {
         observerTrigger = true;
     }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_P) {
+        takeSnapshotTrigger = true;
+    }
 }
 
-InputManager::InputManager(GLFWwindow* window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
+InputManager::InputManager(Window& window, CamerasManager& camManager, const AttachementsFormats& imageFormats, const std::vector<VkImageView>& swapChainImageViews,
      const PhysicalDeviceInstance& physicalDeviceInstance, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices, VkExtent2D& swapChainExtent, MemoryManager& memMan,
      Mesh& mesh)
     : fpsCnt(),
-      imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window, graphicsQueue, familyIndices, swapChainExtent, memMan),
+      imguiProxy(imageFormats, swapChainImageViews, physicalDeviceInstance, window.window, graphicsQueue, familyIndices, swapChainExtent, memMan),
      windowHandle(window),
      camManagerHandle(camManager),
      meshRef(mesh){
+    screenRes[0] = window.getWidth();
+    screenRes[1] = window.getHeight();
+
     presentType = ImageViewType::COLOR;
     novelDebug = DebugCompute::NO_DEBUG;
     novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
@@ -70,7 +79,7 @@ InputManager::~InputManager() {
 }
 
 void InputManager::setCallbacks() {
-    glfwSetKeyCallback(windowHandle, key_callback);
+    glfwSetKeyCallback(windowHandle.window, key_callback);
 }
 
 void InputManager::processInput() {
@@ -78,33 +87,38 @@ void InputManager::processInput() {
     float deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
 
+    if (changeRes) {
+        glfwSetWindowSize(windowHandle.window, screenRes[0], screenRes[1]);
+        changeRes = false;
+    }
+
     ImGuiIO& io = ImGui::GetIO();
     if (io.WantCaptureKeyboard)
         return;  // Let ImGui handle it, ignore game hotkeys
 
     // Camera movement
-    if (glfwGetKey(windowHandle, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_UP) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(windowHandle.window, GLFW_KEY_UP) == GLFW_PRESS)
         camManagerHandle.activeCam->moveForward(deltaTime);
-    if (glfwGetKey(windowHandle, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_DOWN) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(windowHandle.window, GLFW_KEY_DOWN) == GLFW_PRESS)
         camManagerHandle.activeCam->moveBackward(deltaTime);
-    if (glfwGetKey(windowHandle, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_LEFT) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(windowHandle.window, GLFW_KEY_LEFT) == GLFW_PRESS)
         camManagerHandle.activeCam->moveLeft(deltaTime);
-    if (glfwGetKey(windowHandle, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(windowHandle, GLFW_KEY_RIGHT) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(windowHandle.window, GLFW_KEY_RIGHT) == GLFW_PRESS)
         camManagerHandle.activeCam->moveRight(deltaTime);
-    if (glfwGetKey(windowHandle, GLFW_KEY_SPACE) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_SPACE) == GLFW_PRESS)
         camManagerHandle.activeCam->moveUp(deltaTime);
-    if (glfwGetKey(windowHandle, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         camManagerHandle.activeCam->moveDown(deltaTime);
 
-    if (glfwGetKey(windowHandle, GLFW_KEY_E) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_E) == GLFW_PRESS)
         camManagerHandle.activeCam->speedUp(deltaTime);
-    if (glfwGetKey(windowHandle, GLFW_KEY_Q) == GLFW_PRESS)
+    if (glfwGetKey(windowHandle.window, GLFW_KEY_Q) == GLFW_PRESS)
         camManagerHandle.activeCam->speedDown(deltaTime);
 
 
-    if (glfwGetMouseButton(windowHandle, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+    if (glfwGetMouseButton(windowHandle.window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
         double xpos, ypos;
-        glfwGetCursorPos(windowHandle, &xpos, &ypos);
+        glfwGetCursorPos(windowHandle.window, &xpos, &ypos);
 
         if (firstMouse) {
             lastX = xpos;
@@ -139,6 +153,10 @@ void InputManager::processInput() {
         camManagerHandle.toggleObserver();
         observerTrigger = false;
     }
+    if (takeSnapshotTrigger) {
+        saveCamSnapshots = true;
+        takeSnapshotTrigger = false;
+    }
 }
 
 void InputManager::frame() {
@@ -146,7 +164,7 @@ void InputManager::frame() {
     fpsCnt.frame();     // Get the approximate fps
 
     if (showUIFlag) {
-        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle, this, meshRef);
+        imguiProxy.rebuildUI(fpsCnt.fps, camManagerHandle, this, meshRef, windowHandle.getWidth(), windowHandle.getHeight());
     }
 }
 

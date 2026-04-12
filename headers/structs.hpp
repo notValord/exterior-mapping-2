@@ -2,6 +2,9 @@
 
 #include <glm/glm.hpp>
 
+#include <json.hpp>
+using json = nlohmann::json;
+
 /**
  * @enum ImageViewType
  * @brief Selects the type of image view used for rendering.
@@ -60,6 +63,63 @@ enum class ConeMarching  : uint32_t {
     ONLY_CONE,
     PARTIAL_CONE
 };
+
+struct SceneJson {
+    int id;
+    float scale;
+};
+
+inline void to_json(json& j, const SceneJson& scene) {
+    j = json{
+        {"scene", scene.id},
+        {"scale", scene.scale}
+    };
+}
+
+inline void from_json(const json& j, SceneJson& s) {
+    j.at("scene").get_to(s.id);
+    j.at("scale").get_to(s.scale);
+}
+
+struct CamJson {
+    glm::vec3 pos;
+    float yaw;
+    float pitch;
+};
+
+inline void to_json(json& j, const CamJson& cam) {
+    j = json{
+        {"pos", {cam.pos.x, cam.pos.y, cam.pos.z}},
+        {"yaw", cam.yaw},
+        {"pitch", cam.pitch}
+    };
+}
+
+inline void from_json(const json& j, CamJson& c) {
+    auto pos = j.at("pos");
+    c.pos = glm::vec3(pos[0], pos[1], pos[2]);
+
+    j.at("yaw").get_to(c.yaw);
+    j.at("pitch").get_to(c.pitch);
+}
+
+struct CamSetupJson {
+    uint32_t camCount;
+    std::vector<CamJson> cams;
+};
+
+inline void to_json(json& j, const CamSetupJson& setup) {
+    j = json{
+        {"camCount", setup.camCount},
+        {"cams", setup.cams}
+    };
+}
+
+inline void from_json(const json& j, CamSetupJson& cs) {
+    j.at("camCount").get_to(cs.camCount);
+    j.at("cams").get_to(cs.cams);
+}
+
 
 /**
  * @struct MeshUniforms

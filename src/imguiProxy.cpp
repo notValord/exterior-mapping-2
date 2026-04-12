@@ -7,9 +7,29 @@
 #include <memManager.hpp>
 #include <uniforms.hpp>
 #include <mesh.hpp>
+#include <swapchain.hpp>
 
 #include <backends/imgui_impl_vulkan.h>
 #include <backends/imgui_impl_glfw.h>
+
+static void getSetup(std::vector<std::string>& filenames) {
+    for (const auto& entry : std::filesystem::directory_iterator(JSON_DIR)) {
+        if (entry.is_regular_file()) {       // skip directories
+            filenames.push_back(entry.path().stem().string());
+        }
+    }
+}
+
+static void deleteSetup(const std::string& setupName) {
+    std::error_code ec;                  // avoid exceptions
+    bool removed = std::filesystem::remove(JSON_DIR + setupName + ".json", ec);
+
+    if (!removed) {
+        std::cerr << "Failed to delete " << JSON_DIR + setupName + ".json";
+        if (ec) std::cerr << ": " << ec.message();
+        std::cerr << "\n";
+    }
+}
 
 static void imguiCheck(VkResult result) {
     if (result != VK_SUCCESS) {
@@ -21,6 +41,8 @@ ImguiProxy::ImguiProxy(const AttachementsFormats& imageFormats, const std::vecto
      const PhysicalDeviceInstance& physicalDeviceInstance, GLFWwindow* window, const VkQueue graphicsQueue, const QueueFamilyIndices& familyIndices,
      VkExtent2D& swapChainExtent, MemoryManager& memMan)
      : deviceHandle(physicalDeviceInstance.device), swapChainExtentHandle(swapChainExtent), memManager(memMan) {
+    getSetup(setupNames);
+
     createDescriptorPool();
     createRenderPass(imageFormats);
     createFramebuffers(swapChainImageViews);
@@ -77,37 +99,149 @@ ImguiProxy::~ImguiProxy() {
     vkDestroyDescriptorPool(deviceHandle, descriptorPool, nullptr);
 }
 
-void ImguiProxy::rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh) {
+void ImguiProxy::rebuildUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight) {
     // Tell ImGui to start a new frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     // ImGui::ShowDemoWindow();
-    drawUI(fps, camManager, inputManager, mesh);
+    drawUI(fps, camManager, inputManager, mesh, scrWidth, scrHeight);
 
     ImGui::Render();
 }
 
-void ImguiProxy::uiScene(InputManager* inputManager, Mesh& mesh) {
-    const char* sceneFiles[] = { "vikingRoom", "city", "porsche"};
+void ImguiProxy::uiSetup(InputManager* inputManager) {
+    static int listboxSelected = -1;
+    static bool buttonTriggered = false;
 
-    if (ImGui::CollapsingHeader("Scene")) {
+    if (ImGui::CollapsingHeader("Setup")) {
+        ImGui::Indent();
+
+        ImGui::InputText("setup name", &inputManager->setupName);
+        bool setupExists = std::find(setupNames.begin(), setupNames.end(), inputManager->setupName) != setupNames.end();
+
+        if (ImGui::Button("Save current setup")) {
+            if (setupExists) {
+                buttonTriggered = true;
+            } else {
+                inputManager->saveSetupFlag = true;
+                setupNames.push_back(inputManager->setupName);
+
+                buttonTriggered = false;
+            }
+        }
+
+        if (buttonTriggered) {
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.851, 0.008, 0.008, 1.0f), "Setup already exists!");// already exists, do not add
+        }
+
+        ImGui::PopStyleColor(3);
+        ImGui::Spacing();
+
+        ImGui::ListBox("Saved setups", &listboxSelected,
+                        [](void* data, int idx, const char** out_text) {
+                            auto& vec = *static_cast<std::vector<std::string>*>(data);
+                            *out_text = vec[idx].c_str();
+                            return true;
+                        },
+                        static_cast<void*>(&setupNames), static_cast<int>(setupNames.size()), 2);
+
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0.337, 0.91, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0, 0.470, 0.982, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0, 0.270, 0.728, 1.00f));
+
+        if (ImGui::Button("Load setup") && listboxSelected >= 0) {
+            // load the selected setup
+            inputManager->loadSetupFlag = true;
+            inputManager->setupNameLoad = setupNames[listboxSelected];
+        }
+
+        ImGui::PopStyleColor(3);
+
+        ImGui::SameLine();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.483f, 0.0084f, 0.0245f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.587f, 0.010f, 0.030f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.380f, 0.007f, 0.019f, 1.0f));
+
+        if (ImGui::Button("Delete config") && listboxSelected >= 0) {
+            deleteSetup(setupNames[listboxSelected]);
+
+            setupNames.erase(setupNames.begin() + listboxSelected);
+            listboxSelected = -1; // reset selection
+        }
+
+        ImGui::Unindent();
+    }
+    ImGui::PopStyleColor(3);
+}
+
+void ImguiProxy::uiGeneral(InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight) {
+    const char* sceneFiles[] = { "porsche", "city", "vikingRoom"};
+
+    if (ImGui::CollapsingHeader("General")) {
+        ImGui::Indent();
+
+        ImGui::SeparatorText("Scene");
         if (ImGui::Combo("selected", &inputManager->sceneSelected, sceneFiles, IM_ARRAYSIZE(sceneFiles))) {
             inputManager->sceneChanged = true;
         }
-
         ImGui::SliderFloat("scale", &mesh.scale, 0, 20, "%.1f");
 
 
         ImGui::SeparatorText("Light");
         ImGui::DragFloat3("position##Light", glm::value_ptr(mesh.getLightRef()), 0.1f, -100.0f, 100.0f, "%0.1f");
+
+
+        ImGui::SeparatorText("Resolution");
+        ImGui::Text("Current resolution:"); ImGui::SameLine(0, 7);
+        ImGui::TextColored(ImVec4(1, 0.85f, 0.0f, 1.0f), "%dx%d", scrWidth, scrHeight);
+        if (ImGui::InputInt2("", inputManager->screenRes)) {
+            if (inputManager->screenRes[0] < 50) {
+                inputManager->screenRes[0] = 50;
+            }
+            if (inputManager->screenRes[1] < 50) {
+                inputManager->screenRes[1] = 50;
+            }
+            ; // nothing while editing
+        }
+
+        ImGui::SameLine();
+
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.639f, 0.376f, 0.047f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.751f, 0.476f, 0.136f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.511f, 0.301f, 0.038f, 1.00f));
+
+        if (ImGui::Button("Apply##Resolution")) {
+            inputManager->changeRes = true;
+        }
+        ImGui::PopStyleColor(3);
+
+        ImGui::SeparatorText("Snapshots");
+        ImGui::InputText("filename###general", &inputManager->snapshotCamFile);
+
+        // Save the offline render snapshots to a file button
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.380f, 0.020f, 0.430f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.480f, 0.045f, 0.540f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.300f, 0.015f, 0.340f, 1.0f));
+
+        if (ImGui::Button("Take a snapshot")) {
+            inputManager->saveCamSnapshots = true;
+        }
+
+        uiSetup(inputManager);
+        ImGui::Unindent();
     }
 }
 
-void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
-    if (ImGui::CollapsingHeader("Active camera")) {
+void ImguiProxy::uiCamera(CamerasManager& camManager, InputManager* inputManager) {
+    if (ImGui::CollapsingHeader("Cameras")) {
         float& yaw = camManager.activeCam->getYawRef();
+
+        ImGui::Indent();
 
         ImGui::Text("Current cam: "); ImGui::SameLine(0, 7);
         if (camManager.novelViewToggled()){
@@ -136,12 +270,19 @@ void ImguiProxy::uiActiveCam(CamerasManager& camManager) {
         ImGui::SeparatorText("Cam Speed");
         ImGui::SliderFloat("speed", &camManager.activeCam->getSpeedRef(), CAM_MIN_SPEED, CAM_MAX_SPEED, "%.1f");
         ImGui::DragFloat("speed step", &camManager.activeCam->getSpeedStepRef(), 0.05f , 0.0f, 10.0f, "%0.1f");
+
+        uiNovelCam(camManager, inputManager);
+        uiCamArray(camManager, inputManager);
+
+        ImGui::Unindent();
     }
 }
 
 void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManager) {
     if (ImGui::CollapsingHeader("Novel camera")) {
         bool novelToggle = camManager.novelViewToggled();
+
+        ImGui::Indent();
 
         if (ImGui::Checkbox("Novel view toggeled", &novelToggle)) {
             camManager.toggleNovel();
@@ -162,6 +303,8 @@ void ImguiProxy::uiNovelCam(CamerasManager& camManager, InputManager* inputManag
         if (ImGui::Checkbox("Observer toggeled", &observerToggle)) {
             camManager.toggleObserver();
         }
+
+        ImGui::Unindent();
     }
 }
 
@@ -172,6 +315,8 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
         const uint32_t index_small_step = 1;
         const uint32_t index_big_step = 10;
         uint32_t activeIndex = camManager.getActiveIndex();
+
+        ImGui::Indent();
 
         ImGui::Text("Cam count: %d", camManager.getCamCount());
 
@@ -215,6 +360,8 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
         }
 
         ImGui::EndDisabled();
+
+        ImGui::Unindent();
     }
 }
 
@@ -222,6 +369,8 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
     if (ImGui::CollapsingHeader("Offline render")) {
         static int depthFormat = 0;
         static int presentFormat = 0;
+
+        ImGui::Indent();
 
         // Take offline render snapshots button
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.522f, 0.031f, 0.306f, 1.0f));
@@ -241,7 +390,7 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         ImGui::PopStyleColor(3);
 
         ImGui::SeparatorText("Saving snapshots");
-        ImGui::InputText("filename", &snapshotsFiles);
+        ImGui::InputText("filename", &offlineSnapshotsFiles);
 
         ImGui::RadioButton("depth format HDR", &depthFormat, 0); ImGui::SameLine();
         ImGui::RadioButton("depth format EXR", &depthFormat, 1);
@@ -255,10 +404,10 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         ImGui::BeginDisabled(inputManager->presentOfflineFlag);
         if (ImGui::Button("Save snapshots")) {
             if (depthFormat == 0) {
-                camManager.saveImages(snapshotsFiles, SaveImageFormat::HDR);
+                camManager.saveImages(offlineSnapshotsFiles, SaveImageFormat::HDR);
             }
             else {
-                camManager.saveImages(snapshotsFiles, SaveImageFormat::EXR);
+                camManager.saveImages(offlineSnapshotsFiles, SaveImageFormat::EXR);
             }
         }
         ImGui::EndDisabled();
@@ -279,6 +428,8 @@ void ImguiProxy::uiOfflineRender(CamerasManager& camManager, InputManager* input
         
         ImGui::EndDisabled();
         ImGui::PopStyleColor(3);
+
+        ImGui::Unindent();
     }
 }
 
@@ -293,6 +444,8 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         const uint32_t minSample = 1;
         const uint32_t maxSample = 128;
         const uint32_t maxNeighbour = 100;
+
+        ImGui::Indent();
 
         ImGui::BeginDisabled(!camManager.imagesRendered());
         if (ImGui::Checkbox("Render novel view", &inputManager->novelRender) && inputManager->novelRender) {
@@ -325,8 +478,9 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         }
         ImGui::SliderScalar("Curr sample", ImGuiDataType_U32, &camManager.sampleDebug, &minDebugSample, &camManager.sampleCount);
 
-        ImGui::Indent(); // add left spacing
         if (ImGui::CollapsingHeader("Depth settings")) {
+            ImGui::Indent(); // add left spacing
+
             ImGui::SeparatorText("Distance");
             if (ImGui::RadioButton("point - point", &distanceType, 0)) {
                 inputManager->distance = DistanceType::POINT;
@@ -351,12 +505,13 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
 
             ImGui::SliderScalar("Neighbourhood", ImGuiDataType_U32, &inputManager->neighbourCount, &minSample, &maxNeighbour);
             ImGui::SliderFloat("In cone percentage", &inputManager->inConePercentage, 0.0f, 1.0f, "%0.1f%");
+
+            ImGui::Unindent();
         }
-        ImGui::Unindent();
 
         ImGui::SeparatorText("Debug");
         if (ImGui::RadioButton("No debug", &novelDebug, 0)) {
-        inputManager->novelDebug = DebugCompute::NO_DEBUG;
+            inputManager->novelDebug = DebugCompute::NO_DEBUG;
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("Cam count", &novelDebug, 2)) {
@@ -370,6 +525,8 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         if (ImGui::RadioButton("Sample depth", &novelDebug, 4)) {
             inputManager->novelDebug = DebugCompute::SAMPLE_DEPTH;
         }
+
+        ImGui::Unindent();
     }
 
     // todo later to input images from blender
@@ -377,13 +534,13 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
 
 void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offlineRendred) {
     if (ImGui::CollapsingHeader("Debug info")) {
+        ImGui::Indent();
+
         ImGui::Text("FPS: %.1f", fps);
         ImGui::Checkbox("Grayscale", &inputManager->debugGrayscale);
         ImGui::Checkbox("Show Cam-cubes", &inputManager->debugCamCube);
         ImGui::Checkbox("Show frustum", &inputManager->debugFrustum);
-        if (ImGui::Checkbox("Show intersections", &inputManager->debugIntersection) || inputManager->debugIntersection) {
-            inputManager->novelDebug = DebugCompute::INTERSECTION;
-        }
+        ImGui::Checkbox("Show intersections", &inputManager->debugIntersection);
         
 
         ImGui::BeginDisabled(!offlineRendred);
@@ -391,17 +548,17 @@ void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offline
             inputManager->startSynthesis = true;
         }
         ImGui::EndDisabled();
+
+        ImGui::Unindent();
     }
 }
 
-void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh) {
+void ImguiProxy::drawUI(float fps, CamerasManager& camManager, InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight) {
     // Draw the UI
     ImGui::Begin("Info");
-    uiScene(inputManager, mesh);
+    uiGeneral(inputManager, mesh, scrWidth, scrHeight);
 
-    uiActiveCam(camManager);
-    uiNovelCam(camManager, inputManager);
-    uiCamArray(camManager, inputManager);
+    uiCamera(camManager, inputManager);
     
     uiOfflineRender(camManager, inputManager);
     uiNovelRender(camManager, inputManager);

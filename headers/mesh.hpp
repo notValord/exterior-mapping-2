@@ -111,6 +111,8 @@ public:
 
     glm::vec3 getLight();
     glm::vec3& getLightRef();
+
+    void setLight(glm::vec3 newPos);
 private:
     VmaAllocation vertexBufferMemory;
     VmaAllocation indexBufferMemory;

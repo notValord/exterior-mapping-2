@@ -2,6 +2,8 @@
 
 void Window::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     Window* currentWindow = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    currentWindow->screenWidth = width;
+    currentWindow->screenHeight = height;
     currentWindow->framebufferResized = true;
 }
 
@@ -26,4 +28,12 @@ Window::Window(unsigned int width, unsigned int height)
 Window::~Window() {
     glfwDestroyWindow(window);
     glfwTerminate();
+}
+
+uint32_t Window::getWidth() const {
+    return screenWidth;
+}
+
+uint32_t Window::getHeight() const {
+    return screenHeight;
 }

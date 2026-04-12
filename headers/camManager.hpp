@@ -10,6 +10,7 @@
 extern const size_t MAX_FRAMES_IN_FLIGHT;
 
 enum class SaveImageFormat;
+struct CamSetupJson;
 
 /**
  * @class OfflineResources
@@ -262,6 +263,19 @@ public:
     VkFramebuffer getNovelFramebuffer(uint32_t imageIndex);
     std::vector<VkImageView> getNovelStorageViews();
     VkImage getNovelStorageImage(uint32_t currentFrame);
+
+    /**
+     * @brief Create JSON setup of cameras to save.
+     * @return Camera setup in JSON format.
+     */
+    CamSetupJson jsonSetup();
+
+    /**
+     * @brief Load cameras from JSON setup.
+     * @param setup Camera setup in JSON format.
+     * @param memManager Memory manager for resource allocation.
+     */
+    void loadFromJson(const CamSetupJson& setup, MemoryManager& memManager);
 
 private:
     OfflineResources offlineRes;

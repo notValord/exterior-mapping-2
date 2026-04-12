@@ -377,7 +377,7 @@ public:
      * @brief Update per-resize descriptor sets.
      * @param resultImageViews Result image views.
      */
-    void updatePerResizeDescriptorSets(const std::vector<VkImageView>& resultImageViews);
+    void updatePerResizeDescriptorSets(const std::vector<VkImageView>& resultImageViews, uint32_t currentFrame);
 
 private:
     void createDescriptorSetLayout(const DescriptorBuilder& builder) override;

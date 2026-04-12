@@ -70,6 +70,8 @@ private:
 
     void handleResize();
     void changeScene();
+    void saveSetup(const std::string jsonFile);
+    void loadSetup(const std::string jsonFile);
 
     // Command buffer recordings
 
@@ -97,8 +99,9 @@ private:
     /**
      * @brief Records commands for novel view synthesis computation.
      * @param commandBuffer The command buffer to record into.
+     * @param debug Debug compute mode.
      */
-    void computeNovel(VkCommandBuffer commandBuffer);
+    void computeNovel(VkCommandBuffer commandBuffer, const DebugCompute debug);
 
     /**
      * @brief Records commands for the new novel view synthesis pipeline.

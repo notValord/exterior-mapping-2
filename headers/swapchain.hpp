@@ -91,6 +91,14 @@ public:
      */
     void transitionToFinalLayout(MemoryManager& memManager, uint32_t imageindex);
 
+    /**
+     * @brief Saves a swap chain image to a PNG file.
+     * @param imageIndex Index of the swap chain image to save.
+     * @param currLayout Current layout of the image.
+     * @param filename Name of the file to save the image to.
+     */
+    void saveImageToPNG(uint32_t imageIndex, VkImageLayout currLayout, const std::string& filename);
+
 private:
     VkImage depthImage;
     VmaAllocation depthImageMemory;

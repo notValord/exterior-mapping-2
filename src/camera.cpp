@@ -67,6 +67,21 @@ void Camera::updateYawPitch(float yaw_delta, float pitch_delta) {
     recalculateVectors();
 }
 
+void Camera::setYawPitch(float newYaw, float newPitch) {
+    yaw = wrapYaw(newYaw);
+    pitch = newPitch;
+
+    // Clamp pitch
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+
+    recalculateVectors();
+}
+
+void Camera::setPosition(const glm::vec3& newPos) {
+    pos = newPos;
+}
+
 void Camera::moveForward(float deltaTime) {
     pos += front * speed * deltaTime;
 }
@@ -123,6 +138,16 @@ float& Camera::getSpeedStepRef() {
 glm::vec3 Camera::getPosition() const {
     return pos;
 }
+
+CamJson Camera::jsonCam() const {
+    CamJson json;
+    json.pos = pos;
+    json.yaw = yaw;
+    json.pitch = pitch;
+
+    return json;
+}
+
 
 NovelCamera::NovelCamera(float extentRatio, VkDevice device, MemoryManager& memMan)
     : Camera(extentRatio), deviceHandle(device), memManager(memMan) {

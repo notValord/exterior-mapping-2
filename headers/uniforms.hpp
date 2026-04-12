@@ -141,8 +141,9 @@ public:
      * @param camManager Camera manager providing novel view matrices.
      * @param extent Current render resolution.
      * @param input Input manager containing algorithm options.
+     * @param debug Debug compute mode.
      */
-    void updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, const InputManager& input);
+    void updateUniformBuffers(uint32_t currentImage, CamerasManager& camManager, const VkExtent2D& extent, const InputManager& input, const DebugCompute debug);
 
     /**
      * @brief Copies current camera array data into the SSBO for the given frame.
@@ -210,6 +211,12 @@ public:
     void updateUniformBuffers(CamerasManager& camManager);      // update only once after the offline images are created with the set resolution
 
     /**
+     * @brief Updates the point cloud storage buffers with current camera matrices.
+     * @param camManager Camera manager providing camera array data.
+     */
+    void updateStorageBuffers(CamerasManager& camManager);      // update every frame before rendering the point cloud to get the correct cma position
+
+    /**
      * @brief Reads the mapped point count buffer for a frame.
      * @param currentImage Frame index in flight.
      * @return The number of points produced.
@@ -225,7 +232,6 @@ private:
 
     void createStorageBuffers(const uint32_t camCount);
     void recreateStorageBuffers(const uint32_t camCount);
-    void updateStorageBuffers(CamerasManager& camManager);
 };
 
 

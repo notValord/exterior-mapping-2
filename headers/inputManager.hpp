@@ -11,6 +11,7 @@
 #include <structs.hpp>
 
 class CamerasManager;
+class Window;
 
 /// Simple frame rate counter for UI display and timing feedback.
 class FPSCounter {
@@ -65,7 +66,19 @@ public:
     int sceneSelected = 0;
     bool sceneChanged = false;
 
-    InputManager(GLFWwindow* window,
+    int screenRes[2];
+    bool changeRes = false;
+
+    bool saveCamSnapshots = false;
+    std::string snapshotCamFile = "Snapshot";
+
+    bool saveSetupFlag = false;
+    std::string setupName = "Config";
+
+    bool loadSetupFlag = false;
+    std::string setupNameLoad;
+
+    InputManager(Window& window,
                  CamerasManager& camManager,
                  const AttachementsFormats& imageFormats,
                  const std::vector<VkImageView>& swapChainImageViews,
@@ -95,7 +108,7 @@ private:
     ImguiProxy imguiProxy;
 
     // Vulkan handless
-    GLFWwindow* windowHandle;
+    Window& windowHandle;
     CamerasManager& camManagerHandle;
     Mesh& meshRef;
 

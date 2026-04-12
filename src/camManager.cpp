@@ -227,6 +227,53 @@ VkImage CamerasManager::getNovelStorageImage(uint32_t currentFrame) {
     return novelRes.metadataImage[currentFrame];
 }
 
+CamSetupJson CamerasManager::jsonSetup() {
+    CamSetupJson setup;
+    setup.camCount = camArray.size();
+    setup.cams.resize(setup.camCount + 2);
+
+    for (uint32_t i = 0; i < setup.cams.size(); i++) {
+        if (i == 0) {
+            setup.cams[i] = novelView.jsonCam();
+        }
+        else if (i == 1) {
+            setup.cams[i] = observer.jsonCam();
+        }
+        else {
+            setup.cams[i] = camArray[i-2].jsonCam();
+        }
+    }
+
+    return setup;
+}
+
+void CamerasManager::loadFromJson(const CamSetupJson& setup, MemoryManager& memManager) {
+    while (camArray.size() < setup.camCount) {
+        addCam(memManager);
+    }
+
+    while (camArray.size() > setup.camCount) {
+        deleteCam(memManager);
+    }
+
+    for (uint32_t i = 0; i < setup.cams.size(); i++) {
+        CamJson camJson = setup.cams[i];
+
+        if (i == 0) {
+            novelView.setPosition(camJson.pos);
+            novelView.setYawPitch(camJson.yaw, camJson.pitch);
+        }
+        else if (i == 1) {
+            observer.setPosition(camJson.pos);
+            observer.setYawPitch(camJson.yaw, camJson.pitch);
+        }
+        else {
+            camArray[i-2].setPosition(camJson.pos);
+            camArray[i-2].setYawPitch(camJson.yaw, camJson.pitch);
+        }
+    }
+}
+
 
 
 

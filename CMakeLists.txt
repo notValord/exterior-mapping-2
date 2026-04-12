@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
-project(ExternalMapping2)
+project(ExteriorMapping2)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g")
+set(CMAKE_BUILD_TYPE "Debug")       # turn off for release
 
 # include imgui
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/include/imgui)
@@ -25,56 +25,20 @@ target_include_directories(imgui PUBLIC
     ${IMGUI_DIR}/backends
 )
 
-# include_directories(${CMAKE_SOURCE_DIR}/src)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/headers)
 
-# set(SHADER_SRC
-#     shaders/camCube.vert
-#     shaders/camCube.frag
-#     shaders/frustumShader.vert
-#     shaders/frustumShader.frag
-#     shaders/lineShader.vert
-#     shaders/lineShader.frag
-#     shaders/offlineShader.vert
-#     shaders/offlineShader.frag
-#     shaders/rayIntersect.comp
-#     shaders/shader.vert
-#     shaders/shader.frag
-# )
-
 set(SHADER_STUMP ".compiled")
 set(SHADER_DIR "${CMAKE_SOURCE_DIR}/shaders")
+set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 file(GLOB SHADER_SRC "${SHADER_DIR}/*.vert" "${SHADER_DIR}/*.frag" "${SHADER_DIR}/*.comp")
+file(GLOB SOURCES "${SRC_DIR}/*.cpp")
 
-set(SOURCES
-    src/main.cpp
-    src/application.cpp
-    src/vulkanContext.cpp
-    src/swapchain.cpp
-    src/window.cpp
-    src/commandManager.cpp
-    src/descriptorManager.cpp
-    src/mesh.cpp
-    src/pipeline.cpp
-    src/syncManager.cpp
-    src/textures.cpp
-    src/uniforms.cpp
-    src/util.cpp
-    src/vertex.cpp
-    src/memManager.cpp
-    src/camera.cpp
-    src/imguiProxy.cpp
-    src/inputManager.cpp
-    src/camManager.cpp
-    src/debug.cpp
-)
-
-add_executable(ExternalMapping2 ${SOURCES})
+add_executable(ExteriorMapping2 ${SOURCES})
 
 find_package(Vulkan REQUIRED)
 
-target_link_libraries(ExternalMapping2
+target_link_libraries(ExteriorMapping2
     glfw
     vulkan
     dl
@@ -82,6 +46,8 @@ target_link_libraries(ExternalMapping2
     imgui
 )
 
+
+# Custom command to compile shaders
 add_custom_command(
     OUTPUT "${SHADER_DIR}/${SHADER_STUMP}"
     COMMAND  bash ./compile.sh
@@ -92,4 +58,8 @@ add_custom_command(
 )
 
 add_custom_target(Shaders DEPENDS ${SHADER_DIR}/${SHADER_STUMP})
-add_dependencies(ExternalMapping2 Shaders)
+add_dependencies(ExteriorMapping2 Shaders)
+
+# Create debug and setups directories if they don't exist
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/debug)
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/setups)

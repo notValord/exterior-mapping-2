@@ -3,9 +3,9 @@
 static unsigned int SCREEN_WIDTH = 800;
 static unsigned int SCREEN_HEIGHT = 600;
 
+static const std::string PORSCHE_FILE = "../resources/models/porsche.obj";
 static const std::string VIKING_FILE = "../resources/models/rotatedRoom.obj";
 static const std::string CITY_FILE = "../resources/models/city.obj";
-static const std::string PORSCHE_FILE = "../resources/models/porsche.obj";
 
 static const std::string MODEL_PATH = "../resources/models/viking_room.obj";
 static const std::string TEXTURE_PATH = "../resources/textures/viking_room.png";
@@ -14,6 +14,7 @@ static const std::string DAVID_TEXTURE_PATH = "../resources/textures/david.jpg";
 static const std::string CUBE_TEXTURE_PATH = "camera.jpg";
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
+const std::string JSON_DIR = "../setups/";
 
 void App::run() {
     mainLoop();
@@ -38,7 +39,7 @@ App::App()
                   vulkanContext.getDeviceProperties(),
                   swapchain.swapChainImageViews),
        uniformManager(memManager, vulkanContext.device, swapchain.swapChainExtent, camManager.getCamCount(), vulkanContext.getDeviceProperties()),
-       inputManager(appWindow.window, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
+       inputManager(appWindow, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
             vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager, mesh),
        debugUtil(memManager, camManager.getCamCount()),
        commandRecorder(){
@@ -80,9 +81,7 @@ void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) 
         throw std::runtime_error("Working with images that are not rendered!");
     }
 
-    camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
     camManager.transferLayeredLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);      // update the layered image
-    uniformManager.novelReconUniforms.transferResultLayout(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
 
     PresentationMode mode = PresentationMode::OFFLINE_RENDER;
     if (inputManager.novelRender | inputManager.newNovelRender) {
@@ -91,9 +90,11 @@ void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) 
 
     uniformManager.offlineUniforms.updateUniformBuffers(currentFrame, camManager, mode, inputManager.presentType);    // always update the uniform buffer
     if (inputManager.novelRender) { // update set between two novel views
+        camManager.novelView.swapTransferLayoutRenderPresent(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
         descripManager.offlineDescriptors.updateDescriptorSets(currentFrame, camManager);
     }
     else if (inputManager.newNovelRender) {
+        uniformManager.novelReconUniforms.transferResultLayout(currentFrame, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandBuffer);
         descripManager.offlineDescriptors.updateDescriptorSets(currentFrame, uniformManager.novelReconUniforms);
     }
 
@@ -105,12 +106,12 @@ void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) 
     commandRecorder.recordRenderScene(commandBuffer, descriptorSets, framebuffer);
 }
 
-void App::computeNovel(VkCommandBuffer commandBuffer) {
+void App::computeNovel(VkCommandBuffer commandBuffer, const DebugCompute debug) {
     if (!camManager.imagesRendered() && !inputManager.debugIntersection) {
         throw std::runtime_error("Working with images that are not rendered!");
     }
 
-    uniformManager.novelUniforms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager);
+    uniformManager.novelUniforms.updateUniformBuffers(currentFrame, camManager, swapchain.swapChainExtent, inputManager, debug);
 
     if (uniformManager.novelUniforms.setCamArrayData(currentFrame, camManager)) {   // enough to do once if the views dont change, but issue with the update of the both frames
         // if the ssbo was recreated, update the descriptors
@@ -155,6 +156,7 @@ void App::computeReducedDepthPyramid(VkCommandBuffer commandBuffer) {
 
 void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     if (inputManager.startSynthesis) {
+        std::cout << "Starting novel synthesis..." << std::endl;
         computeReducedDepthPyramid(commandBuffer);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -179,7 +181,7 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     }
 
     if (uniformManager.novelSynthUniforms.setResolution(swapchain.swapChainExtent, currentFrame)) {
-        descripManager.novelSynthDescriptors.updatePerResizeDescriptorSets(uniformManager.novelSynthUniforms.resultImageView);
+        descripManager.novelSynthDescriptors.updatePerResizeDescriptorSets(uniformManager.novelSynthUniforms.resultImageView, currentFrame);
     }
 
     uniformManager.novelReconUniforms.updateUniformBuffers(currentFrame, camManager.getCamCount(), swapchain.swapChainExtent);
@@ -301,7 +303,7 @@ void App::drawDebug(VkFramebuffer framebuffer) {
     }
 
     if (inputManager.debugIntersection) {
-        computeNovel(commandManager.commandBuffers[currentFrame]);
+        computeNovel(commandManager.commandBuffers[currentFrame], DebugCompute::INTERSECTION);
         drawIntersectionDebug(commandManager.commandBuffers[currentFrame], framebuffer);
     }
 }
@@ -334,11 +336,12 @@ void App::drawFrame() {
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
     else if (inputManager.novelRender) {
-        computeNovel(commandManager.commandBuffers[currentFrame]);
+        computeNovel(commandManager.commandBuffers[currentFrame], inputManager.novelDebug);
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
     else if (inputManager.newNovelRender) {
         computeNewNovel(commandManager.commandBuffers[currentFrame]);
+        // drawScene(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex], *(camManager.activeCam));
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
     }
     else if (inputManager.debugPointCloud) {        // debug without scene rendering
@@ -385,6 +388,12 @@ void App::drawFrame() {
         swapchain.transitionToFinalLayout(memManager, imageIndex);  // possible need to synchronize if using separate queues
     }
 
+    if (inputManager.saveCamSnapshots) {
+        vkDeviceWaitIdle(vulkanContext.device);     // need to wait for the rendering to finish before saving
+        swapchain.saveImageToPNG(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, inputManager.snapshotCamFile);
+        inputManager.saveCamSnapshots = false;
+    }
+
     VkSwapchainKHR swapChains[] = {swapchain.swapChain};
     VkPresentInfoKHR presentInfo{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -408,7 +417,7 @@ void App::drawFrame() {
 }
 
 void App::renderOfflineImages() {
-    if (camManager.imagesInvalid()) {
+    if (camManager.imagesInvalid()) {       // resolution or cam count changed
         camManager.createLayeredImages();
 
         // update all descriptors to to the valid images
@@ -418,7 +427,7 @@ void App::renderOfflineImages() {
         uniformManager.pointCloudUniforms.updateUniformBuffers(camManager);                 // recreate the buffer to the cam count and resolution
         descripManager.pointCloudDescriptors.updateDescriptorSets(uniformManager.pointCloudUniforms);       // update the descriptors to the created buffers
     }
-
+    uniformManager.pointCloudUniforms.updateStorageBuffers(camManager);                 // update the buffer data to the current camera matrices
 
     vkWaitForFences(vulkanContext.device, 1, &syncManager.inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);    // wait for previous frame to finish
     vkResetFences(vulkanContext.device, 1, &syncManager.inFlightFences[currentFrame]);   // needs to be reset manually
@@ -455,13 +464,13 @@ void App::changeScene() {
 
     std::string meshFile;
     if (inputManager.sceneSelected == 0) {
-        meshFile = VIKING_FILE;
+        meshFile = PORSCHE_FILE;
     }
     else if (inputManager.sceneSelected == 1) {
         meshFile = CITY_FILE;
     }
     else if (inputManager.sceneSelected == 2) {
-        meshFile = PORSCHE_FILE;
+        meshFile = VIKING_FILE;
     }
     else {
         throw std::runtime_error("Unknown scene!");
@@ -470,10 +479,64 @@ void App::changeScene() {
     descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());
 }
 
+void App::saveSetup(const std::string jsonFile) {
+    json j;
+
+    SceneJson scene = {inputManager.sceneSelected, mesh.scale};
+    j["scene"] = scene;
+
+    j["lightPos"] = {mesh.getLight().x, mesh.getLight().y, mesh.getLight().z};
+    j["resolution"] = {appWindow.getWidth(), appWindow.getHeight()};
+
+
+    j["cameras"] = camManager.jsonSetup();
+
+    std::ofstream file(JSON_DIR + jsonFile);
+    file << j.dump(4); // pretty print with 4 spaces
+
+    file.close();
+}
+
+void App::loadSetup(const std::string jsonFile) {
+    std::ifstream file(JSON_DIR + jsonFile);
+    if (!file.is_open()) {
+        throw std::runtime_error("Could not open setup file!");
+    }
+
+    json j;
+    file >> j;
+
+    SceneJson scene = j["scene"].get<SceneJson>();
+    if (scene.id != inputManager.sceneSelected) {
+        inputManager.sceneSelected = scene.id;
+        changeScene();
+    }
+    mesh.scale = scene.scale;
+
+    std::vector<float> lightPos = j["lightPos"].get<std::vector<float>>();
+    mesh.setLight(glm::vec3(lightPos[0], lightPos[1], lightPos[2]));
+
+    std::vector<int> resolution = j["resolution"].get<std::vector<int>>();
+    glfwSetWindowSize(appWindow.window, resolution[0], resolution[1]);
+
+    camManager.loadFromJson(j["cameras"], memManager);
+
+    file.close();
+}
+
 void App::mainLoop() {
     while (!glfwWindowShouldClose(appWindow.window)) {
         glfwPollEvents();
         inputManager.frame();
+        if (inputManager.saveSetupFlag) {
+            saveSetup(inputManager.setupName + ".json");
+            inputManager.saveSetupFlag = false;
+        }
+        if (inputManager.loadSetupFlag) {
+            loadSetup(inputManager.setupNameLoad + ".json");
+            inputManager.loadSetupFlag = false;
+        }
+
         if (inputManager.sceneChanged) {
             changeScene();
             inputManager.sceneChanged = false;

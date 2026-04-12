@@ -303,3 +303,7 @@ void Mesh::createMaterialBuffer() {
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 }
+
+ void Mesh::setLight(glm::vec3 newPos) {
+    lightPosition = newPos;
+ }

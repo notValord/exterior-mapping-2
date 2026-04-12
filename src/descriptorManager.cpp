@@ -737,14 +737,12 @@ void NovelSynthDescriptors::updatePerCamDescriptorSets(const std::vector<VkBuffe
     }
 }
 
-void NovelSynthDescriptors::updatePerResizeDescriptorSets(const std::vector<VkImageView>& resultImageViews) {
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        VkDescriptorImageInfo descriptorsImageInfo = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, resultImageViews[i], VK_IMAGE_LAYOUT_GENERAL);
+void NovelSynthDescriptors::updatePerResizeDescriptorSets(const std::vector<VkImageView>& resultImageViews, uint32_t currentFrame) {
+    VkDescriptorImageInfo descriptorsImageInfo = DescriptorWriter::makeImageInfo(VK_NULL_HANDLE, resultImageViews[currentFrame], VK_IMAGE_LAYOUT_GENERAL);
 
-        VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(debugDescriptorSets[i], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo);
+    VkWriteDescriptorSet descriptorWrites = DescriptorWriter::makeWrite(debugDescriptorSets[currentFrame], 1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, nullptr,  &descriptorsImageInfo);
 
-        vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
-    }
+    vkUpdateDescriptorSets(deviceHandle, 1, &descriptorWrites, 0, nullptr);
 }
 
 

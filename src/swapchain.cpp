@@ -125,7 +125,7 @@ void SwapChain::createSwapChain(const DeviceSurface& deviceSurfaceHandle, const 
         .imageColorSpace = surfaceFormat.colorSpace,
         .imageExtent = extent,
         .imageArrayLayers = 1,      // amount of layers each image consists of
-        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         .preTransform = swapChainSupport.capabilities.currentTransform,
         .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
         .presentMode = presentMode,
@@ -232,4 +232,20 @@ void SwapChain::cleanupSwapchain() {
 
     memManager.destroyImage(depthImage, depthImageMemory);
     vkDestroyImageView(deviceHandle, depthImageView, nullptr);
+}
+
+void SwapChain::saveImageToPNG(uint32_t imageIndex, VkImageLayout currLayout, const std::string& filename) {
+    VkBuffer stagingBuffer;
+    VmaAllocation stagingBufferMemory;
+    VkDeviceSize imageSize = swapChainExtent.width * swapChainExtent.height * 4;        // 4 channeles
+
+    memManager.createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, stagingBuffer, VMA_MEMORY_USAGE_GPU_TO_CPU, stagingBufferMemory);
+
+    memManager.transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, currLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    memManager.copyImageToBuffer(swapChainImages[imageIndex], swapChainImageFormat, stagingBuffer, swapChainExtent.width, swapChainExtent.height);
+    memManager.transitionImageLayout(swapChainImages[imageIndex], swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, currLayout);
+
+    memManager.saveImage(stagingBufferMemory, swapChainImageFormat, SaveImageFormat::PNG, "../debug/" + filename, swapChainExtent.width, swapChainExtent.height, 1);
+
+    memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
 }

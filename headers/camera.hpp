@@ -21,6 +21,7 @@ using VmaAllocation = VmaAllocation_T*;
 class MemoryManager;
 struct CamArrayData;
 struct AttachementsFormats;
+struct CamJson;
 
 inline constexpr float CAM_MAX_SPEED = 50.0f;
 inline constexpr float CAM_MIN_SPEED = 0.5f;
@@ -54,11 +55,14 @@ public:
     void updateRatio(float newRatio);
 
     /**
-     * @brief Updates the yaw and pitch angles and recalculates camera vectors.
+     * @brief Updates the yaw and pitch angles with delta and recalculates camera vectors.
      * @param yaw The change in yaw angle (in degrees).
      * @param pitch The change in pitch angle (in degrees).
      */
     void updateYawPitch(float yaw, float pitch);
+
+    void setYawPitch(float newYaw, float newPitch);
+    void setPosition(const glm::vec3& newPos);
 
     void moveForward(float deltaTime);
     void moveBackward(float deltaTime);
@@ -85,6 +89,12 @@ public:
      * @brief Recalculates the front, right, and up vectors based on yaw and pitch.
      */
     void recalculateVectors();
+
+    /**
+     * @brief Creates JSON setup for the camera.
+     * @return Camera setup in JSON format.
+     */
+    CamJson jsonCam() const;
 
 private:
     glm::vec3 pos = glm::vec3(0.0f, 0.0f, 2.0f);
