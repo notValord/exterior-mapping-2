@@ -9,10 +9,16 @@ static const std::string dummyTexture = "dummyTexture.png";         // needs to 
 static const std::string RESOURCE_DIR = "../resources/models/";
 static const uint32_t MAX_MATERIALS_COUNT = 60;                     // arbitrary limit for textures descritpors
 
-Mesh::Mesh(const std::string& modelFile, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
+Mesh::Mesh(const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
     : deviceHandle(device), memManager(memManager), sampler(device, prop, VK_SAMPLER_ADDRESS_MODE_REPEAT) {
     textures.reserve(MAX_MATERIALS_COUNT);
-    changeModel(modelFile);
+    loadModels();
+    if (loadedModels.empty()) {
+        throw std::runtime_error("No models found in resources/models!");
+    }
+
+    std::cout << "Loading model: " << loadedModels[0] << std::endl;
+    changeModel(0);   // load first model by default
     std::cout << "Mesh created" << std::endl;
 }
 
@@ -33,8 +39,28 @@ Mesh::~Mesh() {
     }
 }
 
-void Mesh::changeModel(const std::string& modelPath) {
-    loadMesh(modelPath);
+void Mesh::loadModels() {
+    for (const auto& entry : std::filesystem::directory_iterator(RESOURCE_DIR)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".obj") {       // get .obj files only
+            loadedModels.push_back(entry.path().stem().string());
+        }
+    }
+}
+
+const std::vector<std::string>& Mesh::getLoadedModels() const {
+    return loadedModels;
+}
+
+uint32_t Mesh::getModelCount() const {
+    return static_cast<uint32_t>(loadedModels.size());
+}
+
+void Mesh::changeModel(const uint32_t modelIndex) {
+    if (modelIndex >= loadedModels.size()) {
+        throw std::runtime_error("Model index out of range!");
+    }
+
+    loadMesh(RESOURCE_DIR + loadedModels[modelIndex] + ".obj");
     createDummyTexture();
     createVertexBuffer();
     createIndexBuffer();

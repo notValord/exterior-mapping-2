@@ -86,19 +86,18 @@ public:
 
     /**
      * @brief Constructs a mesh by loading an OBJ file and creating Vulkan resources.
-     * @param modelPath Path to the OBJ model file.
      * @param device Logical Vulkan device.
      * @param memManager Memory manager used for buffer and image allocation.
      * @param prop Physical device properties used for sampler creation.
      */
-    Mesh(const std::string& modelPath, const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
+    Mesh(const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop);
     ~Mesh();
 
     /**
      * @brief Reloads a different model into this Mesh instance.
-     * @param modelPath Path to the new OBJ model file.
+     * @param modelIndex Index of the model to load.
      */
-    void changeModel(const std::string& modelPath);
+    void changeModel(const uint32_t modelIndex);
 
     uint32_t getIndicesSize();
     uint32_t getMaterialSize();
@@ -111,6 +110,9 @@ public:
 
     glm::vec3 getLight();
     glm::vec3& getLightRef();
+
+    const std::vector<std::string>& getLoadedModels() const;
+    uint32_t getModelCount() const;
 
     void setLight(glm::vec3 newPos);
 private:
@@ -128,6 +130,8 @@ private:
 
     glm::vec3 lightPosition = glm::vec3(0.0f, 3.0f, 7.0f);
 
+    std::vector<std::string> loadedModels;
+
     // Vulkan handles
     VkDevice deviceHandle;
     MemoryManager& memManager;
@@ -138,6 +142,8 @@ private:
     void createVertexBuffer();
     void createIndexBuffer();
     void createMaterialBuffer();
+
+    void loadModels();
 
     void clearResources();
     void createDummyTexture();

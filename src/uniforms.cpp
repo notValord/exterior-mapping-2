@@ -202,6 +202,7 @@ void NovelUniforms::updateUniformBuffers(uint32_t currentImage, CamerasManager& 
         .heuristic = input.novelHeuristic,
         .debugFlag = debug,
         .distanceFlag = input.distance,
+        .bestNCount = input.bestNCount,
         .coneFlag = input.coneMarching,
         .pixelRadius = static_cast<float>(2 * tan(camManager.activeCam->getFOV()/2.0) / (extent.height / input.neighbourCount)),
         .inConePercentage = input.inConePercentage

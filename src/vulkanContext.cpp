@@ -64,6 +64,17 @@ static void printGPUData(const VkPhysicalDevice device) {
     std::cout << "  Maximum threads per workgroup: " << limits.maxComputeWorkGroupInvocations << "\n";
     std::cout << "  Maximum threads per dimension: " << limits.maxComputeWorkGroupSize[0] << ", " << limits.maxComputeWorkGroupSize[1] << ", " << limits.maxComputeWorkGroupSize[2] << ", " << "\n";
     std::cout << "  Maximum shared memory per workgroup: " << limits.maxComputeSharedMemorySize << "\n";
+    if (limits.timestampPeriod == 0)
+    {
+        throw std::runtime_error("The selected device does not support timestamp queries!");
+    }
+    else {
+        std::cout << "The timestamp queries supported" << std::endl;
+    }
+    // if (!limits.timestampComputeAndGraphics)
+    // {
+    //     throw std::runtime_error{"The selected graphics queue family does not support timestamp queries!"};
+    // }
 }
 
 /**

@@ -3,14 +3,6 @@
 static unsigned int SCREEN_WIDTH = 800;
 static unsigned int SCREEN_HEIGHT = 600;
 
-static const std::string PORSCHE_FILE = "../resources/models/porsche.obj";
-static const std::string VIKING_FILE = "../resources/models/rotatedRoom.obj";
-static const std::string CITY_FILE = "../resources/models/city.obj";
-
-static const std::string MODEL_PATH = "../resources/models/viking_room.obj";
-static const std::string TEXTURE_PATH = "../resources/textures/viking_room.png";
-static const std::string DAVID_TEXTURE_PATH = "../resources/textures/david.jpg";
-
 static const std::string CUBE_TEXTURE_PATH = "camera.jpg";
 
 const size_t MAX_FRAMES_IN_FLIGHT = 2;
@@ -30,7 +22,7 @@ App::App()
        pipelineManager(vulkanContext.device, swapchain.getAttachementsFormats(), descripManager),
        syncManager(vulkanContext.device),
        textureManager(CUBE_TEXTURE_PATH, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
-       mesh(PORSCHE_FILE, vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
+       mesh(vulkanContext.device, memManager, vulkanContext.getDeviceProperties()),
        camManager(vulkanContext.device,
                   memManager,
                   swapchain.swapChainExtent,
@@ -41,7 +33,7 @@ App::App()
        uniformManager(memManager, vulkanContext.device, swapchain.swapChainExtent, camManager.getCamCount(), vulkanContext.getDeviceProperties()),
        inputManager(appWindow, camManager, swapchain.getAttachementsFormats(), swapchain.swapChainImageViews, vulkanContext.getPhysicalDeviceInstance(),
             vulkanContext.graphicsQueue, vulkanContext.familyIndices, swapchain.swapChainExtent, memManager, mesh),
-       debugUtil(memManager, camManager.getCamCount()),
+       debugUtil(vulkanContext.device, memManager, camManager.getCamCount(), vulkanContext.getDeviceProperties().limits.timestampPeriod),
        commandRecorder(){
     // order of members in a class
     
@@ -140,7 +132,12 @@ void App::computeNovel(VkCommandBuffer commandBuffer, const DebugCompute debug) 
 
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.computeDescriptors.descriptorSets[currentFrame],
                                                     descripManager.computeDescriptors.sharedDescriptorSet };
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+    if (inputManager.timingStarted[currentFrame]) {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), debugUtil.timestampQueryPool, currentFrame * debugUtil.timestampPerFrame);
+    }
+    else {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
+    }
 }
 
 void App::computeReducedDepthPyramid(VkCommandBuffer commandBuffer) {
@@ -149,7 +146,8 @@ void App::computeReducedDepthPyramid(VkCommandBuffer commandBuffer) {
 
     commandRecorder.setPipeline(pipelineManager.reduceDepthPipeline);
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0] };        // static single desriptor set
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(camManager.getCamCount(), 32/8));     // 8 tiles worked per workgroup, 32 in the image
+
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(camManager.getCamCount(), 32/8), VK_NULL_HANDLE);     // 8 tiles worked per workgroup, 32 in the image
 
     commandRecorder.barrierStorageImage(commandBuffer, camManager.getReduceStorageImages(), camManager.getCamCount());
 }
@@ -175,6 +173,14 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
         inputManager.startSynthesis = false;
     }
 
+    if (inputManager.timingStarted[currentFrame]) {     // timing for debug
+        commandRecorder.setPipeline(pipelineManager.reduceDepthPipeline);
+        std::vector<VkDescriptorSet> descriptorSets = { descripManager.reduceDescriptors.descriptorSets[0] };        // static single desriptor set
+
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(camManager.getCamCount(), 32/8), debugUtil.timestampQueryPool, currentFrame * debugUtil.timestampPerFrame);
+        commandRecorder.barrierStorageImage(commandBuffer, camManager.getReduceStorageImages(), camManager.getCamCount());
+    }
+
     if (uniformManager.rayDataUniforms.updateUniformBuffers(currentFrame, *camManager.activeCam, swapchain.swapChainExtent)) {
         // storage buffer was recreated, update descritpors
         descripManager.rayDataDescriptors.updateStorageDescriptorSets(uniformManager.rayDataUniforms, currentFrame);
@@ -197,7 +203,12 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.rayDataDescriptors.descriptorSets[currentFrame],
                                                     descripManager.rayDataDescriptors.storageDescriptorSets[currentFrame] };
     commandRecorder.setComputeBuffer(uniformManager.rayDataUniforms.rayDataSSBOIn[currentFrame], uniformManager.rayDataUniforms.rayCountSSBOIn[currentFrame]);
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+    if (inputManager.timingStarted[currentFrame]) {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), debugUtil.timestampQueryPool, currentFrame * debugUtil.timestampPerFrame + 2);
+    }
+    else {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
+    }
 
     // image barrier
     // rayData barrier
@@ -215,7 +226,12 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
                        descripManager.novelSynthDescriptors.descriptorSets[currentFrame],
                        descripManager.rayDataDescriptors.storageDescriptorSets[currentFrame],
                        descripManager.novelSynthDescriptors.debugDescriptorSets[currentFrame]};
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+    if (inputManager.timingStarted[currentFrame]) {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), debugUtil.timestampQueryPool, currentFrame * debugUtil.timestampPerFrame + 4);
+    }
+    else {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
+    }
 
     //image barrier
     commandRecorder.barrierStorageImage(commandBuffer, {uniformManager.novelSynthUniforms.getResultImages()[currentFrame]}, camManager.getCamCount());
@@ -227,7 +243,12 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     descriptorSets = { descripManager.novelReconDescriptors.descriptorSets[currentFrame],
                        descripManager.novelSynthDescriptors.debugDescriptorSets[currentFrame],
                        descripManager.novelReconDescriptors.resultDescriptorSets[currentFrame]};
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+    if (inputManager.timingStarted[currentFrame]) {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), debugUtil.timestampQueryPool, currentFrame * debugUtil.timestampPerFrame + 6);
+    }
+    else {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
+    }
 }
 
 void App::computePointCloud(VkCommandBuffer commandBuffer) {
@@ -250,7 +271,7 @@ void App::computePointCloud(VkCommandBuffer commandBuffer) {
 
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.pointCloudDescriptors.descriptorSets[currentFrame],
                                                     descripManager.computeDescriptors.sharedDescriptorSet };
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY));
+    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
 }
 
 void App::drawFrustumDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
@@ -316,6 +337,44 @@ void App::drawFrame() {
     // Present the swap chain image
 
     vkWaitForFences(vulkanContext.device, 1, &syncManager.inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);    // wait for previous frame to finish
+    
+    if (inputManager.timingStarted[currentFrame]) {
+        if (inputManager.novelRender) {
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame);     // read 0-1
+        }
+
+        if (inputManager.newNovelRender) {
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame);     // read 0-1 pyramidCOnstruct
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 2); // read 2-3 rayData
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 4); // read 4-5 novelCompute
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 6); // read 4-5 novelReconstruct
+        }
+
+        if (!inputManager.timeRender) {
+            debugUtil.recordedCount = 0;   // reset count
+            inputManager.timingStarted[currentFrame] = false;
+
+            if (inputManager.novelRender) {
+                std::cout << "Novel Render Timestamps" << std::endl;
+                debugUtil.printTimestamp(0);
+            }
+            else if (inputManager.newNovelRender) {
+                std::cout << "Analytic Novel Render Timestamps" << std::endl;
+                std::cout << "Construct depth pyramid" << std::endl;
+                debugUtil.printTimestamp(0);
+                std::cout << "Get ray data" << std::endl;
+                debugUtil.printTimestamp(1);
+                std::cout << "Compute sample data" << std::endl;
+                debugUtil.printTimestamp(2);
+                std::cout << "Image reconstruct" << std::endl;
+                debugUtil.printTimestamp(3);
+            }
+        }
+        else if (++debugUtil.recordedCount >= debugUtil.recordTimeCount-1) {       // stop
+            inputManager.timeRender = false;
+            inputManager.timingStarted[currentFrame] = false;
+        }
+    }
 
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(vulkanContext.device, swapchain.swapChain, UINT64_MAX, syncManager.imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -331,6 +390,12 @@ void App::drawFrame() {
     vkResetFences(vulkanContext.device, 1, &syncManager.inFlightFences[currentFrame]);   // needs to be reset manually
 
     beginCommandBuffer(commandManager.commandBuffers[currentFrame]);
+
+    if (inputManager.timeRender) {
+        vkCmdResetQueryPool(commandManager.commandBuffers[currentFrame], debugUtil.timestampQueryPool, currentFrame * debugUtil.timestampPerFrame, debugUtil.timestampPerFrame);
+        inputManager.timingStarted[currentFrame] = true;
+        std::cout << "Capture timestamp" << std::endl;
+    }
     
     if (inputManager.presentOfflineFlag) {
         drawOffline(commandManager.commandBuffers[currentFrame], swapchain.swapChainFramebuffers[imageIndex]);
@@ -462,20 +527,20 @@ void App::renderOfflineImages() {
 void App::changeScene() {
     vkDeviceWaitIdle(vulkanContext.device);
 
-    std::string meshFile;
-    if (inputManager.sceneSelected == 0) {
-        meshFile = PORSCHE_FILE;
-    }
-    else if (inputManager.sceneSelected == 1) {
-        meshFile = CITY_FILE;
-    }
-    else if (inputManager.sceneSelected == 2) {
-        meshFile = VIKING_FILE;
-    }
-    else {
-        throw std::runtime_error("Unknown scene!");
-    }
-    mesh.changeModel(meshFile);
+    // std::string meshFile;
+    // if (inputManager.sceneSelected == 0) {
+    //     meshFile = PORSCHE_FILE;
+    // }
+    // else if (inputManager.sceneSelected == 1) {
+    //     meshFile = CITY_FILE;
+    // }
+    // else if (inputManager.sceneSelected == 2) {
+    //     meshFile = VIKING_FILE;
+    // }
+    // else {
+    //     throw std::runtime_error("Unknown scene!");
+    // }
+    mesh.changeModel(inputManager.sceneSelected);
     descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());
 }
 

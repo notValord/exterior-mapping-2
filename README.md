@@ -361,8 +361,6 @@ Only applicable when the **depth heuristic** is selected and should use point-to
   - A command buffer expects an image in `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`, but it is still in `VK_IMAGE_LAYOUT_GENERAL`.
 
 ### TODO
-
-- Automatically load scene files from the directory.
 - sort and take best n cameras to get the colro fro normal nvoel render
 
 ### Limitations

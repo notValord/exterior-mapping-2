@@ -56,6 +56,8 @@ public:
     NovelHeuristic novelHeuristic;
     bool startSynthesis = false;
 
+    uint32_t bestNCount = 1;
+
     /// Ray marching / intersection options.
     DistanceType distance;
     uint32_t neighbourCount = 1;
@@ -77,6 +79,9 @@ public:
 
     bool loadSetupFlag = false;
     std::string setupNameLoad;
+
+    bool timeRender = false;
+    std::vector<bool> timingStarted;
 
     InputManager(Window& window,
                  CamerasManager& camManager,

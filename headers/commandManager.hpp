@@ -182,7 +182,7 @@ public:
      * @param descriptorSets Descriptor sets to bind.
      * @param dispatchSize Workgroup dispatch dimensions (x, y).
      */
-    void recordCompute(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, std::pair<uint32_t, uint32_t> dispatchSize);
+    void recordCompute(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, std::pair<uint32_t, uint32_t> dispatchSize, VkQueryPool timestampQuery, uint32_t queryId = -1);
 
 private:
     VkPipeline graphicPipeline = VK_NULL_HANDLE;

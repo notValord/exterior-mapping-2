@@ -54,14 +54,15 @@ static glm::vec3 intersectPlanes(const glm::vec4& p1, const glm::vec4& p2, const
     return (-d1 * n2xn3 - d2 * n3xn1 - d3 * n1xn2) / denom;
 }
 
-DebugUtil::DebugUtil(MemoryManager& memMan, const uint32_t camCount)
-    : memManager(memMan) {
+DebugUtil::DebugUtil(VkDevice device, MemoryManager& memMan, const uint32_t camCount, double timestampStep)
+    : memManager(memMan), deviceHandle(device), timestampPeriod(timestampStep) {
     frustumCounts.resize(MAX_FRAMES_IN_FLIGHT);
     for (uint32_t frame = 0; frame < MAX_FRAMES_IN_FLIGHT; frame++) {
         frustumCounts[frame] = camCount;
     }
 
     createFrustumBuffers();
+    createTimeStamp();
 }
 
 DebugUtil::~DebugUtil() {
@@ -69,6 +70,8 @@ DebugUtil::~DebugUtil() {
         memManager.destroyBuffer(frustumVertexBuffers[frame], frustumVertexBufferMemories[frame]);
         memManager.destroyBuffer(frustumIndexBuffers[frame], frustumIndexBufferMemory[frame]);
     }
+
+    vkDestroyQueryPool(deviceHandle, timestampQueryPool, nullptr);
 }
 
 uint32_t DebugUtil::getFrustumIndexCount(uint32_t currentFrame) {
@@ -216,4 +219,50 @@ void DebugUtil::setFrustumData(CamerasManager& camManager, uint32_t currentFrame
     memManager.copyBuffer(stagingBuffer, frustumVertexBuffers[currentFrame], sizeof(Vertex) * frustrumPoints.size());
 
     memManager.destroyBuffer(stagingBuffer, stagingBufferMemory);
+}
+
+
+void DebugUtil::createTimeStamp() {
+    VkQueryPoolCreateInfo queryPoolCI{
+        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+        .queryType = VK_QUERY_TYPE_TIMESTAMP,
+        .queryCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * timestampPerFrame)
+    };
+
+    if (vkCreateQueryPool(deviceHandle, &queryPoolCI, nullptr, &timestampQueryPool ) != VK_SUCCESS) {
+        throw std::runtime_error("Couldn't create te querry pool!");
+    }
+    // std::cout << "Created querry" << std::endl;
+}
+
+double DebugUtil::getTimeStamp(uint32_t firstTimestamp, uint32_t timeStampCount) {
+    uint64_t timestamps[2];
+
+    vkGetQueryPoolResults(deviceHandle,
+                          timestampQueryPool,
+                          firstTimestamp,
+                          timeStampCount,
+                          sizeof(timestamps),
+                          timestamps,
+                          sizeof(uint64_t),
+                          VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+
+    double time_ns = (timestamps[1] - timestamps[0]) * timestampPeriod;
+
+    uint32_t counterId = firstTimestamp%timestampPerFrame / 2;
+    auto& counterVec = timingCounters[counterId];
+    counterVec.push_back(time_ns / 1e6);
+    
+    return (time_ns / 1e6);
+}
+
+void DebugUtil::printTimestamp(uint32_t counterIndex) {
+    double sum = 0.0;
+    for (double timestamp : timingCounters[counterIndex]) {
+        sum += timestamp;
+        std::cout << timestamp << ",";
+    }
+
+    std::cout << std::endl << sum/timingCounters[counterIndex].size() << std::endl;
+    timingCounters[counterIndex].clear();
 }

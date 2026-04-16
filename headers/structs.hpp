@@ -197,18 +197,23 @@ struct NovelBufferObject {
     glm::mat4 invViewMat;
     glm::mat4 projMat;
     glm::mat4 invProjMat;
+
     glm::vec2 res;
-    // glm::vec2 _pad0;        // renderdoc complains
+    glm::vec2 _pad0;        // renderdoc complains
+
     uint32_t camCnt;
     uint32_t sampleCount;
     uint32_t sampleDebug;
     NovelHeuristic heuristic;
+
     DebugCompute debugFlag;
     DistanceType distanceFlag;
+    uint32_t bestNCount;
+    uint32_t _padd1; 
+
     ConeMarching coneFlag;
     float pixelRadius;
     float inConePercentage;
-    // uint32_t _padd1; 
 };
 
 struct PointCloudObject {

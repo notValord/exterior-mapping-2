@@ -34,16 +34,21 @@ layout(set = 0, binding = 0) uniform NovelImageObject {
     mat4 invViewMat;
     mat4 projMat;
     mat4 invProjMat;
+
     vec2 res;
-    // vec2 _pad0;
+    vec2 _pad0;
+
     uint camCnt;
     uint sampleCount;
     uint sampleDebug;
     uint heuristic;
+
     uint debugFlag;
     uint distanceFlag;
+    uint bestNCount;
+    uint _pad1;
+
     ConeBB coneMarching;
-    // uint _pad1;
 } ubo;
 
 //  pixelRadius = 2 * tan(FOV/2) / screenHeight
@@ -136,7 +141,7 @@ void insertSort(inout vec2 arr[MAX_CAMS], in uint size, in float t, in uint camI
         return;
     }
 
-    int i = int(size-1);
+    int i = int(size)-1;
     while (i >= 0 && arr[i].x > t) {
         arr[i+1] = arr[i];
         i--;
@@ -228,11 +233,19 @@ vec2 findMaxInterval(in vec2 inArr[MAX_CAMS], in vec2 outArr[MAX_CAMS], inout ui
 // might need to flip the Y coordinate
 vec2 projectToCam(in vec3 worldPoint, in uint camIndex) {
     vec4 clipPoint = camArrayIn[camIndex].projMat * camArrayIn[camIndex].viewMat * vec4(worldPoint, 1.0f);
-    if (clipPoint.w <= 0.0) {
-        return vec2(0.0f);
+    if (abs(clipPoint.w) < 1e-6) {
+        return vec2(-1.0);
     }
 
     clipPoint = clipPoint / clipPoint.w;
+    // Vulkan frustum check
+    if (clipPoint.x < -1.0 || clipPoint.x > 1.0 ||
+        clipPoint.y < -1.0 || clipPoint.y > 1.0 ||
+        clipPoint.z <  0.0 || clipPoint.z > 1.0)
+    {
+        return vec2(-1.0);
+    }
+
     return (clipPoint.xy + 1.0f) * 0.5f;    // transform from [-1,-1] -> [0, 1] to sample texture
 }
 
@@ -329,17 +342,73 @@ float worldPointDepth(in vec3 point) {
     return ndcDepth;
 }
 
+void insertSort(inout float dSorted[MAX_CAMS], inout vec3 colors[MAX_CAMS], in uint maxSize, in float d, in vec3 color) {
+    if (maxSize >= MAX_CAMS) {
+        return;
+    }
+
+    int i = int(maxSize)-1;             // go from the back
+    while (i >= 0 && dSorted[i] > d) {
+        if (i+1 < ubo.bestNCount) {           // only sort the best N samples, the rest can be ignored
+            dSorted[i+1] = dSorted[i];
+            colors[i+1] = colors[i];
+        }
+        i--;
+    }
+
+    if (i+1 < ubo.bestNCount) {
+        dSorted[i+1] = d;
+        colors[i+1] = color;
+    }
+}
+
+vec3 getBestNSamples(in vec3 samplePoint, in uint refCams[MAX_CAMS], in uint arrLen) {
+    if (arrLen <= 1u) {
+        return vec3(0.0f);
+    }
+
+    vec3 colorSorted[MAX_CAMS];
+    float distanceSorted[MAX_CAMS];
+    uint arrSize = 0;
+
+    float d = 0.0f;
+
+    for (uint i = 0u; i < arrLen; ++i) {
+        uint camIndex = refCams[i];
+        vec2 camUV = projectToCam(samplePoint, camIndex);
+
+        float refDepth = texture(RefDepthSampler, vec3(camUV, camIndex)).r;
+        vec3 refWorldPoint = projectToWorld(camUV, refDepth, camIndex);
+
+        d = pointDistance(refWorldPoint, samplePoint);          // only point depth
+
+        vec3 refColor = texture(RefImagesSampler, vec3(camUV, camIndex)).xyz;
+        
+        insertSort(distanceSorted, colorSorted, arrSize, d, refColor);
+        if (arrSize < ubo.bestNCount) {
+            arrSize++;
+        }
+    }
+
+    for (uint i = 1u; i < arrSize; ++i) {
+        colorSorted[0] += colorSorted[i];
+    }
+
+    return colorSorted[0] / float(arrSize);
+}
+
 vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in vec3 rayDir, in uint refCams[MAX_CAMS], in uint arrLen) {
     if (arrLen <= 1u) {
         return vec3(0.0f);
     }
 
-    float bestDepth = MAX_FLOAT;
-    vec3 bestColorAverage = vec3(1.0, 0.0, 1.0);
-    float projectedDepth = 0.0f;
+    float bestDepth = MAX_FLOAT;                        // heuristic result
+    vec3 bestColorAverage = vec3(1.0, 0.0, 1.0);        // color for the best sample
+    float projectedDepth = 0.0f;                        // depth of the best sample, for debugging
 
     uint startSample = 0u;
     uint endSample = ubo.sampleCount;
+    uint foundBestSample = endSample;
 
     if (ubo.sampleDebug < ubo.sampleCount) {        // debug a single sample
         startSample = ubo.sampleDebug;
@@ -359,8 +428,8 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
         float coneDepthSum = 0.0f;
         vec3 coneAverage = vec3(0.0f);
 
-        float depthSum = 0.0f;
-        vec3 newAverage = vec3(0.0f);
+        float depthSum = 0.0f;                  // current depth value for the sample, lower is better
+        vec3 newAverage = vec3(0.0f);           // color average for the sample
 
         for (uint i = 0u; i < arrLen; ++i) {
             uint camIndex = refCams[i];
@@ -417,6 +486,8 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
             bestDepth = avarageDepth;
             bestColorAverage = newAverage / float(hitCount);
             projectedDepth = worldPointDepth(worldPoint);
+
+            foundBestSample = s;                    // remember the best sample, reuse variable
         }
 
         worldPoint += sampleStep;
@@ -426,7 +497,10 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
     if (ubo.debugFlag == DEBUG_SAMPLE_DEPTH) {
         return vec3(projectedDepth);
     }
-    else {
+    else {      // ubo.bestNCount < arrLen && foundBestSample < endSample
+        if (ubo.coneMarching.coneFlag == NO_CONE && foundBestSample < endSample) {
+            return getBestNSamples(rayOrigin + maxInterval.x * rayDir + (foundBestSample+0.1) * sampleStep, refCams, arrLen);
+        } 
         return bestColorAverage;
     }
 }

@@ -51,6 +51,6 @@ void main() {
 
     uvec2 sampleCoords = unpackFloatToUint(bestSample.y);
     vec2 uv = (vec2(sampleCoords) + 0.5) / vec2(REF_RES);
-    vec4 bestColor = texture(RefImagesSampler, vec3(uv, resultLayer));
-    imageStore(resultImage, ivec2(pixel), bestColor);
+    vec3 bestColor = texture(RefImagesSampler, vec3(uv, resultLayer)).xyz;
+    imageStore(resultImage, ivec2(pixel), vec4(bestColor, 1.0f));
 }

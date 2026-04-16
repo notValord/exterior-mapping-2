@@ -180,13 +180,19 @@ void ImguiProxy::uiSetup(InputManager* inputManager) {
 }
 
 void ImguiProxy::uiGeneral(InputManager* inputManager, Mesh& mesh, const int scrWidth, const int scrHeight) {
-    const char* sceneFiles[] = { "porsche", "city", "vikingRoom"};
+    const auto& loadedModels = mesh.getLoadedModels();
+    std::vector<const char*> sceneFiles;
+    sceneFiles.reserve(loadedModels.size());
+
+    for (const auto& modelName : loadedModels) {
+        sceneFiles.push_back(modelName.c_str());
+    }
 
     if (ImGui::CollapsingHeader("General")) {
         ImGui::Indent();
 
         ImGui::SeparatorText("Scene");
-        if (ImGui::Combo("selected", &inputManager->sceneSelected, sceneFiles, IM_ARRAYSIZE(sceneFiles))) {
+        if (!sceneFiles.empty() && ImGui::Combo("selected", &inputManager->sceneSelected, sceneFiles.data(), static_cast<int>(sceneFiles.size()))) {
             inputManager->sceneChanged = true;
         }
         ImGui::SliderFloat("scale", &mesh.scale, 0, 20, "%.1f");
@@ -328,6 +334,7 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
 
         if (ImGui::Button("Add cam")) {
             camManager.addCam(memManager);
+            inputManager->bestNCount++;
         }
         ImGui::PopStyleColor(3);
 
@@ -340,6 +347,7 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
 
         if (ImGui::Button("Delete cam")) {
             camManager.deleteCam(memManager);
+            inputManager->bestNCount--;
         }
         ImGui::PopStyleColor(3);
         ImGui::EndDisabled();
@@ -457,6 +465,12 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
         }
         ImGui::EndDisabled();
 
+        ImGui::BeginDisabled(inputManager->timeRender);
+        if (ImGui::Button("Time render")) {
+            inputManager->timeRender = true;
+        }
+        ImGui::EndDisabled();
+
         ImGui::SeparatorText("Heuristic");
         if (ImGui::RadioButton("color", &novelHeuristic, 0)) {
             inputManager->novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
@@ -477,6 +491,9 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
             }
         }
         ImGui::SliderScalar("Curr sample", ImGuiDataType_U32, &camManager.sampleDebug, &minDebugSample, &camManager.sampleCount);
+
+        uint32_t camCount = camManager.getCamCount();
+        ImGui::SliderScalar("Best n samples", ImGuiDataType_U32, &inputManager->bestNCount, &minSample, &camCount);
 
         if (ImGui::CollapsingHeader("Depth settings")) {
             ImGui::Indent(); // add left spacing

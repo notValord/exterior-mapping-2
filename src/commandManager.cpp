@@ -366,7 +366,8 @@ void CommandRecorder::barrierComputeBuffer(VkCommandBuffer commandBuffer,
     vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, fillBarriers.size(), fillBarriers.data(), 0, nullptr);
 }
 
-void CommandRecorder::recordCompute(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, std::pair<uint32_t, uint32_t> dispatchSize) {
+void CommandRecorder::recordCompute(VkCommandBuffer commandBuffer, const std::vector<VkDescriptorSet>& descriptorSets, std::pair<uint32_t, uint32_t> dispatchSize,
+                                    VkQueryPool timestampQuery, uint32_t queryId) {
     if (!computeBuffer.isEmpty()) {
         clearComputeBuffer(commandBuffer);
     }
@@ -376,7 +377,13 @@ void CommandRecorder::recordCompute(VkCommandBuffer commandBuffer, const std::ve
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
     }
 
+    if (queryId != -1) {
+        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, timestampQuery, queryId);
+    }
     vkCmdDispatch(commandBuffer, dispatchSize.first, dispatchSize.second, 1);
+    if (queryId != -1) {
+        vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, timestampQuery, queryId+1);
+    }
 
     if (!computeBuffer.isEmpty()) {
         barrierComputeBuffer(commandBuffer,
