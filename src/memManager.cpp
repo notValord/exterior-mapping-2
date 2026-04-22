@@ -490,18 +490,21 @@ void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, S
     void* mappedPtr;
     vmaMapMemory(allocator, allocation, &mappedPtr);
 
+    std::string savedFilename = filename;
     for (uint32_t i = 0; i < layerCount; i++) {
         if (saveFormat == SaveImageFormat::PNG && imageFormat == VK_FORMAT_B8G8R8A8_SRGB) {       // if color image
             uint8_t* pixels = reinterpret_cast<uint8_t*>(mappedPtr);
+
             for (uint32_t i = 0; i < width * height; i++) {
                 uint8_t* p = &pixels[i * 4];
                 uint8_t tmp = p[0];  // Blue
                 p[0] = p[2];         // Replace with Red for RGB
                 p[2] = tmp;          // Replace with Blue for RGB
+                p[3] = 255;          // Set alpha to 255 (fully opaque) if not already
             }
             
             if (layerCount > 1) {   // index the cameras
-                filename += std::to_string(i) + ".png";
+                savedFilename = filename + std::to_string(i) + ".png";
             }
             else {      // add a timestamp
                 auto now = std::chrono::system_clock::now();
@@ -510,9 +513,9 @@ void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, S
 
                 std::ostringstream oss;
                 oss << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
-                filename += "_" + oss.str() + ".png";
+                savedFilename = filename + "_" + oss.str() + ".png";
             }
-            stbi_write_png(filename.c_str(), width, height, 4, mappedPtr, width * 4);
+            stbi_write_png(savedFilename.c_str(), width, height, 4, mappedPtr, width * 4);
         }
         else if (imageFormat == VK_FORMAT_D32_SFLOAT) {     // if depth image
             float* depthData = reinterpret_cast<float*>(mappedPtr);
@@ -526,7 +529,7 @@ void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, S
 
                     hdrData[i] = normalize;
                 }
-                stbi_write_hdr((filename + std::to_string(i) + ".hdr").c_str(), width, height, 1, hdrData.data());
+                stbi_write_hdr((savedFilename + std::to_string(i) + ".hdr").c_str(), width, height, 1, hdrData.data());
             }
             else if (saveFormat == SaveImageFormat::EXR) {
                 // used example form https://github.com/syoyo/tinyexr.git
@@ -558,7 +561,7 @@ void MemoryManager::saveImage(VmaAllocation& allocation, VkFormat imageFormat, S
                 }
                 
                 const char* err = NULL; // or nullptr in C++11 or later.
-                int ret = SaveEXRImageToFile(&image_exr, &header, (filename+".exr").c_str(), &err);
+                int ret = SaveEXRImageToFile(&image_exr, &header, (filename + std::to_string(i) + ".exr").c_str(), &err);
                 if (ret != TINYEXR_SUCCESS) {
                     std::cerr << "Save EXR err:" << err << std::endl;
                     FreeEXRErrorMessage(err); // free's buffer for an error message

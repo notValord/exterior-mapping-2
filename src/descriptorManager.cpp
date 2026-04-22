@@ -4,7 +4,7 @@
 #include <camManager.hpp>
 #include <uniforms.hpp>
 
-static const uint32_t MAX_MATERIALS_COUNT = 60;
+static const uint32_t MAX_MATERIALS_COUNT = 150;
 static const uint32_t SETS_COUNT = MAX_MATERIALS_COUNT + 13;   // 2xMAX_MATERIAL_COUNT, render, compute, shared, frustum+line, cam cube, offline, pointCloud, pointCLoudDraw, reduceCompute, 2 novelSynth, 2 novelRecon
 
 struct DescriptorWriter {

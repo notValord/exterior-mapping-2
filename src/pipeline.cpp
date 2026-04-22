@@ -464,7 +464,7 @@ RenderPassManager::RenderPassManager(VkDevice device, AttachementsFormats attach
     color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     color.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     depth.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    depth.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depth.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     onTopRenderPass = builder.createRenderPass(color, depth);
@@ -515,6 +515,12 @@ PipelineManager::PipelineManager(VkDevice device, const AttachementsFormats& ima
                                           descrMan.renderDescriptors.samplerDescriptorSetLayout}, 2},
                      setupRenderPipeline(),
                      builder),
+      renderTransparentPipeline(device,
+                                renderPassMan.onTopRenderPass,
+                                PipelineLayoutSetup{{descrMan.renderDescriptors.descriptorSetLayout,
+                                                     descrMan.renderDescriptors.samplerDescriptorSetLayout}, 2},
+                                setupRenderTransparentPipeline(),
+                                builder),
       frustumPipeline(device,
                       renderPassMan.onTopRenderPass,
                       PipelineLayoutSetup{{descrMan.frustumDescriptors.descriptorSetLayout}},
@@ -548,6 +554,25 @@ GraphicSetup PipelineManager::setupRenderPipeline(){
     DepthStencilFlags depthFlags{
         .testEnable = VK_TRUE,
         .writeEnable = VK_TRUE
+    };
+    RasterizationFlags rastFlags{
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE
+    };
+
+    return GraphicSetup {
+        .shaderFiles = renderFiles,
+        .vertexInput = VertexInputFlags::POS_COL_UV_NORM,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .depthFlags = depthFlags,
+        .rastFlags = rastFlags,
+    };
+}
+
+GraphicSetup PipelineManager::setupRenderTransparentPipeline() {
+    DepthStencilFlags depthFlags{
+        .testEnable = VK_TRUE,
+        .writeEnable = VK_FALSE
     };
     RasterizationFlags rastFlags{
         .cullMode = VK_CULL_MODE_BACK_BIT,

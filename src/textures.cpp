@@ -36,10 +36,16 @@ Texture::~Texture() {
 }
 
 void Texture::createTextureImage(const std::string& texturePath) {
-    int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load((TEXTURE_DIR + texturePath).c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    int texWidth, texHeight;
+    stbi_uc *pixels = stbi_load((TEXTURE_DIR + texturePath).c_str(), &texWidth, &texHeight, &channelCount, STBI_rgb_alpha);
     // using STBI_rgb_aplha forces the image to be loaded rgba for the consistency even though the format does not have to have one
     VkDeviceSize imageSize = texWidth * texHeight * 4;      // the texChannels contains the number of channels of the original format, doesn't have to be 4
+
+    if (channelCount  < 4) {
+        std::cout << "Warning: Texture " << texturePath << " has " << channelCount << " channels, but will be loaded as RGBA." << std::endl;
+    }
+    std::cout << "Warning: Texture " << texturePath << " has " << channelCount << " channels, but will be loaded as RGBA."  << std::endl;
+
 
     if (!pixels) {
         throw std::runtime_error("Failed to load texture image: " + (TEXTURE_DIR + texturePath));

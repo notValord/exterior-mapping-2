@@ -7,7 +7,7 @@
 
 static const std::string dummyTexture = "dummyTexture.png";         // needs to bind to descritpors
 static const std::string RESOURCE_DIR = "../resources/models/";
-static const uint32_t MAX_MATERIALS_COUNT = 60;                     // arbitrary limit for textures descritpors
+static const uint32_t MAX_MATERIALS_COUNT = 120;                     // arbitrary limit for textures descritpors
 
 Mesh::Mesh(const VkDevice device, MemoryManager& memManager, const VkPhysicalDeviceProperties& prop)
     : deviceHandle(device), memManager(memManager), sampler(device, prop, VK_SAMPLER_ADDRESS_MODE_REPEAT) {
@@ -103,6 +103,10 @@ const std::vector<SubMesh> Mesh::getSubMeshes() {
     return meshes;
 }
 
+const std::vector<SubMesh> Mesh::getTransparentSubMeshes() {
+    return meshesT;
+}
+
 const MeshUniforms Mesh::getMeshUniforms() {
     return {sampler.getSampler(),
             getMaterialViews(),
@@ -136,6 +140,7 @@ void Mesh::clearResources() {
     vertices.clear();
     indices.clear();
     meshes.clear();
+    meshesT.clear();
     textures.clear();
     lightProps.clear();
 }
@@ -198,6 +203,7 @@ void Mesh::loadMesh(const std::string& modelFile) {
     indices.reserve(totalIndices);
 
     meshes.reserve(materials.size());
+    meshesT.reserve(materials.size());
     lightProps.reserve(materials.size());
     for (uint32_t i = 0; i < submeshIndices.size(); i++) {
         const auto& subMesh = submeshIndices[i];
@@ -210,12 +216,23 @@ void Mesh::loadMesh(const std::string& modelFile) {
         if (materials[i].hasTexture()) {
             textureId = textures.size();
             textures.emplace_back(materials[i].textureFile, deviceHandle, memManager);
+            // materials[i].isTransparent |= textures[textureId].isTransparent();
         }
         lightProps.push_back(materials[i].lightProp);
 
-        meshes.emplace_back(SubMesh{ static_cast<uint32_t>(subMesh.size()),
+        if (materials[i].isTransparent) {
+            std::cout << "Got transparent material " << materials[i].name << std::endl;
+            meshesT.emplace_back(SubMesh{ static_cast<uint32_t>(subMesh.size()),
                                      static_cast<uint32_t>(indices.size()),
-                                     textureId });
+                                     textureId,
+                                     i });      // material index
+        }
+        else {
+            meshes.emplace_back(SubMesh{ static_cast<uint32_t>(subMesh.size()),
+                                     static_cast<uint32_t>(indices.size()),
+                                     textureId,
+                                     i });
+        }
         // meshes[meshes.size()-1].print();
         indices.insert(indices.end(), subMesh.begin(), subMesh.end());
     }
@@ -270,6 +287,7 @@ std::vector<Material> Mesh::loadMaterials(const std::vector<tinyobj::material_t>
                                           materialsTiny[i].diffuse[2],
                                           materialsTiny[i].dissolve);
         material.textureFile = materialsTiny[i].diffuse_texname;
+        material.isTransparent = materialsTiny[i].dissolve < 1.0f;
 
         RenderMaterialObject prop{};
         prop.ambient = glm::vec3(materialsTiny[i].ambient[0],

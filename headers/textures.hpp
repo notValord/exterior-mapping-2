@@ -68,10 +68,15 @@ public:
     Texture(const std::string& textureFile, const VkDevice device, MemoryManager& memManager);
     ~Texture();
 
+    bool isTransparent() {
+        return channelCount == 4;       // expected RGBA, else no alpha channel
+    }
+
 private:
     VkImage textureImage;
     VmaAllocation textureImageMemory;
 
+    int channelCount;
     VkFormat textureFormat = VK_FORMAT_R8G8B8A8_SRGB;  // Fixed format for all textures (SRGB color space).
 
     // Vulkan handles

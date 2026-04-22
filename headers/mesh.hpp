@@ -35,6 +35,7 @@ struct Material {
     glm::vec4 diffuseColor;
     RenderMaterialObject lightProp;
     std::string textureFile;
+    bool isTransparent = false;
 
     void print() const {
         std::cout << "Material " << ": " << name << std::endl;
@@ -58,6 +59,7 @@ struct SubMesh {
     uint32_t indexCount;
     uint32_t indexOffset;
     int textureID;
+    uint32_t materialID;
 
     bool hasTexture() const {
         return textureID != -1;
@@ -106,6 +108,7 @@ public:
     const VkSampler getSampler();
     const std::vector<VkImageView> getMaterialViews();
     const std::vector<SubMesh> getSubMeshes();
+    const std::vector<SubMesh> getTransparentSubMeshes();
     const MeshUniforms getMeshUniforms();
 
     glm::vec3 getLight();
@@ -124,7 +127,8 @@ private:
     std::vector<uint32_t> indices;
 
     std::vector<SubMesh> meshes;
-    std::vector<RenderMaterialObject> lightProps;       // the same index as the meshes, memory storage for the materials;
+    std::vector<SubMesh> meshesT;                       // transparent meshes
+    std::vector<RenderMaterialObject> lightProps;
     std::vector<Texture> textures;
     Sampler sampler;
 

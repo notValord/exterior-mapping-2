@@ -66,6 +66,11 @@ void App::drawScene(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer, co
 
     std::vector<glm::mat4> pushMats = { model };
     commandRecorder.recordMultiScene(commandBuffer, descriptorSets, framebuffer, pushMats, mesh.getSubMeshes(), descripManager.renderDescriptors.samplerDescriptorSets);
+
+    // draw transparent objects separatly
+    commandRecorder.setPipeline(pipelineManager.renderTransparentPipeline, pipelineManager.renderPassMan.onTopRenderPass, swapchain.swapChainExtent);
+    commandRecorder.setRenderBuffers(mesh.vertexBuffer, mesh.getIndicesSize(), mesh.indexBuffer);
+    commandRecorder.recordMultiScene(commandBuffer, descriptorSets, framebuffer, pushMats, mesh.getTransparentSubMeshes(), descripManager.renderDescriptors.samplerDescriptorSets, false);
 }
 
 void App::drawOffline(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {

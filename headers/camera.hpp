@@ -106,7 +106,7 @@ private:
 
     float fov = glm::radians(45.0f);
     float aspectRatio;
-    float nearPlane = 1.0f;
+    float nearPlane = 0.1f;
     float farPlane = 100.0f;
 
     float yaw = 90.0f;

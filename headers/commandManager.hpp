@@ -165,7 +165,8 @@ public:
                           VkFramebuffer framebuffer,
                           const std::vector<glm::mat4>& pushConstants,
                           const std::vector<SubMesh>& meshes,
-                          const std::vector<VkDescriptorSet>& materialSets);
+                          const std::vector<VkDescriptorSet>& materialSets,
+                          bool clear = true);
     
     /**
      * @brief Record camera cube visualization.

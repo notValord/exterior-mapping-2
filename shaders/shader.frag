@@ -34,7 +34,15 @@ layout(push_constant) uniform PushConstant {
     uint materialID;
 } pc;
 
-const vec3 lightColor = vec3(1.0f); 
+const vec3 lightColor = vec3(1.0f, 0.98f, 0.95f);
+const float lightPower = 3.0f;
+
+float lightAttenuation(in float distanceToLight) {
+    const float kC = 1.0;
+    const float kL = 0.03;
+    const float kQ = 0.008;
+    return 1.0 / (kC + kL * distanceToLight + kQ * distanceToLight * distanceToLight);
+}
 
 float LinearizeDepth()      // bounded to 0-1
 {
@@ -80,10 +88,16 @@ vec3 specularLight(in vec3 norm, in vec3 viewDir, in vec3 lightDir) {
 
 vec4 basicLighting(vec4 objectColor) {
     vec3 norm = normalize(normal);
-    vec3 lightDir = normalize(rfo.lightPos - fragPosition);
+    vec3 lightVec = rfo.lightPos - fragPosition;
+    float distanceToLight = length(lightVec);
+    vec3 lightDir = normalize(lightVec);
     vec3 viewDir = normalize(rfo.camPos - fragPosition);
+    float attenuation = lightAttenuation(distanceToLight);
 
-    return vec4(ambientLight(objectColor.xyz) + diffuseLight(objectColor.xyz, norm, lightDir) + specularLight(norm, viewDir, lightDir), objectColor.w);
+    vec3 ambient = ambientLight(objectColor.xyz);
+    vec3 direct = diffuseLight(objectColor.xyz, norm, lightDir) + specularLight(norm, viewDir, lightDir);
+
+    return vec4(ambient + direct * attenuation * lightPower, objectColor.w);
 }
 
 void main() {

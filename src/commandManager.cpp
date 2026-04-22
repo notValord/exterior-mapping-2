@@ -56,6 +56,7 @@ void CommandManager::createCommandBuffers() {
 struct CommandRecordSetter{
     static void beginRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, const VkExtent2D& swapChainExtent, bool clearColor) {
         std::array<VkClearValue, 2> baseColor{};
+        // baseColor[0].color = {0.2f, 0.3f, 0.5f, 1.0f};
         baseColor[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
         baseColor[1].depthStencil = {1.0f, 0};
         
@@ -201,8 +202,9 @@ void CommandRecorder::recordMultiScene(VkCommandBuffer commandBuffer,
                                         VkFramebuffer framebuffer,
                                         const std::vector<glm::mat4>& pushConstants,
                                         const std::vector<SubMesh>& meshes,
-                                        const std::vector<VkDescriptorSet>& materialSets) {
-    CommandRecordSetter::beginRenderPass(commandBuffer, renderPass, framebuffer, swapchainExtent, true);
+                                        const std::vector<VkDescriptorSet>& materialSets,
+                                        bool clear) {
+    CommandRecordSetter::beginRenderPass(commandBuffer, renderPass, framebuffer, swapchainExtent, clear);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicPipeline);
 
@@ -228,7 +230,6 @@ void CommandRecorder::recordMultiScene(VkCommandBuffer commandBuffer,
     }
 
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-    uint32_t meshID = 0;
     for (const auto& mesh: meshes) {
         uint32_t hasTexture = 0;
         if (mesh.hasTexture()) {
@@ -240,9 +241,8 @@ void CommandRecorder::recordMultiScene(VkCommandBuffer commandBuffer,
         }
 
         vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4), sizeof(uint32_t), &hasTexture);
-        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4) + sizeof(uint32_t), sizeof(uint32_t), &meshID);
+        vkCmdPushConstants(commandBuffer, graphicPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::mat4) + sizeof(uint32_t), sizeof(uint32_t), &mesh.materialID);
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount, 1, mesh.indexOffset, 0, 0);
-        meshID++;
     }
 
     vkCmdEndRenderPass(commandBuffer);

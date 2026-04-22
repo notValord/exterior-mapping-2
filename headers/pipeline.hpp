@@ -197,6 +197,7 @@ private:
     static inline const ComputeShader novelReconFile  =  ComputeShader{"../shaders/novelReconstruct.spv"};
 
     GraphicSetup setupRenderPipeline();
+    GraphicSetup setupRenderTransparentPipeline();
     GraphicSetup setupFrustumPipeline();
     GraphicSetup setupLinePipeline();
     GraphicSetup setupCamCubePipeline();
@@ -214,6 +215,7 @@ public:
     ComputePipeline novelReconPipeline;
 
     GraphicPipeline renderPipeline;
+    GraphicPipeline renderTransparentPipeline;
     GraphicPipeline frustumPipeline;
     GraphicPipeline linePipeline;
     GraphicPipeline camCubePipeline;

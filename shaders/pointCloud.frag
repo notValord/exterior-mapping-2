@@ -10,7 +10,7 @@ layout(location = 0) out vec4 outColor;
 layout(set = 1, binding = 0, rg32ui) uniform writeonly uimage2D metadataImage;
 
 void main() {
-    outColor = vec4(colorFrag, 0.5f);
+    outColor = vec4(colorFrag, 1.0f);
 
     ivec2 pixelCoords = ivec2(gl_FragCoord.xy);
     uint camBitArr = 1u << camID;
