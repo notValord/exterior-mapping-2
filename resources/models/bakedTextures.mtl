@@ -1,0 +1,1014 @@
+# Blender 4.4.3 MTL File: 'None'
+# www.blender.org
+
+newmtl Material
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl Merged_materials
+Ns 159.999985
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+
+newmtl material_041
+Ns 1000.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_baseColor.png
+
+newmtl material_041_0
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_0_baseColor.png
+
+newmtl material_041_1
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_1_baseColor.png
+
+newmtl material_041_10
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_10_baseColor.png
+
+newmtl material_041_11
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_11_baseColor.png
+
+newmtl material_041_12
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_12_baseColor.png
+
+newmtl material_041_13
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_13_baseColor.png
+
+newmtl material_041_14
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_14_baseColor.png
+
+newmtl material_041_15
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_15_baseColor.png
+
+newmtl material_041_16
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_16_baseColor.png
+
+newmtl material_041_17
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_17_baseColor.png
+
+newmtl material_041_18
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_18_baseColor.png
+
+newmtl material_041_19
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_19_baseColor.png
+
+newmtl material_041_2
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_2_baseColor.png
+
+newmtl material_041_20
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_20_baseColor.png
+
+newmtl material_041_21
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_21_baseColor.png
+
+newmtl material_041_22
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_22_baseColor.png
+
+newmtl material_041_23
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_23_baseColor.png
+
+newmtl material_041_24
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_24_baseColor.png
+
+newmtl material_041_25
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_25_baseColor.png
+
+newmtl material_041_26
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_26_baseColor.png
+
+newmtl material_041_27
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_27_baseColor.png
+
+newmtl material_041_28
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_28_baseColor.png
+
+newmtl material_041_29
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_29_baseColor.png
+
+newmtl material_041_3
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_3_baseColor.png
+
+newmtl material_041_30
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_30_baseColor.png
+
+newmtl material_041_31
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_31_baseColor.png
+
+newmtl material_041_32
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_32_baseColor.png
+
+newmtl material_041_33
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_33_baseColor.png
+
+newmtl material_041_34
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_34_baseColor.png
+
+newmtl material_041_35
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_35_baseColor.png
+
+newmtl material_041_36
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_36_baseColor.png
+
+newmtl material_041_37
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_37_baseColor.png
+
+newmtl material_041_38
+Ns 167.745956
+Ka 0.716364 0.716364 0.716364
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.6
+illum 3
+map_Kd cityModel/material_041_38_baseColor.png
+
+newmtl material_041_39
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_39_baseColor.png
+
+newmtl material_041_4
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_4_baseColor.png
+
+newmtl material_041_40
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_40_baseColor.png
+
+newmtl material_041_41
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_41_baseColor.png
+
+newmtl material_041_42
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.600000
+illum 2
+map_Kd cityModel/material_041_42_baseColor.png
+
+newmtl material_041_43
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_43_baseColor.png
+
+newmtl material_041_44
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_44_baseColor.png
+
+newmtl material_041_45
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_45_baseColor.png
+
+newmtl material_041_46
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_46_baseColor.png
+
+newmtl material_041_47
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_48_baseColor.png
+
+newmtl material_041_48
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_48_baseColor.png
+
+newmtl material_041_49
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_49_baseColor.png
+
+newmtl material_041_5
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_5_baseColor.png
+
+newmtl material_041_50
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_50_baseColor.png
+
+newmtl material_041_51
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_51_baseColor.png
+
+newmtl material_041_52
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_52_baseColor.png
+
+newmtl material_041_53
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_53_baseColor.png
+
+newmtl material_041_54
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_54_baseColor.png
+
+newmtl material_041_55
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 0.6
+illum 2
+map_Kd cityModel/material_041_55_baseColor.png
+map_d material_041_55_baseColor.png
+
+newmtl material_041_56
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_56_baseColor.png
+
+newmtl material_041_57
+Ns 457.468262
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_57_baseColor.png
+
+newmtl material_041_58
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_58_baseColor.png
+
+newmtl material_041_59
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_59_baseColor.png
+
+newmtl material_041_6
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_6_baseColor.png
+
+newmtl material_041_60
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_60_baseColor.png
+
+newmtl material_041_61
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_61_baseColor.png
+
+newmtl material_041_62
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_62_baseColor.png
+
+newmtl material_041_63
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_63_baseColor.png
+
+newmtl material_041_64
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_64_baseColor.png
+
+newmtl material_041_65
+Ns 1000.000000
+Ka 0.629091 0.629091 0.629091
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 3
+map_Kd cityModel/material_041_65_baseColor.png
+
+newmtl material_041_66
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_66_baseColor.png
+
+newmtl material_041_67
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_67_baseColor.png
+
+newmtl material_041_68
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+illum 2
+d 0.6
+map_Kd cityModel/material_041_68_baseColor.png
+map_d material_041_68_baseColor.png
+
+newmtl material_041_69
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_69_baseColor.png
+
+newmtl material_041_7
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_7_baseColor.png
+
+newmtl material_041_70
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_70_baseColor.png
+
+newmtl material_041_71
+Ns 250.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_71_baseColor.png
+
+newmtl material_041_72
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_72_baseColor.png
+
+newmtl material_041_73
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_73_baseColor.png
+
+newmtl material_041_74
+Ns 232.608444
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 3
+map_Kd cityModel/material_041_74_baseColor.png
+
+newmtl material_041_75
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_75_baseColor.png
+
+newmtl material_041_76
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_76_baseColor.png
+
+newmtl material_041_77
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_77_baseColor.png
+
+newmtl material_041_78
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_78_baseColor.png
+
+newmtl material_041_79
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_79_baseColor.png
+
+newmtl material_041_8
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_8_baseColor.png
+
+newmtl material_041_80
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_80_baseColor.png
+
+newmtl material_041_81
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_81_baseColor.png
+
+newmtl material_041_82
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_82_baseColor.png
+
+newmtl material_041_83
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_83_baseColor.png
+
+newmtl material_041_84
+Ns 1000.000000
+Ka 0.803636 0.803636 0.803636
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 3
+map_Kd cityModel/material_041_84_baseColor.png
+
+newmtl material_041_85
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_85_baseColor.png
+
+newmtl material_041_86
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_86_baseColor.png
+
+newmtl material_041_87
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_87_baseColor.png
+
+newmtl material_041_88
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_88_baseColor.png
+
+newmtl material_041_89
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_89_baseColor.png
+
+newmtl material_041_9
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_9_baseColor.png
+
+newmtl material_041_90
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_90_baseColor.png
+
+newmtl material_041_91
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_91_baseColor.png
+
+newmtl material_041_92
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_92_baseColor.png
+
+newmtl material_041_93
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_93_baseColor.png
+
+newmtl material_041_94
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_94_baseColor.png
+
+newmtl material_041_95
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_95_baseColor.png
+
+newmtl material_041_96
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_96_baseColor.png
+
+newmtl material_041_97
+Ns 1.788865
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd cityModel/material_041_97_baseColor.png
