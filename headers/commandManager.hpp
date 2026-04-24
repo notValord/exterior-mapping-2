@@ -132,7 +132,7 @@ public:
      * @param storageImages Images to barrier.
      * @param layerCount Number of array layers.
      */
-    void barrierStorageImage(VkCommandBuffer commandBuffer, const std::vector<VkImage>& storageImages, uint32_t layerCount);
+    void barrierStorageImage(VkCommandBuffer commandBuffer, const std::vector<VkImage>& storageImages, uint32_t layerCount, VkPipelineStageFlagBits srcStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VkPipelineStageFlagBits dstStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
     /**
      * @brief Insert memory barrier for storage buffer.

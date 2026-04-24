@@ -279,7 +279,11 @@ void CommandRecorder::clearStorageImage(VkCommandBuffer commandBuffer, VkImage s
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &imageMemoryBarrier);
 }
 
-void CommandRecorder::barrierStorageImage(VkCommandBuffer commandBuffer, const std::vector<VkImage>& storageImages, uint32_t layerCount) {
+void CommandRecorder::barrierStorageImage(VkCommandBuffer commandBuffer,
+                                          const std::vector<VkImage>& storageImages,
+                                          uint32_t layerCount,
+                                          VkPipelineStageFlagBits srcStage,
+                                          VkPipelineStageFlagBits dstStage) {
     VkImageSubresourceRange range = {
         .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .baseMipLevel = 0,
@@ -306,7 +310,7 @@ void CommandRecorder::barrierStorageImage(VkCommandBuffer commandBuffer, const s
         imageMemoryBarriers.emplace_back(imageMemoryBarrier);
     }
 
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 0, nullptr, 0, nullptr, imageMemoryBarriers.size(), imageMemoryBarriers.data());
+    vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, imageMemoryBarriers.size(), imageMemoryBarriers.data());
 }
 
 void CommandRecorder::clearComputeBuffer(VkCommandBuffer commandBuffer) {

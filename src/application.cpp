@@ -256,7 +256,7 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     }
 
     // Ensure compute shader writes to result image are complete and visible before layout transition
-    commandRecorder.barrierStorageImage(commandBuffer, {uniformManager.novelReconUniforms.getResultImage(currentFrame)}, 1);
+    commandRecorder.barrierStorageImage(commandBuffer, {uniformManager.novelReconUniforms.getResultImage(currentFrame)}, 1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void App::computePointCloud(VkCommandBuffer commandBuffer) {
