@@ -315,9 +315,13 @@ vec3 projectToWorld(vec2 uvCoords, float depth, uint camId) {
 
     vec4 clipPoint = vec4(ndcPixel, depth, 1.0f);
     vec4 viewPoint = camArrayIn[camId].invProjMat * clipPoint;
+
+    if (abs(viewPoint.w) < 1e-6) {
+        return vec3(0.0);
+    }
     viewPoint = viewPoint / viewPoint.w;
 
-    return (camArrayIn[camId].invViewMat * viewPoint).xyz;
+    return (camArrayIn[camId].invViewMat * vec4(viewPoint.xyz, 1.0f)).xyz;
 }
 
 float pointRayDistance(in vec3 point, in vec3 rayOrigin, in vec3 rayDir) {
@@ -418,7 +422,6 @@ vec3 depthHeuristic(in vec2 maxInterval, in float rayStep, in vec3 rayOrigin, in
     float d = maxInterval.x + float(startSample) * rayStep;
     vec3 worldPoint = rayOrigin + d * rayDir;
     vec3 sampleStep = rayStep * rayDir;
-    worldPoint += 0.1 * sampleStep;
 
     float distanceRadius = d * ubo.coneMarching.pixelRadius;
     float distanceStep = rayStep * ubo.coneMarching.pixelRadius;

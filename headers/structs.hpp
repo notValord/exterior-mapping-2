@@ -1,5 +1,9 @@
 #pragma once
 
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE     // GLM uses openGl depth range -1 to 1
+
 #include <glm/glm.hpp>
 
 #include <json.hpp>
@@ -85,13 +89,15 @@ struct CamJson {
     glm::vec3 pos;
     float yaw;
     float pitch;
+    float fov;
 };
 
 inline void to_json(json& j, const CamJson& cam) {
     j = json{
         {"pos", {cam.pos.x, cam.pos.y, cam.pos.z}},
         {"yaw", cam.yaw},
-        {"pitch", cam.pitch}
+        {"pitch", cam.pitch},
+        {"fov", cam.fov}
     };
 }
 
@@ -101,6 +107,7 @@ inline void from_json(const json& j, CamJson& c) {
 
     j.at("yaw").get_to(c.yaw);
     j.at("pitch").get_to(c.pitch);
+    j.at("fov").get_to(c.fov);
 }
 
 struct CamSetupJson {

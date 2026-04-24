@@ -3,6 +3,9 @@
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE     // GLM uses openGl depth range -1 to 1
+
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 

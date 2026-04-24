@@ -1,6 +1,8 @@
 #pragma once
 
 #define GLM_ENABLE_EXPERIMENTAL         // GLM hashes for vec2 and vec3
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE     // GLM uses openGl depth range -1 to 1
 #include <glm/gtx/hash.hpp>
 #include <glm/glm.hpp>
 

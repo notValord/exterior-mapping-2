@@ -221,7 +221,6 @@ void Mesh::loadMesh(const std::string& modelFile) {
         lightProps.push_back(materials[i].lightProp);
 
         if (materials[i].isTransparent) {
-            std::cout << "Got transparent material " << materials[i].name << std::endl;
             meshesT.emplace_back(SubMesh{ static_cast<uint32_t>(subMesh.size()),
                                      static_cast<uint32_t>(indices.size()),
                                      textureId,

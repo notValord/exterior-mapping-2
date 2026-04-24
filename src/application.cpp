@@ -196,10 +196,10 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     }
 
     uniformManager.novelReconUniforms.updateUniformBuffers(currentFrame, camManager.getCamCount(), swapchain.swapChainExtent);
-    uniformManager.novelReconUniforms.transferResultLayout(currentFrame, VK_IMAGE_LAYOUT_GENERAL, commandBuffer);
     if (uniformManager.novelReconUniforms.setResolution(swapchain.swapChainExtent, currentFrame)) {
         descripManager.novelReconDescriptors.updateResultDescriptorSets(uniformManager.novelReconUniforms.resultImageView, currentFrame);
     }
+    uniformManager.novelReconUniforms.transferResultLayout(currentFrame, VK_IMAGE_LAYOUT_GENERAL, commandBuffer);
 
     uint32_t groupCountX = (swapchain.swapChainExtent.width  + 15) / 16;
     uint32_t groupCountY = (swapchain.swapChainExtent.height + 15) / 16;
@@ -532,19 +532,6 @@ void App::renderOfflineImages() {
 void App::changeScene() {
     vkDeviceWaitIdle(vulkanContext.device);
 
-    // std::string meshFile;
-    // if (inputManager.sceneSelected == 0) {
-    //     meshFile = PORSCHE_FILE;
-    // }
-    // else if (inputManager.sceneSelected == 1) {
-    //     meshFile = CITY_FILE;
-    // }
-    // else if (inputManager.sceneSelected == 2) {
-    //     meshFile = VIKING_FILE;
-    // }
-    // else {
-    //     throw std::runtime_error("Unknown scene!");
-    // }
     mesh.changeModel(inputManager.sceneSelected);
     descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());
 }

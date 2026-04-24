@@ -5,6 +5,8 @@
 
 #include <iostream>
 
+#include <structs.hpp>
+
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
 
@@ -31,7 +33,7 @@ public:
      * @param prop Physical device properties used to determine sampler capabilities.
      * @param addressMode Addressing mode for out-of-bounds texture coordinates (default: REPEAT).
      */
-    Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+    Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT, ImageViewType type = ImageViewType::COLOR);
     ~Sampler();
 
     VkSampler getSampler();
@@ -48,7 +50,7 @@ private:
      * @param prop Physical device properties for capability checking.
      * @param addressMode Addressing mode for texture wrapping.
      */
-    void createTextureSampler(const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode);
+    void createTextureSampler(const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode, ImageViewType type);
 };
 
 /**

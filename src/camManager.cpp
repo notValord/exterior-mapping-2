@@ -62,6 +62,20 @@ uint32_t CamerasManager::getActiveIndex() const {
     return activeIndex;
 }
 
+float CamerasManager::getCamArrayFOV() const {
+    if (camArray.empty()) {
+        return glm::radians(45.0f);
+    }
+
+    return camArray[0].getFOV();
+}
+
+void CamerasManager::setCamArrayFOV(float newFovRadians) {
+    for (auto& cam : camArray) {
+        cam.setFOV(newFovRadians);
+    }
+}
+
 bool CamerasManager::novelViewToggled(){
     return novelViewActive;
 }
@@ -116,6 +130,9 @@ void CamerasManager::addCam(MemoryManager& memManager) {
     }
 
     camArray.emplace_back(extentRatio, deviceHandle, memManager, swapChainExtentHandle, colorFormat, depthFormat, renderpassHandle);
+    if (camArray.size() > 1) {
+        camArray.back().setFOV(camArray[0].getFOV());
+    }
     camCount++;
 
     offlineRes.setLayerCount(camCount);
@@ -270,6 +287,7 @@ void CamerasManager::loadFromJson(const CamSetupJson& setup, MemoryManager& memM
         else {
             camArray[i-2].setPosition(camJson.pos);
             camArray[i-2].setYawPitch(camJson.yaw, camJson.pitch);
+            camArray[i-2].setFOV(camJson.fov);
         }
     }
 }

@@ -224,6 +224,8 @@ public:
     uint32_t getActiveIndex() const;
     bool novelViewToggled();
     bool observerToggled();
+    float getCamArrayFOV() const;
+    void setCamArrayFOV(float newFovRadians);
 
     /**
      * @brief Get image view for type.

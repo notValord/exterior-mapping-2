@@ -369,6 +369,11 @@ void ImguiProxy::uiCamArray(CamerasManager& camManager, InputManager* inputManag
 
         ImGui::EndDisabled();
 
+        float camArrayFovDeg = glm::degrees(camManager.getCamArrayFOV());
+        if (ImGui::SliderFloat("FOV ", &camArrayFovDeg, 1.0f, 179.0f, "%1.f deg")) {
+            camManager.setCamArrayFOV(glm::radians(camArrayFovDeg));
+        }
+
         ImGui::Unindent();
     }
 }
@@ -450,7 +455,7 @@ void ImguiProxy::uiNovelRender(CamerasManager& camManager, InputManager* inputMa
     if (ImGui::CollapsingHeader("Novel render")) {
         const uint32_t minDebugSample = 0;
         const uint32_t minSample = 1;
-        const uint32_t maxSample = 128;
+        const uint32_t maxSample = 512;
         const uint32_t maxNeighbour = 100;
 
         ImGui::Indent();

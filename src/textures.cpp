@@ -41,10 +41,10 @@ void Texture::createTextureImage(const std::string& texturePath) {
     // using STBI_rgb_aplha forces the image to be loaded rgba for the consistency even though the format does not have to have one
     VkDeviceSize imageSize = texWidth * texHeight * 4;      // the texChannels contains the number of channels of the original format, doesn't have to be 4
 
-    if (channelCount  < 4) {
-        std::cout << "Warning: Texture " << texturePath << " has " << channelCount << " channels, but will be loaded as RGBA." << std::endl;
-    }
-    std::cout << "Warning: Texture " << texturePath << " has " << channelCount << " channels, but will be loaded as RGBA."  << std::endl;
+    // if (channelCount  < 4) {
+    //     std::cout << "Warning: Texture " << texturePath << " has " << channelCount << " channels, but will be loaded as RGBA." << std::endl;
+    // }
+    // std::cout << "Warning: Texture " << texturePath << " has " << channelCount << " channels, but will be loaded as RGBA."  << std::endl;
 
 
     if (!pixels) {
@@ -75,16 +75,16 @@ void Texture::createTextureImageView() {
 
 
 
-Sampler::Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode)
+Sampler::Sampler(const VkDevice device, const VkPhysicalDeviceProperties& prop, VkSamplerAddressMode addressMode, ImageViewType type)
     : deviceHandle(device) {
-    createTextureSampler(prop, addressMode);
+    createTextureSampler(prop, addressMode, type);
 }
 
 Sampler::~Sampler() {
     vkDestroySampler(deviceHandle, textureSampler, nullptr);
 }
 
-void Sampler::createTextureSampler(const VkPhysicalDeviceProperties& properties, VkSamplerAddressMode addressMode) {
+void Sampler::createTextureSampler(const VkPhysicalDeviceProperties& properties, VkSamplerAddressMode addressMode, ImageViewType type) {
     VkSamplerCreateInfo samplerCI{
         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
         .magFilter = VK_FILTER_LINEAR,
@@ -103,6 +103,14 @@ void Sampler::createTextureSampler(const VkPhysicalDeviceProperties& properties,
         .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
         .unnormalizedCoordinates = VK_FALSE,    // range 0-1
     };
+
+    if (type == ImageViewType::DEPTH) {
+        samplerCI.magFilter = VK_FILTER_NEAREST;
+        samplerCI.minFilter = VK_FILTER_NEAREST;
+        samplerCI.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        samplerCI.compareEnable = VK_FALSE;
+        samplerCI.anisotropyEnable = VK_FALSE;
+    }
 
     if (vkCreateSampler(deviceHandle, &samplerCI, nullptr, &textureSampler) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create a sampler!");

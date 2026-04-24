@@ -47,6 +47,7 @@ public:
     glm::mat4 getProjectionMatrix() const;
     glm::vec2 getNearFar() const;
     float getFOV() const;
+    void setFOV(float newFovRadians);
 
     /**
      * @brief Updates the aspect ratio for the projection matrix.
@@ -211,6 +212,8 @@ public:
 private:
     VkImageView colorImageView = VK_NULL_HANDLE;
     VkImageView depthImageView = VK_NULL_HANDLE;
+
+    float fov = glm::radians(45.0f);
 
     // Vulkan Handles
     VkDevice deviceHandle;

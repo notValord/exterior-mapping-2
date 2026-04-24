@@ -38,6 +38,12 @@ glm::vec2 Camera::getNearFar() const {
 float Camera::getFOV() const {
     return fov;
 }
+
+void Camera::setFOV(float newFovRadians) {
+    const float minFov = glm::radians(1.0f);
+    const float maxFov = glm::radians(179.0f);
+    fov = glm::clamp(newFovRadians, minFov, maxFov);
+}
  
 void Camera::updateRatio(float newRatio){
     aspectRatio = newRatio;
@@ -144,6 +150,7 @@ CamJson Camera::jsonCam() const {
     json.pos = pos;
     json.yaw = yaw;
     json.pitch = pitch;
+    json.fov = fov;
 
     return json;
 }
@@ -210,6 +217,7 @@ void NovelCamera::swapTransferLayoutRenderPresent(uint32_t currentFrame, VkImage
 
 OfflineCamera::OfflineCamera(float extentRatio, VkDevice device, MemoryManager& memMan, VkExtent2D& swapChainExtent, const VkFormat colorFormat, const VkFormat depthFormat, VkRenderPass renderpass)
     : Camera(extentRatio), deviceHandle(device), memManager(memMan) {
+    setFOV(fov);
     // createOfflineResources(renderpass, colorFormat, depthFormat, swapChainExtent);
 }
 

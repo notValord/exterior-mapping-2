@@ -56,8 +56,8 @@ void CommandManager::createCommandBuffers() {
 struct CommandRecordSetter{
     static void beginRenderPass(VkCommandBuffer commandBuffer, VkRenderPass renderPass, VkFramebuffer frameBuffer, const VkExtent2D& swapChainExtent, bool clearColor) {
         std::array<VkClearValue, 2> baseColor{};
-        // baseColor[0].color = {0.2f, 0.3f, 0.5f, 1.0f};
-        baseColor[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+        baseColor[0].color = {0.2f, 0.3f, 0.5f, 1.0f};
+        // baseColor[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
         baseColor[1].depthStencil = {1.0f, 0};
         
         VkRenderPassBeginInfo renderPassBI{
