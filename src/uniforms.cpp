@@ -753,6 +753,10 @@ void NovelReconUniforms::transferResultLayout(uint32_t currentFrame, VkImageLayo
 }
 
 
+VkImage NovelReconUniforms::getResultImage(uint32_t currentFrame) {
+    return resultImage[currentFrame];
+}
+
 
 UniformManager::UniformManager(MemoryManager& memManager, VkDevice device, const VkExtent2D& extentSize, const uint32_t camCount, const VkPhysicalDeviceProperties& prop)
         : renderUniforms(memManager),

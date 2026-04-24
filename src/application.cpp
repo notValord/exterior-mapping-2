@@ -254,6 +254,9 @@ void App::computeNewNovel(VkCommandBuffer commandBuffer) {
     else {
         commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
     }
+
+    // Ensure compute shader writes to result image are complete and visible before layout transition
+    commandRecorder.barrierStorageImage(commandBuffer, {uniformManager.novelReconUniforms.getResultImage(currentFrame)}, 1);
 }
 
 void App::computePointCloud(VkCommandBuffer commandBuffer) {

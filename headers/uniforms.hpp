@@ -359,6 +359,8 @@ public:
      * @param commandBuffer Command buffer used for the layout transition.
      */
     void transferResultLayout(uint32_t currentFrame, VkImageLayout newLayout, VkCommandBuffer commandBuffer);
+
+    VkImage getResultImage(uint32_t currentFrame);
 private:
     std::vector<VkImage> resultImage;
     std::vector<VmaAllocation> resultImageMemory;
