@@ -69,19 +69,19 @@ enum class ConeMarching  : uint32_t {
 };
 
 struct SceneJson {
-    int id;
+    std::string name;
     float scale;
 };
 
 inline void to_json(json& j, const SceneJson& scene) {
     j = json{
-        {"scene", scene.id},
+        {"scene", scene.name},
         {"scale", scene.scale}
     };
 }
 
 inline void from_json(const json& j, SceneJson& s) {
-    j.at("scene").get_to(s.id);
+    j.at("scene").get_to(s.name);
     j.at("scale").get_to(s.scale);
 }
 
@@ -127,6 +127,14 @@ inline void from_json(const json& j, CamSetupJson& cs) {
     j.at("cams").get_to(cs.cams);
 }
 
+
+struct TestInfo {
+    std::string algorithm;
+    float fov;
+    int sampleCount;
+    uint32_t width;
+    uint32_t height;
+};
 
 /**
  * @struct MeshUniforms

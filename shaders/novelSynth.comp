@@ -248,7 +248,7 @@ void main() {
     uint currLvl = MAX_LVL;
     RayData ray = rayDataIn[threadID];
 
-    RayLine line = RayLine(vec2(0.0f), vec2(0.0f), vec3(0.0f, 0.0f, 0.001f));
+    RayLine line = RayLine(vec2(0.0f), vec2(0.0f), vec3(0.0f, 0.0f, 0.0001f));
     vec2 clipZ = vec2(0.0f);                            // interpolate inverse depth to get depth across 2D line
     float tBaseValue = 0.0f;
 

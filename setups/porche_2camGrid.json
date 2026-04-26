@@ -55,6 +55,6 @@
     ],
     "scene": {
         "scale": 1.0,
-        "scene": 1
+        "scene": "porsche"
     }
 }

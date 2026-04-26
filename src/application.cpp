@@ -1,5 +1,7 @@
 #include <application.hpp>
 
+#include <fstream>
+
 static unsigned int SCREEN_WIDTH = 800;
 static unsigned int SCREEN_HEIGHT = 600;
 
@@ -467,6 +469,23 @@ void App::drawFrame() {
         inputManager.saveCamSnapshots = false;
     }
 
+    if (inputManager.saveGT) {        // save for GT
+        vkDeviceWaitIdle(vulkanContext.device);
+        swapchain.saveGTImage(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        inputManager.saveGT = false;
+    }
+    if (inputManager.compareToGT) {        // compare image with GT
+        if (!swapchain.isGTvalid()) {
+            std::cout << "GT image is not valid, cannot compare." << std::endl;
+        } else {
+            vkDeviceWaitIdle(vulkanContext.device);
+            std::cout << "MSE precision: ";
+            std::cout << swapchain.renderPrecision(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1) << std::endl;  // 0 for MSE
+        }
+        inputManager.compareToGT = false;
+    }
+
+
     VkSwapchainKHR swapChains[] = {swapchain.swapChain};
     VkPresentInfoKHR presentInfo{
         .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -542,7 +561,7 @@ void App::changeScene() {
 void App::saveSetup(const std::string jsonFile) {
     json j;
 
-    SceneJson scene = {inputManager.sceneSelected, mesh.scale};
+    SceneJson scene = {mesh.getLoadedModels()[inputManager.sceneSelected], mesh.scale};
     j["scene"] = scene;
 
     j["lightPos"] = {mesh.getLight().x, mesh.getLight().y, mesh.getLight().z};
@@ -567,8 +586,9 @@ void App::loadSetup(const std::string jsonFile) {
     file >> j;
 
     SceneJson scene = j["scene"].get<SceneJson>();
-    if (scene.id != inputManager.sceneSelected) {
-        inputManager.sceneSelected = scene.id;
+    uint32_t sceneID = mesh.getSceneID(scene.name);
+    if (sceneID != inputManager.sceneSelected) {
+        inputManager.sceneSelected = sceneID;
         changeScene();
     }
     mesh.scale = scene.scale;
@@ -581,7 +601,227 @@ void App::loadSetup(const std::string jsonFile) {
 
     camManager.loadFromJson(j["cameras"], memManager);
 
+    inputManager.bestNCount = camManager.getCamCount();     // reset the best n count for the novel render
+
     file.close();
+}
+
+void App::printTestHeadline(std::ofstream& filename) {
+    filename << "Scene;Cameras;FOV;Algorithm;SampleCount;Width;Height;Timestamps;MSE;SSIM" << std::endl;      
+}
+
+void App::printTestLine(std::ofstream& filename) {
+    std::string sceneName = mesh.getLoadedModels()[inputManager.sceneSelected];
+    uint32_t camCount = camManager.getCamCount();
+    float fov = camManager.camArray[0].getFOV();
+    std::string algorithm;
+    if (inputManager.novelRender) {
+        if (inputManager.novelHeuristic == NovelHeuristic::COLOR_HEURISTIC) {
+            algorithm = "NovelColor";
+        }
+        else if (inputManager.novelHeuristic == NovelHeuristic::DEPTH_HEURISTIC) {
+            algorithm = "NovelDepth";
+        }
+        else {
+            algorithm = "NovelAngle";
+        }
+    } else if (inputManager.newNovelRender) {
+        algorithm = "NovelAnalytic";
+    } else if (inputManager.debugPointCloud) {
+        algorithm = "PointCloud";
+    }
+    else {
+        algorithm = "Unknown";
+    }
+    uint32_t sampleCount = (inputManager.novelRender) ? camManager.sampleCount : 0;
+    uint32_t width = swapchain.swapChainExtent.width;
+    uint32_t height = swapchain.swapChainExtent.height;
+
+    filename << sceneName << ";" << camCount << ";" << glm::degrees(fov) << ";" << algorithm << ";" << sampleCount << ";" << width << ";" << height << ";";
+}
+
+void App::setupTest(std::ofstream& filename, std::string setup, bool precision) {
+    printTestHeadline(filename);
+    
+    loadSetup(setup + ".json");
+    vkDeviceWaitIdle(vulkanContext.device);
+
+    // Resize callbacks are asynchronous; sync swapchain extent to current framebuffer size.
+    for (uint32_t attempt = 0; attempt < 8; attempt++) {
+        glfwPollEvents();
+
+        int fbWidth = 0;
+        int fbHeight = 0;
+        glfwGetFramebufferSize(appWindow.window, &fbWidth, &fbHeight);
+
+        if (fbWidth <= 0 || fbHeight <= 0) {
+            continue;
+        }
+
+        if (!appWindow.framebufferResized &&
+            swapchain.swapChainExtent.width == static_cast<uint32_t>(fbWidth) &&
+            swapchain.swapChainExtent.height == static_cast<uint32_t>(fbHeight)) {
+            break;
+        }
+
+        handleResize();
+        appWindow.framebufferResized = false;
+    }
+    std::cout << swapchain.swapChainExtent.width << "x" << swapchain.swapChainExtent.height << std::endl;
+
+    renderOfflineImages();     // render the images for the current setup
+
+    testPrecision = precision;
+
+    inputManager.turnUIoff();    // make sure not to save during the test
+
+    if (testPrecision) {
+        // Capture baseline frame as ground truth for this setup.
+        inputManager.novelRender = false;
+        inputManager.newNovelRender = false;
+        inputManager.debugPointCloud = false;
+        inputManager.saveGT = true;
+
+        drawFrame();
+        vkDeviceWaitIdle(vulkanContext.device);
+
+
+        if (inputManager.saveGT) {
+            throw std::runtime_error("Failed to capture GT image during setup.");
+        }
+    }
+
+    while (!inputManager.testStep) {
+        glfwPollEvents();
+        inputManager.frame();
+    }
+    inputManager.testStep = false;
+
+    std::cout << "Test setup done, starting tests..." << std::endl;
+    vkDeviceWaitIdle(vulkanContext.device);
+}
+
+void App::runTest(std::ofstream& filename, TestInfo testInfo) {
+    // cleanup
+    inputManager.novelRender = false;
+    inputManager.newNovelRender = false;
+    inputManager.debugPointCloud = false;
+    inputManager.presentOfflineFlag = false;
+
+    bool fovChanged = false;
+    bool resolutionChanged = false;
+
+    std::cout << "Current FOV: " << camManager.getCamArrayFOV() << std::endl;
+    if (testInfo.fov >= 0.0f && camManager.getCamArrayFOV() != testInfo.fov) {
+        std::cout << "Changing FOV to " << testInfo.fov << "..." << std::endl;
+        camManager.setCamArrayFOV(testInfo.fov);
+        fovChanged = true;
+        // descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());     // update the descriptors to update the push constants
+    }
+
+    if (testInfo.width > 0 && testInfo.height > 0 && (swapchain.swapChainExtent.width != testInfo.width || swapchain.swapChainExtent.height != testInfo.height)) {
+        std::cout << "Changing resolution to " << testInfo.width << "x" << testInfo.height << "..." << std::endl;
+        glfwSetWindowSize(appWindow.window, testInfo.width, testInfo.height);
+        resolutionChanged = true;
+    }
+
+    if (resolutionChanged) {
+        // Resize callbacks are asynchronous; sync swapchain extent to current framebuffer size.
+        for (uint32_t attempt = 0; attempt < 8; attempt++) {
+            glfwPollEvents();
+
+            int fbWidth = 0;
+            int fbHeight = 0;
+            glfwGetFramebufferSize(appWindow.window, &fbWidth, &fbHeight);
+
+            if (fbWidth <= 0 || fbHeight <= 0) {
+                continue;
+            }
+
+            if (!appWindow.framebufferResized &&
+                swapchain.swapChainExtent.width == static_cast<uint32_t>(fbWidth) &&
+                swapchain.swapChainExtent.height == static_cast<uint32_t>(fbHeight)) {
+                break;
+            }
+
+            handleResize();
+            appWindow.framebufferResized = false;
+        }
+    }
+
+    if (fovChanged || resolutionChanged) {
+        std::cout << "Re-rendering offline images for the new setup..." << std::endl;
+        vkDeviceWaitIdle(vulkanContext.device);
+        renderOfflineImages();
+
+        if (testPrecision && resolutionChanged) {
+            // Capture new baseline frame as ground truth for this setup.
+            inputManager.saveGT = true;
+            drawFrame();
+            vkDeviceWaitIdle(vulkanContext.device);
+
+            if (inputManager.saveGT) {
+                throw std::runtime_error("Failed to recapture GT image after resize.");
+            }
+        }
+    }
+
+    if (testInfo.sampleCount >= 0) {
+        std::cout << "Setting sample count to " << testInfo.sampleCount << "..." << std::endl;
+        camManager.sampleCount = testInfo.sampleCount;
+    }
+
+    if (testInfo.algorithm == "NovelColor") {
+        inputManager.novelRender = true;
+        inputManager.novelHeuristic = NovelHeuristic::COLOR_HEURISTIC;
+        inputManager.startSynthesis = true;
+        std::cout << "Running Novel Color Heuristic Test..." << std::endl;
+    }
+    else if (testInfo.algorithm == "NovelDepth") {
+        inputManager.novelRender = true;
+        inputManager.novelHeuristic = NovelHeuristic::DEPTH_HEURISTIC;
+        inputManager.startSynthesis = true;
+        std::cout << "Running Novel Depth Heuristic Test..." << std::endl;
+    }
+    else if (testInfo.algorithm == "NovelAngle") {
+        inputManager.novelRender = true;
+        inputManager.novelHeuristic = NovelHeuristic::ANGLE_HEURISTIC;
+        inputManager.startSynthesis = true;
+        std::cout << "Running Novel Angle Heuristic Test..." << std::endl;
+    }
+    else if(testInfo.algorithm == "NovelAnalytic") {
+        inputManager.newNovelRender = true;
+        inputManager.startSynthesis = true;
+        std::cout << "Running Novel Analytic Test..." << std::endl;
+    }
+    else if (testInfo.algorithm == "PointCloud") {
+        inputManager.debugPointCloud = true;
+        std::cout << "Running Point Cloud Test..." << std::endl;
+    }
+    else {
+        throw std::runtime_error("Unknown algorithm in test info!");
+    }
+
+    printTestLine(filename);
+
+    const uint32_t warmupFrames = 2;
+    const uint32_t measuredFrames = 10;
+
+    inputManager.timeRender = true;
+
+    for (uint32_t i = 0; i < warmupFrames + measuredFrames; i++) {
+        inputManager.compareToGT = (testPrecision && i >= warmupFrames);     // compare to GT after the warmup frames
+        drawFrame();
+        vkDeviceWaitIdle(vulkanContext.device);
+        while (!inputManager.testStep) {
+            glfwPollEvents();
+            inputManager.frame();
+        }
+        inputManager.testStep = false;
+    }
+
+    filename << std::endl;
+
 }
 
 void App::mainLoop() {

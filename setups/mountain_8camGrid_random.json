@@ -115,6 +115,6 @@
     ],
     "scene": {
         "scale": 20.0,
-        "scene": 5
+        "scene": "mountainLake"
     }
 }

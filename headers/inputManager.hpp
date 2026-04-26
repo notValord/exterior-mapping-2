@@ -82,6 +82,10 @@ public:
 
     bool timeRender = false;
     std::vector<bool> timingStarted;
+    bool saveGT = false;
+    bool compareToGT = false;
+
+    bool testStep = false;
 
     InputManager(Window& window,
                  CamerasManager& camManager,
@@ -107,6 +111,8 @@ public:
     /// Recreate ImGui framebuffers after swapchain recreation.
     void imguiResize(const std::vector<VkImageView>& swapChainImageViews,
                      const VkExtent2D& swapChainExtent);
+
+    void turnUIoff();
 
 private:
     FPSCounter fpsCnt;

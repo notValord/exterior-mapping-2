@@ -571,6 +571,13 @@ void ImguiProxy::uiDebugInfo(float fps, InputManager* inputManager, bool offline
         }
         ImGui::EndDisabled();
 
+        if (ImGui::Button("Capture GT")) {
+            inputManager->saveGT = true;
+        }
+        if (ImGui::Button("Compare with GT")) {
+            inputManager->compareToGT = true;
+        }
+
         ImGui::Unindent();
     }
 }

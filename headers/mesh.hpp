@@ -119,6 +119,7 @@ public:
 
     const std::vector<std::string>& getLoadedModels() const;
     uint32_t getModelCount() const;
+    uint32_t getSceneID(const std::string& sceneName) const;
 
     void setLight(glm::vec3 newPos);
 private:

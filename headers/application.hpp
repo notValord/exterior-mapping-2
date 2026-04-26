@@ -26,6 +26,9 @@ public:
     ~App();
     void run();
 
+    void setupTest(std::ofstream& filename, std::string setup, bool precision);
+    void runTest(std::ofstream& filename, TestInfo testInfo);
+
 private:
     /** @brief Window manager for GLFW window handling. */
     Window appWindow;
@@ -62,6 +65,8 @@ private:
 
     /** @brief Current frame index for frame-in-flight management. */
     uint32_t currentFrame = 0;
+
+    bool testPrecision = false;
 
     void mainLoop();
     
@@ -148,4 +153,7 @@ private:
      * @param framebuffer The target framebuffer.
      */
     void drawPointCloudDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer);
+
+    void printTestHeadline(std::ofstream& filename);
+    void printTestLine(std::ofstream& filename);
 };

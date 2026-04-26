@@ -49,9 +49,11 @@ SwapChain::SwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamily
     createImageViews();
     depthFormat = findDepthFormat(deviceSurfaceHandle.physicalDevice);
     createDepthResources();
+    createGTBufferResources();
 }
 
 SwapChain::~SwapChain() {
+    destroyGTBufferResources();
     cleanupSwapchain();
 }
 
@@ -201,6 +203,120 @@ void SwapChain::createDepthResources() {
     // transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 }
 
+void SwapChain::createGTBufferResources() {
+    destroyGTBufferResources();
+
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(swapChainExtent.width) *
+                             static_cast<VkDeviceSize>(swapChainExtent.height) *
+                             4;
+
+    VmaAllocationInfo allocInfo{};
+    allocInfo = memManager.createBuffer(imageSize,
+                            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                            VK_SHARING_MODE_EXCLUSIVE,
+                            groundTruthBuffer,
+                            VMA_MEMORY_USAGE_GPU_TO_CPU,
+                            groundTruthBufferMemory,
+                            nullptr,
+                            true);
+
+    GTBufferMapped = allocInfo.pMappedData;
+}
+
+void SwapChain::saveGTImage(uint32_t imageIndex, VkImageLayout currLayout) {
+    createGTBufferResources();
+
+    memManager.transitionImageLayout(swapChainImages[imageIndex],
+                                     swapChainImageFormat,
+                                     currLayout,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    memManager.copyImageToBuffer(swapChainImages[imageIndex],
+                                 swapChainImageFormat,
+                                 groundTruthBuffer,
+                                 swapChainExtent.width,
+                                 swapChainExtent.height);
+    memManager.transitionImageLayout(swapChainImages[imageIndex],
+                                     swapChainImageFormat,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     currLayout);
+    groundTruthExtent = swapChainExtent;
+    GTBufferValid = true;
+
+    std::cout << "Ground truth image saved captured!" << std::endl;
+}
+
+void SwapChain::createCompareBuffer(VkBuffer& compareBuffer,
+                                    VmaAllocation& compareBufferMemory,
+                                    void*& compareBufferMapped,
+                                    uint32_t imageIndex,
+                                    VkImageLayout currLayout) {
+    VkDeviceSize imageSize = static_cast<VkDeviceSize>(swapChainExtent.width) *
+                             static_cast<VkDeviceSize>(swapChainExtent.height) *
+                             4;
+
+    VmaAllocationInfo allocInfo{};
+    allocInfo = memManager.createBuffer(imageSize,
+                            VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                            VK_SHARING_MODE_EXCLUSIVE,
+                            compareBuffer,
+                            VMA_MEMORY_USAGE_GPU_TO_CPU,
+                            compareBufferMemory,
+                            nullptr,
+                            true);
+
+    compareBufferMapped = allocInfo.pMappedData;
+    
+    memManager.transitionImageLayout(swapChainImages[imageIndex],
+                                     swapChainImageFormat,
+                                     currLayout,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    memManager.copyImageToBuffer(swapChainImages[imageIndex],
+                                 swapChainImageFormat,
+                                 compareBuffer,
+                                 swapChainExtent.width,
+                                 swapChainExtent.height);
+    memManager.transitionImageLayout(swapChainImages[imageIndex],
+                                     swapChainImageFormat,
+                                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                     currLayout);
+}
+
+float SwapChain::renderPrecision(uint32_t imageIndex, VkImageLayout currLayout, uint32_t compareFlag) {
+    if (GTBufferMapped == nullptr) {
+        throw std::runtime_error("Ground truth buffer is not mapped!");
+    }
+    if (swapChainExtent.width != groundTruthExtent.width || swapChainExtent.height != groundTruthExtent.height) {
+        throw std::runtime_error("Invalid swap chain extent!");
+    }
+
+    VkBuffer compResultBuffer = VK_NULL_HANDLE;
+    VmaAllocation compResultBufferMemory = VK_NULL_HANDLE;
+    void* compResultBufferMapped = nullptr;
+
+    createCompareBuffer(compResultBuffer, compResultBufferMemory, compResultBufferMapped, imageIndex, currLayout);
+    
+
+    float precision_val = 0.0f;
+    if (compareFlag == 0) {         // MSE
+        precision_val = calculateMSE(static_cast<uint8_t*>(GTBufferMapped), static_cast<uint8_t*>(compResultBufferMapped), swapChainExtent.width, swapChainExtent.height);
+    }
+    else if (compareFlag == 1) {    // SIMM
+        precision_val = calculateSSIM(static_cast<uint8_t*>(GTBufferMapped), static_cast<uint8_t*>(compResultBufferMapped), swapChainExtent.width, swapChainExtent.height);
+    }
+    else {
+        memManager.destroyBuffer(compResultBuffer, compResultBufferMemory);
+        throw std::runtime_error("Invalid compare method flag!");
+    }
+
+    memManager.destroyBuffer(compResultBuffer, compResultBufferMemory);
+
+    return precision_val;
+}
+
+bool SwapChain::isGTvalid() {
+    return GTBufferValid;
+}
+
 void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices, const VkRenderPass renderPass) {
     int width = 0, height = 0;
     glfwGetFramebufferSize(windowHandle, &width, &height);
@@ -217,6 +333,16 @@ void SwapChain::recreateSwapChain(const DeviceSurface& deviceSurfaceHandle, cons
     createImageViews();
     createDepthResources();
     createFramebuffers(renderPass);
+}
+
+void SwapChain::destroyGTBufferResources() {
+    if (groundTruthBuffer != VK_NULL_HANDLE) {
+        memManager.destroyBuffer(groundTruthBuffer, groundTruthBufferMemory);
+        groundTruthBuffer = VK_NULL_HANDLE;
+        groundTruthBufferMemory = VK_NULL_HANDLE;
+        GTBufferMapped = nullptr;
+        GTBufferValid = false;
+    }
 }
 
 void SwapChain::cleanupSwapchain() {

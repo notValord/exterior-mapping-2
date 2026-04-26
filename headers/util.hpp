@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <cstdint>
 #include <iostream>
 
 struct SwapChainSupportDetails;
@@ -63,3 +64,6 @@ void submitCommandBuffer(VkCommandBuffer commandBuffer);
  * @return SwapChainSupportDetails containing capabilities, formats, and present modes.
  */
 SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice deviceHandle, const VkSurfaceKHR surfaceHandle);
+
+float calculateMSE(const uint8_t* gt, const uint8_t* img, uint32_t width, uint32_t height);
+float calculateSSIM(const uint8_t* gt, const uint8_t* img, uint32_t width, uint32_t height);

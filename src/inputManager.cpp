@@ -8,6 +8,9 @@ static bool nextCamTrigger = false;
 static bool novelViewTrigger = false;
 static bool observerTrigger = false;
 static bool takeSnapshotTrigger = false;
+static bool saveGTTrigger = false;
+static bool compareToGTTrigger = false;
+static bool testStepTrigger = false;
 
 void FPSCounter::frame() {
     frameCount++;
@@ -53,6 +56,18 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     if (action == GLFW_PRESS && key == GLFW_KEY_P) {
         takeSnapshotTrigger = true;
+    }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_G) {
+        saveGTTrigger = true;
+    }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_C) {
+        compareToGTTrigger = true;
+    }
+
+    if (action == GLFW_PRESS && key == GLFW_KEY_T) {
+        testStepTrigger = true;
     }
 }
 
@@ -162,6 +177,18 @@ void InputManager::processInput() {
         saveCamSnapshots = true;
         takeSnapshotTrigger = false;
     }
+    if (saveGTTrigger) {
+        saveGT = true;
+        saveGTTrigger = false;
+    }
+    if (compareToGTTrigger) {
+        compareToGT = true;
+        compareToGTTrigger = false;
+    }
+    if (testStepTrigger) {
+        testStep = true;
+        testStepTrigger = false;
+    }
 }
 
 void InputManager::frame() {
@@ -183,4 +210,8 @@ VkCommandBuffer InputManager::recordUI(uint32_t currentFrame, uint32_t imageInde
 
 void InputManager::imguiResize(const std::vector<VkImageView>& swapChainImageViews, const VkExtent2D& swapChainExtent) {
     imguiProxy.recreateFramebuffers(swapChainImageViews, swapChainExtent);
+}
+
+void InputManager::turnUIoff() {
+    showUIFlag = false;
 }

@@ -91,6 +91,10 @@ public:
      */
     void transitionToFinalLayout(MemoryManager& memManager, uint32_t imageindex);
 
+    void saveGTImage(uint32_t imageIndex, VkImageLayout currLayout);
+    float renderPrecision(uint32_t imageIndex, VkImageLayout currLayout, uint32_t compareMethodFlag);
+    bool isGTvalid();
+
     /**
      * @brief Saves a swap chain image to a PNG file.
      * @param imageIndex Index of the swap chain image to save.
@@ -105,6 +109,12 @@ private:
     VkImageView depthImageView;
 
     std::vector<VkImage> swapChainImages;   // automatically cleaned up with swapChain
+
+    VkExtent2D groundTruthExtent;
+    VkBuffer groundTruthBuffer = VK_NULL_HANDLE;
+    VmaAllocation groundTruthBufferMemory = VK_NULL_HANDLE;
+    void* GTBufferMapped = nullptr;
+    bool GTBufferValid = false;
 
     VkFormat swapChainImageFormat;
     VkFormat depthFormat;
@@ -143,6 +153,10 @@ private:
     void createSwapChain(const DeviceSurface& deviceSurfaceHandle, const QueueFamilyIndices& indices);
     void createImageViews();
     void createDepthResources();
+
+    void createCompareBuffer(VkBuffer& compareBuffer, VmaAllocation& compareBufferMemory, void*& compareBufferMapped, uint32_t imageIndex, VkImageLayout currLayout);
+    void createGTBufferResources();
+    void destroyGTBufferResources();
 
     void cleanupSwapchain();
 };

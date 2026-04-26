@@ -43,6 +43,7 @@ void Mesh::loadModels() {
     for (const auto& entry : std::filesystem::directory_iterator(RESOURCE_DIR)) {
         if (entry.is_regular_file() && entry.path().extension() == ".obj") {       // get .obj files only
             loadedModels.push_back(entry.path().stem().string());
+            std::cout << "Found model: " << entry.path().stem().string() << std::endl;
         }
     }
 }
@@ -55,11 +56,21 @@ uint32_t Mesh::getModelCount() const {
     return static_cast<uint32_t>(loadedModels.size());
 }
 
+uint32_t Mesh::getSceneID(const std::string& sceneName) const {
+    for (uint32_t i = 0; i < loadedModels.size(); i++) {
+        if (loadedModels[i] == sceneName) {
+            return i;
+        }
+    }
+    throw std::runtime_error("Scene name not found in loaded models!");
+}
+
 void Mesh::changeModel(const uint32_t modelIndex) {
     if (modelIndex >= loadedModels.size()) {
         throw std::runtime_error("Model index out of range!");
     }
 
+    std::cout << "Changing model to: " << loadedModels[modelIndex] << std::endl;
     loadMesh(RESOURCE_DIR + loadedModels[modelIndex] + ".obj");
     createDummyTexture();
     createVertexBuffer();

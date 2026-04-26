@@ -1,0 +1,27 @@
+{
+  "setup": "3x3grid",
+  "precision": true,
+  "tests": [
+    {
+      "alg": "NovelColor",
+      "sampleCount": 17,
+      "width": null,
+      "height": null,
+      "fov": 1.0471975512
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 18,
+      "width": null,
+      "height": null,
+      "fov": 1.0471975512
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 19,
+      "width": null,
+      "height": null,
+      "fov": 1.0471975512
+    }
+  ]
+}
