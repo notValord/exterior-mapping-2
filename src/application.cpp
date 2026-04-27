@@ -1,6 +1,8 @@
 #include <application.hpp>
 
 #include <fstream>
+#include <thread>
+#include <chrono>
 
 static unsigned int SCREEN_WIDTH = 800;
 static unsigned int SCREEN_HEIGHT = 600;
@@ -281,7 +283,16 @@ void App::computePointCloud(VkCommandBuffer commandBuffer) {
 
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.pointCloudDescriptors.descriptorSets[currentFrame],
                                                     descripManager.computeDescriptors.sharedDescriptorSet };
-    commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
+    if (inputManager.timingStarted[currentFrame]) {
+        commandRecorder.recordCompute(commandBuffer,
+                                      descriptorSets,
+                                      std::make_pair(groupCountX, groupCountY),
+                                      debugUtil.timestampQueryPool,
+                                      currentFrame * debugUtil.timestampPerFrame);
+    }
+    else {
+        commandRecorder.recordCompute(commandBuffer, descriptorSets, std::make_pair(groupCountX, groupCountY), VK_NULL_HANDLE);
+    }
 }
 
 void App::drawFrustumDebug(VkCommandBuffer commandBuffer, VkFramebuffer framebuffer) {
@@ -321,7 +332,20 @@ void App::drawPointCloudDebug(VkCommandBuffer commandBuffer, VkFramebuffer frame
                                      VK_NULL_HANDLE);
 
     std::vector<VkDescriptorSet> descriptorSets = { descripManager.frustumDescriptors.descriptorSets[currentFrame], descripManager.pointCloudDescriptors.imageDescriptorSets[currentFrame] };
+
+    if (inputManager.timingStarted[currentFrame]) {
+        vkCmdWriteTimestamp(commandBuffer,
+                            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                            debugUtil.timestampQueryPool,
+                            currentFrame * debugUtil.timestampPerFrame + 2);
+    }
     commandRecorder.recordRenderScene(commandBuffer, descriptorSets, framebuffer);
+    if (inputManager.timingStarted[currentFrame]) {
+        vkCmdWriteTimestamp(commandBuffer,
+                            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                            debugUtil.timestampQueryPool,
+                            currentFrame * debugUtil.timestampPerFrame + 3);
+    }
 }
 
 void App::drawDebug(VkFramebuffer framebuffer) {
@@ -339,7 +363,7 @@ void App::drawDebug(VkFramebuffer framebuffer) {
     }
 }
 
-void App::drawFrame() {
+void App::drawFrame(std::ofstream* testOut) {
     // Wait for the previous frame to finish
     // Acquire an image from the swap chain
     // Record a command buffer which draws the scene onto that image
@@ -350,14 +374,19 @@ void App::drawFrame() {
     
     if (inputManager.timingStarted[currentFrame]) {
         if (inputManager.novelRender) {
-            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame);     // read 0-1
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame, 2, testOut);     // read 0-1
+        }
+
+        if (inputManager.debugPointCloud) {
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame, 2, testOut);     // read 0-1 point cloud compute
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 2, 2, testOut); // read 2-3 point cloud render
         }
 
         if (inputManager.newNovelRender) {
-            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame);     // read 0-1 pyramidCOnstruct
-            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 2); // read 2-3 rayData
-            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 4); // read 4-5 novelCompute
-            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 6); // read 4-5 novelReconstruct
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame, 2, testOut);     // read 0-1 pyramidCOnstruct
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 2, 2, testOut); // read 2-3 rayData
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 4, 2, testOut); // read 4-5 novelCompute
+            debugUtil.getTimeStamp(currentFrame * debugUtil.timestampPerFrame + 6, 2, testOut); // read 4-5 novelReconstruct
         }
 
         if (!inputManager.timeRender) {
@@ -367,6 +396,13 @@ void App::drawFrame() {
             if (inputManager.novelRender) {
                 std::cout << "Novel Render Timestamps" << std::endl;
                 debugUtil.printTimestamp(0);
+            }
+            else if (inputManager.debugPointCloud) {
+                std::cout << "Point Cloud Timestamps" << std::endl;
+                std::cout << "Point cloud compute" << std::endl;
+                debugUtil.printTimestamp(0);
+                std::cout << "Point cloud render" << std::endl;
+                debugUtil.printTimestamp(1);
             }
             else if (inputManager.newNovelRender) {
                 std::cout << "Analytic Novel Render Timestamps" << std::endl;
@@ -479,8 +515,15 @@ void App::drawFrame() {
             std::cout << "GT image is not valid, cannot compare." << std::endl;
         } else {
             vkDeviceWaitIdle(vulkanContext.device);
-            std::cout << "MSE precision: ";
-            std::cout << swapchain.renderPrecision(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1) << std::endl;  // 0 for MSE
+            double mse = swapchain.renderPrecision(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0);     // 0 for MSE
+            double ssim = swapchain.renderPrecision(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 1);    // 1 for SSIM
+            if (testOut) {
+                *testOut << mse << ";" << ssim;
+            }
+            else {
+                std::cout << "MSE precision: " << mse << std::endl;
+                std::cout << "SSIM precision: " << ssim << std::endl;
+            }
         }
         inputManager.compareToGT = false;
     }
@@ -598,6 +641,7 @@ void App::loadSetup(const std::string jsonFile) {
 
     std::vector<int> resolution = j["resolution"].get<std::vector<int>>();
     glfwSetWindowSize(appWindow.window, resolution[0], resolution[1]);
+    std::cout << "Requested window size: " << resolution[0] << "x" << resolution[1] << std::endl;
 
     camManager.loadFromJson(j["cameras"], memManager);
 
@@ -643,31 +687,15 @@ void App::printTestLine(std::ofstream& filename) {
 void App::setupTest(std::ofstream& filename, std::string setup, bool precision) {
     printTestHeadline(filename);
     
+    glfwPollEvents();
+    inputManager.frame();
     loadSetup(setup + ".json");
-    vkDeviceWaitIdle(vulkanContext.device);
 
-    // Resize callbacks are asynchronous; sync swapchain extent to current framebuffer size.
-    for (uint32_t attempt = 0; attempt < 8; attempt++) {
+    for (int i = 0; i < 10; i++) {      // wait for the setup to be applied and the images to be rendered
+        drawFrame();
         glfwPollEvents();
-
-        int fbWidth = 0;
-        int fbHeight = 0;
-        glfwGetFramebufferSize(appWindow.window, &fbWidth, &fbHeight);
-
-        if (fbWidth <= 0 || fbHeight <= 0) {
-            continue;
-        }
-
-        if (!appWindow.framebufferResized &&
-            swapchain.swapChainExtent.width == static_cast<uint32_t>(fbWidth) &&
-            swapchain.swapChainExtent.height == static_cast<uint32_t>(fbHeight)) {
-            break;
-        }
-
-        handleResize();
-        appWindow.framebufferResized = false;
+        inputManager.frame();
     }
-    std::cout << swapchain.swapChainExtent.width << "x" << swapchain.swapChainExtent.height << std::endl;
 
     renderOfflineImages();     // render the images for the current setup
 
@@ -677,14 +705,10 @@ void App::setupTest(std::ofstream& filename, std::string setup, bool precision) 
 
     if (testPrecision) {
         // Capture baseline frame as ground truth for this setup.
-        inputManager.novelRender = false;
-        inputManager.newNovelRender = false;
-        inputManager.debugPointCloud = false;
         inputManager.saveGT = true;
 
         drawFrame();
         vkDeviceWaitIdle(vulkanContext.device);
-
 
         if (inputManager.saveGT) {
             throw std::runtime_error("Failed to capture GT image during setup.");
@@ -716,36 +740,23 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
         std::cout << "Changing FOV to " << testInfo.fov << "..." << std::endl;
         camManager.setCamArrayFOV(testInfo.fov);
         fovChanged = true;
-        // descripManager.renderDescriptors.updateMeshData(mesh.getMeshUniforms());     // update the descriptors to update the push constants
     }
 
     if (testInfo.width > 0 && testInfo.height > 0 && (swapchain.swapChainExtent.width != testInfo.width || swapchain.swapChainExtent.height != testInfo.height)) {
         std::cout << "Changing resolution to " << testInfo.width << "x" << testInfo.height << "..." << std::endl;
+        glfwPollEvents();
+        inputManager.frame();
+
         glfwSetWindowSize(appWindow.window, testInfo.width, testInfo.height);
         resolutionChanged = true;
     }
 
     if (resolutionChanged) {
         // Resize callbacks are asynchronous; sync swapchain extent to current framebuffer size.
-        for (uint32_t attempt = 0; attempt < 8; attempt++) {
+        for (int i = 0; i < 10; i++) {      // wait for the setup to be applied and the images to be rendered
+            drawFrame();
             glfwPollEvents();
-
-            int fbWidth = 0;
-            int fbHeight = 0;
-            glfwGetFramebufferSize(appWindow.window, &fbWidth, &fbHeight);
-
-            if (fbWidth <= 0 || fbHeight <= 0) {
-                continue;
-            }
-
-            if (!appWindow.framebufferResized &&
-                swapchain.swapChainExtent.width == static_cast<uint32_t>(fbWidth) &&
-                swapchain.swapChainExtent.height == static_cast<uint32_t>(fbHeight)) {
-                break;
-            }
-
-            handleResize();
-            appWindow.framebufferResized = false;
+            inputManager.frame();
         }
     }
 
@@ -769,6 +780,7 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
     if (testInfo.sampleCount >= 0) {
         std::cout << "Setting sample count to " << testInfo.sampleCount << "..." << std::endl;
         camManager.sampleCount = testInfo.sampleCount;
+        camManager.sampleDebug = testInfo.sampleCount;
     }
 
     if (testInfo.algorithm == "NovelColor") {
@@ -796,13 +808,13 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
     }
     else if (testInfo.algorithm == "PointCloud") {
         inputManager.debugPointCloud = true;
+        drawFrame();        // cleanup frame
+        drawFrame();        // cleanup frame
         std::cout << "Running Point Cloud Test..." << std::endl;
     }
     else {
         throw std::runtime_error("Unknown algorithm in test info!");
     }
-
-    printTestLine(filename);
 
     const uint32_t warmupFrames = 2;
     const uint32_t measuredFrames = 10;
@@ -810,18 +822,27 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
     inputManager.timeRender = true;
 
     for (uint32_t i = 0; i < warmupFrames + measuredFrames; i++) {
+        if (i >= warmupFrames) {
+            printTestLine(filename);
+        }
+        
         inputManager.compareToGT = (testPrecision && i >= warmupFrames);     // compare to GT after the warmup frames
-        drawFrame();
-        vkDeviceWaitIdle(vulkanContext.device);
+        drawFrame(&filename);
+
+        if (i >= warmupFrames) {
+            filename << std::endl;
+        }
+        // vkDeviceWaitIdle(vulkanContext.device);
         while (!inputManager.testStep) {
             glfwPollEvents();
             inputManager.frame();
         }
-        inputManager.testStep = false;
     }
+    inputManager.testStep = false;
 
     filename << std::endl;
 
+    vkDeviceWaitIdle(vulkanContext.device);
 }
 
 void App::mainLoop() {

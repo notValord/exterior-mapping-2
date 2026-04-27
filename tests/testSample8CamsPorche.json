@@ -1,0 +1,167 @@
+{
+  "setup": "porche_8camGrid",
+  "precision": true,
+  "tests": [
+    {
+      "alg": "NovelColor",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAnalytic",
+      "sampleCount": null,
+      "width": 1280,
+      "height": 720,
+      "fov": 0.7853981633974483
+    },
+    {
+      "alg": "PointCloud",
+      "sampleCount": null,
+      "width": 1280,
+      "height": 720,
+      "fov": 0.7853981633974483
+    }
+  ]
+}

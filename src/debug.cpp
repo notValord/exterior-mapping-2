@@ -235,7 +235,7 @@ void DebugUtil::createTimeStamp() {
     // std::cout << "Created querry" << std::endl;
 }
 
-double DebugUtil::getTimeStamp(uint32_t firstTimestamp, uint32_t timeStampCount) {
+double DebugUtil::getTimeStamp(uint32_t firstTimestamp, uint32_t timeStampCount, std::ofstream* testOut) {
     uint64_t timestamps[2];
 
     vkGetQueryPoolResults(deviceHandle,
@@ -248,12 +248,16 @@ double DebugUtil::getTimeStamp(uint32_t firstTimestamp, uint32_t timeStampCount)
                           VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 
     double time_ns = (timestamps[1] - timestamps[0]) * timestampPeriod;
+    time_ns = time_ns / 1e6; // convert to milliseconds
 
     uint32_t counterId = firstTimestamp%timestampPerFrame / 2;
     auto& counterVec = timingCounters[counterId];
-    counterVec.push_back(time_ns / 1e6);
+    counterVec.push_back(time_ns);
+    if (testOut != nullptr) {
+        (*testOut) << time_ns << ",";
+    }
     
-    return (time_ns / 1e6);
+    return (time_ns);
 }
 
 void DebugUtil::printTimestamp(uint32_t counterIndex) {

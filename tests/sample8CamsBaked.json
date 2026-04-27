@@ -1,0 +1,692 @@
+{
+  "setup": "baked_8camGrid_random",
+  "precision": true,
+  "tests": [
+    {
+      "alg": "NovelColor",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 128,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 128,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 128,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 144,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 144,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 144,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 160,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 160,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 160,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 176,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 176,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 176,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 192,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 192,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 192,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 208,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 208,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 208,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 224,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 224,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 224,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 240,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 240,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 240,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 256,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 256,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 256,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 272,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 272,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 272,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 288,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 288,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 288,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 304,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 304,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 304,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 320,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 320,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 320,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 336,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 336,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 336,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 352,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 352,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 352,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 368,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 368,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 368,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 384,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 384,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 384,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 400,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 400,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 400,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 416,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 416,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 416,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 432,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 432,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 432,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 448,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 448,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 448,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 464,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 464,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 464,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 480,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 480,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 480,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 496,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 496,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 496,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelColor",
+      "sampleCount": 512,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 512,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAngle",
+      "sampleCount": 512,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelAnalytic",
+      "sampleCount": null,
+      "width": 1280,
+      "height": 720,
+      "fov": 0.7853981633974483
+    },
+    {
+      "alg": "PointCloud",
+      "sampleCount": null,
+      "width": 1280,
+      "height": 720,
+      "fov": 0.7853981633974483
+    }
+  ]
+}

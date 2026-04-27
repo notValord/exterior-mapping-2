@@ -6,6 +6,7 @@
 // system includes
 #include <vector>
 #include <array>
+#include <fstream>
 
 struct VmaAllocation_T;
 using VmaAllocation = VmaAllocation_T*;
@@ -53,7 +54,7 @@ public:
      */
     uint32_t getFrustumIndexCount(uint32_t curretnFrame) ;
 
-    double getTimeStamp(uint32_t firstTimestamp, uint32_t timeStampCount = 2);
+    double getTimeStamp(uint32_t firstTimestamp, uint32_t timeStampCount = 2, std::ofstream* testOut = nullptr);
     void printTimestamp(uint32_t counterIndex);
 
 private:

@@ -12,30 +12,16 @@
     {
       "alg": "NovelDepth",
       "sampleCount": 18,
-      "width": 800,
-      "height": 600,
+      "width": null,
+      "height": null,
       "fov": 1.0471975512
     },
     {
       "alg": "NovelAngle",
       "sampleCount": 19,
-      "width": 1000,
-      "height": 750,
+      "width": null,
+      "height": null,
       "fov": 1.0471975512
-    },
-    {
-      "alg": "NovelAnalytic",
-      "sampleCount": null,
-      "width": null,
-      "height": null,
-      "fov": 0.7853981634
-    },
-    {
-      "alg": "PointCloud",
-      "sampleCount": null,
-      "width": null,
-      "height": null,
-      "fov": 0.7853981634
     }
   ]
 }

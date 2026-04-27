@@ -70,7 +70,7 @@ private:
 
     void mainLoop();
     
-    void drawFrame();
+    void drawFrame(std::ofstream* testOut = nullptr);
     void renderOfflineImages();
 
     void handleResize();

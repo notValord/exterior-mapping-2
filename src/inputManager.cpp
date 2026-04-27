@@ -214,4 +214,7 @@ void InputManager::imguiResize(const std::vector<VkImageView>& swapChainImageVie
 
 void InputManager::turnUIoff() {
     showUIFlag = false;
+    ImGuiIO& io = ImGui::GetIO();
+    io.WantCaptureKeyboard = false;
+    io.WantCaptureMouse = false;
 }
