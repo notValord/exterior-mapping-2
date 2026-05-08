@@ -111,7 +111,7 @@ bool depthCheckCollision(vec2 tSegment, vec2 clipZ, uint currLvl, uvec2 pixelCoo
         float dist = abs(tileDepth.x - (depth.x + depth.y)/2);          // check avarage depth
 
         ivec3 writeCoord = ivec3(pixelCoords, gl_WorkGroupID.y);
-        imageStore(outputImageDebug, writeCoord, vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
+        // imageStore(outputImageDebug, writeCoord, vec4(tSegment.x, 0.0f, 0.0f, 0.0f));
 
         if (dist <= divergence.z && checkDepthSample(bestSample.dist, bestSample.tValue, dist, tSegment.x)) {
             bestSample.dist = dist;
@@ -225,9 +225,10 @@ bool projectRayToPlane(RayData ray, inout RayLine line, out vec2 clipZ, out floa
 
     clipZ.x = p0.z;
     clipZ.y = p1.z;
+
     tBaseValue = tIntersect.x;
 
-    line.origin = (p0.xy + 1.0) * 0.5 * SCREEN_RES;           // to pixel space
+    line.origin = (p0.xy + 1.0) * 0.5 * SCREEN_RES;           // to screen space
     vec2 screen1 = (p1.xy + 1.0) * 0.5 * SCREEN_RES;
 
     line.dir = screen1 - line.origin;
@@ -252,7 +253,7 @@ void main() {
     vec2 clipZ = vec2(0.0f);                            // interpolate inverse depth to get depth across 2D line
     float tBaseValue = 0.0f;
 
-    if (!projectRayToPlane(ray, line, clipZ, tBaseValue)) {         // the ray doesnt intersect the cam view frustum
+    if (!projectRayToPlane(ray, line, clipZ, clipW, tBaseValue)) {         // the ray doesnt intersect the cam view frustum
         ivec3 writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.y);
         imageStore(outputImage, writeCoord, vec4(MAX_FLOAT, 0.0f, 0.0f, 0.0f));
 
@@ -300,14 +301,14 @@ void main() {
         if (currLvl == 0) {
             // find best value
             // process the pixel
-            ivec3 writeCoord = ivec3(tileOrigin[currLvl] + pixelCoords, gl_WorkGroupID.y);
-            if (tileHit) {
-                // imageStore(outputImageDebug, writeCoord, vec4(1.0f, 0.0f, 0.0f, 0.0f));
-                ;
-            }
-            else {
-                imageStore(outputImageDebug, writeCoord, vec4(0.6f, 0.0f, 0.0f, 0.0f));
-            }
+            // ivec3 writeCoord = ivec3(tileOrigin[currLvl] + pixelCoords, gl_WorkGroupID.y);
+            // if (tileHit) {
+            //     imageStore(outputImageDebug, writeCoord, vec4(1.0f, 0.0f, 0.0f, 0.0f));
+            //     ;
+            // }
+            // else {
+            //     imageStore(outputImageDebug, writeCoord, vec4(0.6f, 0.0f, 0.0f, 0.0f));
+            // }
             
 
             // go up the lvl
