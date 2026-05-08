@@ -95,7 +95,8 @@ private:
         "VK_LAYER_KHRONOS_validation"
     };
     const std::vector<const char*> deviceExtensions = {  // Required device extensions.
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME
     };
 
     /**

@@ -95,6 +95,8 @@ static void printSubgroupProperties(const VkPhysicalDevice device) {
     std::cout << "Subgroup size: " << subgroupProperties.subgroupSize << std::endl;
     std::cout << "Supported stages: " << std::bitset<8>(subgroupProperties.supportedStages) << std::endl;;
     std::cout << "Supported operations: " << std::bitset<12>(subgroupProperties.supportedOperations) << std::endl;
+
+
 }
 
 
@@ -428,12 +430,28 @@ void VulkanContext::createLogicalDevice() {
         deviceQueueCIs.push_back(deviceQueueCI);
     }
 
+    VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroupFeatures{};
+    subgroupFeatures.sType =
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT;
+
+    VkPhysicalDeviceFeatures2 features{};
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features.pNext = &subgroupFeatures;
+
+    vkGetPhysicalDeviceFeatures2(physicalDevice, &features);
+
+    if (subgroupFeatures.subgroupSizeControl == VK_TRUE) {
+        subgroupFeatures.subgroupSizeControl = VK_TRUE;
+        subgroupFeatures.computeFullSubgroups = VK_TRUE;
+    }
+
     VkPhysicalDeviceFeatures deviceFeatures{
         .samplerAnisotropy = VK_TRUE,
         .fragmentStoresAndAtomics = VK_TRUE         // create metadata in fragment shader
     };
     VkDeviceCreateInfo deviceCI{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &subgroupFeatures,
         .queueCreateInfoCount = static_cast<uint32_t>(deviceQueueCIs.size()),
         .pQueueCreateInfos = deviceQueueCIs.data(),
         // enableLayerCount and ppEnabledLayerNames are ignored by up to date implementations

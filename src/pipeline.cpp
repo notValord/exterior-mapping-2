@@ -149,6 +149,8 @@ ComputePipeline::ComputePipeline(VkDevice device,
                                  : deviceHandle(device), computeShader(shaderFile) {
     pipelineLayout = builder.createPipelineLayout(layoutSetup);
     pipeline = builder.createComputePipeline(pipelineLayout, computeShader);
+
+
 }
 
 ComputePipeline::~ComputePipeline() {
@@ -222,15 +224,24 @@ VkPipelineLayout PipelineBuilder::createPipelineLayout(const PipelineLayoutSetup
 VkPipeline PipelineBuilder::createComputePipeline(VkPipelineLayout pipelineLayout, const ComputeShader& shaderFile) const {
     VkShaderModule compShaderModule = createShaderModule(shaderFile.comp);
 
+    VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT subgroupInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT,
+        .requiredSubgroupSize = 32
+    };
+
     VkPipelineShaderStageCreateInfo shaderStageCI {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .pNext = &subgroupInfo,
         .stage = VK_SHADER_STAGE_COMPUTE_BIT,
         .module = compShaderModule,
         .pName = "main",
     };
 
+
+
     VkComputePipelineCreateInfo computePipelineCI {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .flags = VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT,
         .stage = shaderStageCI,
         .layout = pipelineLayout,
         .basePipelineHandle = VK_NULL_HANDLE,
