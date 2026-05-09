@@ -86,6 +86,11 @@ static void printSubgroupProperties(const VkPhysicalDevice device) {
     subgroupProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
     subgroupProperties.pNext = NULL;
 
+    VkPhysicalDeviceSubgroupSizeControlProperties subgroupProps{};
+    subgroupProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES;
+
+    subgroupProperties.pNext = &subgroupProps;
+
     VkPhysicalDeviceProperties2 physicalDeviceProperties;
     physicalDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
     physicalDeviceProperties.pNext = &subgroupProperties;
@@ -93,6 +98,8 @@ static void printSubgroupProperties(const VkPhysicalDevice device) {
     vkGetPhysicalDeviceProperties2(device, &physicalDeviceProperties);
 
     std::cout << "Subgroup size: " << subgroupProperties.subgroupSize << std::endl;
+    std::cout << "Min subgroup size: " << subgroupProps.minSubgroupSize << std::endl;
+    std::cout << "Max subgroup size: " << subgroupProps.maxSubgroupSize << std::endl;
     std::cout << "Supported stages: " << std::bitset<8>(subgroupProperties.supportedStages) << std::endl;;
     std::cout << "Supported operations: " << std::bitset<12>(subgroupProperties.supportedOperations) << std::endl;
 
@@ -441,6 +448,7 @@ void VulkanContext::createLogicalDevice() {
     vkGetPhysicalDeviceFeatures2(physicalDevice, &features);
 
     if (subgroupFeatures.subgroupSizeControl == VK_TRUE) {
+        std::cout << "Device supports subgroup size control!" << std::endl;
         subgroupFeatures.subgroupSizeControl = VK_TRUE;
         subgroupFeatures.computeFullSubgroups = VK_TRUE;
     }
