@@ -253,7 +253,7 @@ void main() {
     vec2 clipZ = vec2(0.0f);                            // interpolate inverse depth to get depth across 2D line
     float tBaseValue = 0.0f;
 
-    if (!projectRayToPlane(ray, line, clipZ, clipW, tBaseValue)) {         // the ray doesnt intersect the cam view frustum
+    if (!projectRayToPlane(ray, line, clipZ, tBaseValue)) {         // the ray doesnt intersect the cam view frustum
         ivec3 writeCoord = ivec3(ray.coordX, ray.coordY, gl_WorkGroupID.y);
         imageStore(outputImage, writeCoord, vec4(MAX_FLOAT, 0.0f, 0.0f, 0.0f));
 
