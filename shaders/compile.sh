@@ -13,7 +13,7 @@
 /usr/bin/glslc offlineShader.vert -o offlineVert.spv
 /usr/bin/glslc offlineShader.frag -o offlineFrag.spv 
 
-/usr/bin/glslc rayIntersect.comp -o compute.spv
+/usr/bin/glslc novelReduce.comp -o compute.spv
 
 /usr/bin/glslc getRayData.comp -o rayData.spv
 /usr/bin/glslc mipMapReduce.comp --target-env=vulkan1.1 -o reduce.spv
