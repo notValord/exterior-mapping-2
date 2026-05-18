@@ -4,36 +4,6 @@ project(ExteriorMapping2)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# include imgui
-set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/include/imgui)
-
-add_library(imgui
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_demo.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-    ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
-)
-
-target_include_directories(imgui PUBLIC
-    ${IMGUI_DIR}
-    ${IMGUI_DIR}/backends
-)
-
-include_directories(${CMAKE_SOURCE_DIR}/include)
-include_directories(${CMAKE_SOURCE_DIR}/headers)
-
-set(SHADER_STUMP ".compiled")
-set(SHADER_DIR "${CMAKE_SOURCE_DIR}/shaders")
-set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
-file(GLOB SHADER_SRC "${SHADER_DIR}/*.vert" "${SHADER_DIR}/*.frag" "${SHADER_DIR}/*.comp")
-file(GLOB SOURCES "${SRC_DIR}/*.cpp")
-
-add_executable(ExteriorMapping2 ${SOURCES})
-
 find_package(Vulkan REQUIRED)
 
 # Prefer system packages, but fall back to FetchContent if not found
@@ -83,10 +53,44 @@ else()
     message(FATAL_ERROR "GLM target not found after find_package or FetchContent")
 endif()
 
+# include imgui
+set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/include/imgui)
+
+add_library(imgui
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
+)
+
+target_include_directories(imgui PUBLIC
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+
+# imgui backends need GLFW/Vulkan headers at compile time
+target_link_libraries(imgui PUBLIC ${GLFW_TARGET} Vulkan::Vulkan)
+
+include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/headers)
+
+
+set(SHADER_STUMP ".compiled")
+set(SHADER_DIR "${CMAKE_SOURCE_DIR}/shaders")
+set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
+file(GLOB SHADER_SRC "${SHADER_DIR}/*.vert" "${SHADER_DIR}/*.frag" "${SHADER_DIR}/*.comp")
+file(GLOB SOURCES "${SRC_DIR}/*.cpp")
+
+add_executable(ExteriorMapping2 ${SOURCES})
+
 target_link_libraries(ExteriorMapping2
         ${GLFW_TARGET}
         ${GLM_TARGET}
-        vulkan
+        Vulkan::Vulkan
         dl
         pthread
         imgui
