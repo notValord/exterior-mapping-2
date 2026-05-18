@@ -701,6 +701,13 @@ void App::setupTest(std::ofstream& filename, std::string setup, bool precision) 
 
     testPrecision = precision;
 
+    while (!inputManager.testStep) {
+        glfwPollEvents();
+        inputManager.frame();
+        drawFrame();
+    }
+    inputManager.testStep = false;
+
     inputManager.turnUIoff();    // make sure not to save during the test
 
     if (testPrecision) {
@@ -714,12 +721,6 @@ void App::setupTest(std::ofstream& filename, std::string setup, bool precision) 
             throw std::runtime_error("Failed to capture GT image during setup.");
         }
     }
-
-    while (!inputManager.testStep) {
-        glfwPollEvents();
-        inputManager.frame();
-    }
-    inputManager.testStep = false;
 
     std::cout << "Test setup done, starting tests..." << std::endl;
     vkDeviceWaitIdle(vulkanContext.device);
@@ -816,6 +817,12 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
         throw std::runtime_error("Unknown algorithm in test info!");
     }
 
+    for (int i = 0; i < 10; i++) {      // wait render time to stabilize
+        drawFrame();
+        glfwPollEvents();
+        inputManager.frame();
+    }
+
     const uint32_t warmupFrames = 2;
     const uint32_t measuredFrames = 10;
 
@@ -833,10 +840,10 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
             filename << std::endl;
         }
         // vkDeviceWaitIdle(vulkanContext.device);
-        while (!inputManager.testStep) {
-            glfwPollEvents();
-            inputManager.frame();
-        }
+        // while (!inputManager.testStep) {
+        //     glfwPollEvents();
+        //     inputManager.frame();
+        // }
     }
     inputManager.testStep = false;
 

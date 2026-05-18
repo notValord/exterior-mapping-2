@@ -36,26 +36,26 @@ resolution = [1280, 720]
 #     for alg in ["NovelAnalytic", "PointCloud"]:
 #             tests.append(create_test(alg, None, res[0], res[1], math.radians(fovs[1])))
 
-# for sc in range(16, 513, 16):
-#     for alg in ["NovelColor", "NovelDepth", "NovelAngle"]:
-#         tests.append(create_test(alg, sc, resolution[0], resolution[1], math.radians(fovs[0])))
+for sc in range(16, 513, 16):
+    for alg in ["NovelDepth"]:
+        tests.append(create_test(alg, sc, resolution[0], resolution[1], math.radians(fovs[0])))
 
-for alg in ["NovelColor", "NovelDepth", "NovelAngle"]:      # do for different cam counts but it has to be different setup for each
-        tests.append(create_test(alg, 128, resolution[0], resolution[1], math.radians(fovs[0])))
+# for alg in ["NovelColor", "NovelDepth", "NovelAngle"]:      # do for different cam counts but it has to be different setup for each
+#         tests.append(create_test(alg, 128, resolution[0], resolution[1], math.radians(fovs[0])))
 
 # Algorithms without sampleCount
-tests.append(create_test("NovelAnalytic", None, resolution[0], resolution[1], math.radians(fovs[1])))
-tests.append(create_test("PointCloud", None, resolution[0], resolution[1], math.radians(fovs[1])))
+# tests.append(create_test("NovelAnalytic", None, resolution[0], resolution[1], math.radians(fovs[1])))
+# tests.append(create_test("PointCloud", None, resolution[0], resolution[1], math.radians(fovs[1])))
 
 # Final JSON
 data = {
-    "setup": "baked_8camGrid_random",
+    "setup": "porche_32camGrid",
     "precision": True,
     "tests": tests
 }
 
 # Write to file
-with open("sample8CamsBaked.json", "w") as f:
+with open("sampleDepthOnly32CamsPorche.json", "w") as f:
     json.dump(data, f, indent=2)
 
 print(f"Generated {len(tests)} tests.")

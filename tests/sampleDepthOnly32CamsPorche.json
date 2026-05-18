@@ -1,0 +1,230 @@
+{
+  "setup": "porche_32camGrid",
+  "precision": true,
+  "tests": [
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 16,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 32,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 48,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 64,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 80,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 96,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 112,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 128,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 144,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 160,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 176,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 192,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 208,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 224,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 240,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 256,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 272,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 288,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 304,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 320,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 336,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 352,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 368,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 384,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 400,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 416,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 432,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 448,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 464,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 480,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 496,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    },
+    {
+      "alg": "NovelDepth",
+      "sampleCount": 512,
+      "width": 1280,
+      "height": 720,
+      "fov": 1.0471975511965976
+    }
+  ]
+}

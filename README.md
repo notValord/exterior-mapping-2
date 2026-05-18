@@ -15,16 +15,18 @@ Although this project builds on previous work, the implementation was written fr
 - `/headers` – Header files  
 - `/include` – External libraries and dependencies  
 - `/resources` – Models, textures, and other assets  
+ - `/scripts` – Python scripts for testing and evaluation
 - `/setups` – Configuration files for testing
 - `/shaders` – Shader programs  
 - `/src` – Source code
+- `/tests` – Testing files
 
 ## Dependencies and Requirements
 
 This project is written in **C++17** and uses **Vulkan 1.1** with subgroup operations in shaders.
 
 It was developed and tested on Linux using an **NVIDIA GeForce GTX 1050**.  
-The compute shaders assume a **subgroup (warp) size of 32**, and are currently tailored for NVIDIA GPUs. Other hardware (e.g. AMD) is **not supported** without modification.
+The compute shaders assume a **subgroup (warp) size of 32**, and are currently tailored for NVIDIA GPUs. Other hardware (e.g. AMD) is **not supported** without modification. If the AMD GPU supports switching to 32-sized wavefronts/subgroups, the functionality should work correctly. A dedicated branch named **amdTest** implementing the required changes for 32-thread warps is also available.
 
 ### Build Requirements
 - A C++17-compatible compiler (e.g. GCC, Clang, MSVC)
@@ -41,25 +43,40 @@ External libraries are included in the `/include` directory:
 - **ImGui** – User interface  
 - **Vulkan Memory Allocator (VMA)** – GPU memory management  
 - **tinyobjloader** – Wavefront OBJ model loading  
-- **tinyexr** – EXR image support  
-- **stb_image** – Image loading  
+- **tinyexr** – EXR image support
+- **stb_image** – Image loading
 - **nlohmann/json** – JSON serialization  
 
 ## Build and Run
 
-From the project root directory:
+Clone the repository (including submodules):
+
+```bash
+git clone --recurse-submodules <repo_url>
+cd ExteriorMapping
+```
+
+Build (out-of-source recommended):
 
 ```bash
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make
+make -j$(nproc)
 ```
 
-If the build is successful, run the application with:
+Run the application from the `build` directory:
 
 ```bash
 ./ExteriorMapping
 ```
+
+Command-line options:
+
+```bash
+./ExteriorMapping --runtest <testFile> <testResultsFile>
+```
+
+Note: the program depends on correctly prepared setup/test JSON files; see the `/setups` and `/scripts` folders for examples and helper scripts.
 
 ## GPU Requirements and Selection
 
@@ -90,6 +107,9 @@ During device selection, preference is given to **dedicated GPUs**, particularly
 - **N** – Switch to next reference camera (when enabled)
 - **U** – Toggle ImGui UI overlay
 - **P** – Capture a snapshot of the current view
+- **G** – Capture a ground truth reference image
+- **C** – Compare currently rendered image to the ground truth using MSE and SSIM metrics
+- **T** – Continue testing
 
 Note: Keyboard controls are disabled while the ImGui UI is focused to avoid conflicts with text input.
 
@@ -129,15 +149,20 @@ Displays FPS and additional debug visualization options, including:
 - Reference view frustums
 - Novel ray intersections used in rendering
 - Point cloud visualization
+- Image quality metrics
 
 ## Scenes
 
 The application uses `.obj` models with `.mtl` material files. Materials can define either a solid color or a texture. The shading uses a simple lighting model and does not include bump maps or other advanced material maps.
 
-The `/resources/models` directory currently contains three test scenes:
-- **city** – created in Blender
+The `/resources/models` directory currently contains only `.mtl` files of the provided models that can be downloaded from https://drive.google.com/drive/folders/1AmoY4MNWphvSoyYKnUmgSzWzseiP8lH6?usp=sharing. All appropriate materials and textures required for these models are already in the repository. Provided test scenes are:
+- **city** – simple model created in Blender
 - **porsche** – the same model used in *Exterior Mapping 1* for visual comparison  
-- **viking_room** – taken from the Vulkan tutorial  
+- **viking_room** – taken from the Vulkan tutorial 
+- **mountainLake** – exterior scene with mountains and forest
+- **pier** – large-scale scene of a scanned city
+- **bakedTextures** – asian city model
+- **Mineways2Skfb** – minecraft scene with a lot of transparent textures
 
 ### Adding New Models
 
@@ -224,7 +249,7 @@ However, this approach can struggle with points that are close to the ray direct
 
 ### Algorithm Challenges
 
-The issues with the depth heuristic are difficult to resolve due to the inherent nature of the algorithm. When the final color of a pixel is averaged across all reference cameras, depth discontinuities are often blurred, leading to ghosting artifacts. This happens because the true intersection in the novel view may be occluded in the reference views, causing inconsistencies when the depth is averaged across multiple cameras. To mitigate this issue, we have the posibilities:
+The issues with the depth heuristic are difficult to resolve due to the inherent nature of the algorithm. When the final color of a pixel is averaged across all reference cameras, depth discontinuities are often blurred, leading to ghosting artifacts. This happens because the true intersection in the novel view may be occluded in the reference views, causing inconsistencies when the depth is averaged across multiple cameras. To mitigate this issue, we have the possibilities:
   
 - Use only the *n* best reference cameras for color averaging, excluding outliers.
 - Use only the reprojected pixels that fall within the pixel frustum.
@@ -355,13 +380,9 @@ Only applicable when the **depth heuristic** is selected and should use point-to
 
 ## Known Issues
 
-- Transparent objects are not rendered correctly, requires separate draw cycle.
 - The image is invalid after point cloud rendering, resize -> new synthesis.
 - Offline images are not correctly presented after point cloud rendering:
   - A command buffer expects an image in `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`, but it is still in `VK_IMAGE_LAYOUT_GENERAL`.
-
-### TODO
-- sort and take best n cameras to get the colro fro normal nvoel render
 
 ### Limitations
 
@@ -378,4 +399,4 @@ This project is licensed under the MIT License. See the [LICENSE](./LICENSE) fil
 
 - The minimum number of reference cameras is set to **2**, as fewer views are not sufficient for the application.
 - The maximum number of reference cameras is limited to **32** due to data transfer constraints when passing camera data to the compute shaders.
-- The maximum number of materials per scene is limited to **60**, due to shader or buffer size constraints.
+- The maximum number of materials per scene is limited to **150**, due to shader or buffer size constraints.
