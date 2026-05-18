@@ -3,6 +3,16 @@ import cv2
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
 
+
+def srgbToLinear(value: np.ndarray) -> np.ndarray:
+    """Convert sRGB values in [0, 1] to linear light."""
+    threshold = 0.04045
+    below = value <= threshold
+    out = np.empty_like(value, dtype=np.float32)
+    out[below] = value[below] / 12.92
+    out[~below] = np.power((value[~below] + 0.055) / 1.055, 2.4)
+    return out
+
 def createHeatmap(ref: np.ndarray, img: np.ndarray, output_path: str) -> None:
     """Save a false-color error map where brighter/hotter colors mean larger pixel differences."""
     # Per-pixel absolute color difference aggregated to a single-channel heatmap.
@@ -62,6 +72,10 @@ def loadImages(refImage: str, renderImg: str) -> tuple[np.ndarray, np.ndarray]:
     # Convert to float [0,1]
     ref = ref.astype(np.float32) / 255.0
     img = img.astype(np.float32) / 255.0
+
+    # Match the in-app metric, which compares linearized RGB values.
+    ref = srgbToLinear(ref)
+    img = srgbToLinear(img)
 
     if ref.shape != img.shape:
         raise ValueError(

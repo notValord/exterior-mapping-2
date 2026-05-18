@@ -4,8 +4,6 @@ project(ExteriorMapping2)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_BUILD_TYPE "Debug")       # turn off for release
-
 # include imgui
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/include/imgui)
 
@@ -38,12 +36,60 @@ add_executable(ExteriorMapping2 ${SOURCES})
 
 find_package(Vulkan REQUIRED)
 
+# Prefer system packages, but fall back to FetchContent if not found
+include(FetchContent)
+
+# GLFW (prefer system package)
+find_package(glfw3 3.3 QUIET)
+if (NOT glfw3_FOUND)
+    message(STATUS "GLFW not found via find_package — fetching with FetchContent")
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG        3.3.8
+    )
+    FetchContent_MakeAvailable(glfw)
+endif()
+
+# GLM (header-only)
+find_package(glm QUIET)
+if (NOT glm_FOUND)
+    message(STATUS "GLM not found via find_package — fetching with FetchContent")
+    FetchContent_Declare(
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm.git
+        GIT_TAG        0.9.9.8
+    )
+    FetchContent_MakeAvailable(glm)
+endif()
+
+# Resolve target names (system or FetchContent may provide different target names)
+if (TARGET glfw::glfw)
+    set(GLFW_TARGET glfw::glfw)
+elseif (TARGET glfw)
+    set(GLFW_TARGET glfw)
+else()
+    message(FATAL_ERROR "GLFW target not found after find_package or FetchContent")
+endif()
+
+if (TARGET glm::glm)
+    set(GLM_TARGET glm::glm)
+elseif (TARGET glm)
+    set(GLM_TARGET glm)
+else()
+    message(FATAL_ERROR "GLM target not found after find_package or FetchContent")
+endif()
+
 target_link_libraries(ExteriorMapping2
-    glfw
-    vulkan
-    dl
-    pthread
-    imgui
+        ${GLFW_TARGET}
+        ${GLM_TARGET}
+        vulkan
+        dl
+        pthread
+        imgui
 )
 
 
