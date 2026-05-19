@@ -512,7 +512,7 @@ void App::drawFrame(std::ofstream* testOut) {
     }
     if (inputManager.compareToGT) {        // compare image with GT
         if (!swapchain.isGTvalid()) {
-            std::cout << "GT image is not valid, cannot compare." << std::endl;
+            std::cerr << "GT image is not valid, cannot compare." << std::endl;
         } else {
             vkDeviceWaitIdle(vulkanContext.device);
             double mse = swapchain.renderPrecision(imageIndex, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0);     // 0 for MSE
@@ -641,7 +641,6 @@ void App::loadSetup(const std::string jsonFile) {
 
     std::vector<int> resolution = j["resolution"].get<std::vector<int>>();
     glfwSetWindowSize(appWindow.window, resolution[0], resolution[1]);
-    std::cout << "Requested window size: " << resolution[0] << "x" << resolution[1] << std::endl;
 
     camManager.loadFromJson(j["cameras"], memManager);
 
@@ -736,7 +735,6 @@ void App::runTest(std::ofstream& filename, TestInfo testInfo) {
     bool fovChanged = false;
     bool resolutionChanged = false;
 
-    std::cout << "Current FOV: " << camManager.getCamArrayFOV() << std::endl;
     if (testInfo.fov >= 0.0f && camManager.getCamArrayFOV() != testInfo.fov) {
         std::cout << "Changing FOV to " << testInfo.fov << "..." << std::endl;
         camManager.setCamArrayFOV(testInfo.fov);

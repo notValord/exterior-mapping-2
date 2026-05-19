@@ -17,9 +17,7 @@ Mesh::Mesh(const VkDevice device, MemoryManager& memManager, const VkPhysicalDev
         throw std::runtime_error("No models found in resources/models!");
     }
 
-    std::cout << "Loading model: " << loadedModels[0] << std::endl;
     changeModel(0);   // load first model by default
-    std::cout << "Mesh created" << std::endl;
 }
 
 Mesh::~Mesh() {
